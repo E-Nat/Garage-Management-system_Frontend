@@ -1,0 +1,654 @@
+import React, { useState } from 'react';
+import { useGarage } from '../../context/GarageContext';
+import { Invoice } from '../../types';
+import {
+  Receipt,
+  Search,
+  Printer,
+  X,
+  ArrowLeft,
+  Calendar,
+  Building2,
+  Phone,
+  Mail,
+  FileText,
+  CreditCard,
+  Download,
+} from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
+
+export const InvoiceManagement: React.FC = () => {
+  const {
+    invoices,
+    paymentRecords,
+    paymentMethods,
+    systemSettings,
+  } = useGarage();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+
+  // Today's Date String YYYY-MM-DD
+  const todayStr = new Date().toISOString().substring(0, 10);
+
+  // Filter Invoices
+  const filteredInvoices = invoices.filter((inv) => {
+    // Search Term
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      inv.id.toLowerCase().includes(term) ||
+      (inv.repairJobNumber && inv.repairJobNumber.toLowerCase().includes(term)) ||
+      (inv.customerName && inv.customerName.toLowerCase().includes(term)) ||
+      (inv.vehicleInfo && inv.vehicleInfo.toLowerCase().includes(term));
+
+    // Date Filter
+    let matchesDate = true;
+    const invDate = (inv.issuedAt || '').substring(0, 10);
+    if (dateRangeFilter === 'today') {
+      matchesDate = invDate === todayStr;
+    } else if (dateRangeFilter === 'past_7_days') {
+      const past7 = new Date();
+      past7.setDate(past7.getDate() - 7);
+      const past7Str = past7.toISOString().substring(0, 10);
+      matchesDate = invDate >= past7Str;
+    } else if (dateRangeFilter === 'this_month') {
+      matchesDate = invDate.substring(0, 7) === todayStr.substring(0, 7);
+    } else if (dateRangeFilter === 'custom') {
+      if (customStartDate && invDate < customStartDate) matchesDate = false;
+      if (customEndDate && invDate > customEndDate) matchesDate = false;
+    }
+
+    // Payment Method Filter
+    let matchesMethod = true;
+    if (paymentMethodFilter !== 'all') {
+      matchesMethod = inv.paymentMethod === paymentMethodFilter;
+    }
+
+    // Status Filter
+    let matchesStatus = true;
+    if (statusFilter !== 'all') {
+      matchesStatus = inv.status === statusFilter;
+    }
+
+    return matchesSearch && matchesDate && matchesMethod && matchesStatus;
+  });
+
+  // Calculate Running Total of Filtered Invoices
+  const runningTotal = filteredInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+
+  // Print / Download PDF Handler
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
+  // Associated Payment Records for Selected Invoice
+  const selectedInvoicePayments = selectedInvoice
+    ? paymentRecords.filter(
+        (p) =>
+          p.invoiceId === selectedInvoice.id ||
+          p.repairJobId === selectedInvoice.repairJobId
+      )
+    : [];
+
+  const garageInfo = systemSettings.garageInfo;
+
+  return (
+    <div className="space-y-6 text-slate-900 font-sans">
+      {/* If Invoice Detail is Selected */}
+      {selectedInvoice ? (
+        <div className="space-y-4">
+          {/* Top Actions Bar (Hidden in Print) */}
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-xs print:hidden">
+            <button
+              id="back-to-invoices-btn"
+              onClick={() => setSelectedInvoice(null)}
+              className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Invoices</span>
+            </button>
+
+            <button
+              id="download-invoice-pdf-btn"
+              onClick={handlePrintPDF}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PDF</span>
+            </button>
+          </div>
+
+          {/* Printable Invoice Sheet */}
+          <div
+            id="printed-invoice-sheet"
+            className="bg-white p-8 sm:p-12 rounded-xl border border-slate-200 shadow-xs max-w-4xl mx-auto text-slate-900 space-y-8 print:p-0 print:border-none print:shadow-none"
+          >
+            {/* Header: Garage Info & Invoice Title */}
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-200 pb-8">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3">
+                  {garageInfo.logoUrl ? (
+                    <img
+                      src={garageInfo.logoUrl}
+                      alt={garageInfo.garageName || 'Garage Logo'}
+                      className="h-10 max-w-32 object-contain rounded-lg border border-slate-200"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                      {garageInfo.garageName ? garageInfo.garageName.charAt(0) : 'A'}
+                    </div>
+                  )}
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                    {garageInfo.garageName || 'Apex Performance Auto'}
+                  </h1>
+                </div>
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  <p>{garageInfo.address || '742 Evergreen Terrace, Sector 4'}</p>
+                  <p className="flex items-center gap-2">
+                    <span>Phone: {garageInfo.phone || '+1 (555) 019-2834'}</span>
+                    <span>•</span>
+                    <span>Email: {garageInfo.email || 'service@apexgarage.com'}</span>
+                  </p>
+                  {garageInfo.taxId && (
+                    <p className="font-mono text-slate-500">Tax ID: {garageInfo.taxId}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-left sm:text-right space-y-1">
+                <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                  INVOICE
+                </div>
+                <div className="text-xs font-mono font-bold text-slate-700">
+                  {selectedInvoice.id}
+                </div>
+                <div className="text-xs text-slate-500 font-mono">
+                  Date: {selectedInvoice.issuedAt ? selectedInvoice.issuedAt.substring(0, 10) : todayStr}
+                </div>
+                {selectedInvoice.repairJobNumber && (
+                  <div className="text-xs text-slate-500 font-mono">
+                    Repair Job: {selectedInvoice.repairJobNumber}
+                  </div>
+                )}
+                <div className="pt-1">
+                  <StatusBadge status={selectedInvoice.status} size="sm" />
+                </div>
+              </div>
+            </div>
+
+            {/* Bill To & Vehicle Metadata */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-5 rounded-lg border border-slate-200 text-xs">
+              <div className="space-y-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Bill To
+                </div>
+                <div className="font-bold text-sm text-slate-900">
+                  {selectedInvoice.customerName}
+                </div>
+                {selectedInvoice.customerId && (
+                  <div className="font-mono text-slate-500">ID: {selectedInvoice.customerId}</div>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Vehicle Details
+                </div>
+                <div className="font-bold text-slate-900">
+                  {selectedInvoice.vehicleInfo}
+                </div>
+                {selectedInvoice.repairDetails && (
+                  <div className="text-slate-600 line-clamp-2">
+                    {selectedInvoice.repairDetails}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div className="space-y-4">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Services & Parts Performed
+              </div>
+              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px]">
+                      <th className="py-3 px-4">Description</th>
+                      <th className="py-3 px-4 text-center">Type</th>
+                      <th className="py-3 px-4 text-center">Qty / Hrs</th>
+                      <th className="py-3 px-4 text-right">Unit Price</th>
+                      <th className="py-3 px-4 text-right">Discount</th>
+                      <th className="py-3 px-4 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {/* Services */}
+                    {selectedInvoice.servicesPerformed && selectedInvoice.servicesPerformed.length > 0 ? (
+                      selectedInvoice.servicesPerformed.map((svc, idx) => {
+                        const netPrice = (svc.price || 0) - (svc.discountAmount || 0);
+                        return (
+                          <tr key={`svc-${idx}`} className="hover:bg-slate-50/50">
+                            <td className="py-3 px-4 font-medium text-slate-900">
+                              {svc.serviceName}
+                            </td>
+                            <td className="py-3 px-4 text-center text-slate-500">Service</td>
+                            <td className="py-3 px-4 text-center font-mono">1</td>
+                            <td className="py-3 px-4 text-right font-mono">
+                              ${(svc.price || 0).toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-emerald-700">
+                              {svc.discountAmount && svc.discountAmount > 0
+                                ? `-$${svc.discountAmount.toFixed(2)}`
+                                : '—'}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                              ${Math.max(0, netPrice).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : null}
+
+                    {/* Parts */}
+                    {selectedInvoice.partsUsed && selectedInvoice.partsUsed.length > 0 ? (
+                      selectedInvoice.partsUsed.map((prt, idx) => {
+                        const grossTotal = prt.totalPrice || (prt.quantity * prt.unitPrice);
+                        const netTotal = grossTotal - (prt.discountAmount || 0);
+                        return (
+                          <tr key={`prt-${idx}`} className="hover:bg-slate-50/50">
+                            <td className="py-3 px-4">
+                              <div className="font-medium text-slate-900">{prt.partName}</div>
+                              {prt.partNumber && (
+                                <div className="text-[10px] font-mono text-slate-500">
+                                  {prt.partNumber}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-center text-slate-500">Part</td>
+                            <td className="py-3 px-4 text-center font-mono">{prt.quantity}</td>
+                            <td className="py-3 px-4 text-right font-mono">
+                              ${(prt.unitPrice || 0).toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-emerald-700">
+                              {prt.discountAmount && prt.discountAmount > 0
+                                ? `-$${prt.discountAmount.toFixed(2)}`
+                                : '—'}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                              ${Math.max(0, netTotal).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : null}
+
+                    {/* Inspection Fee if any */}
+                    {selectedInvoice.inspectionFee && selectedInvoice.inspectionFee > 0 ? (
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-3 px-4 font-medium text-slate-900">
+                          Diagnostic & Inspection Fee
+                        </td>
+                        <td className="py-3 px-4 text-center text-slate-500">Diagnostic</td>
+                        <td className="py-3 px-4 text-center font-mono">1</td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          ${selectedInvoice.inspectionFee.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-slate-400">—</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                          ${selectedInvoice.inspectionFee.toFixed(2)}
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {/* Labor if listed separately */}
+                    {selectedInvoice.laborCost && selectedInvoice.laborCost > 0 ? (
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-3 px-4 font-medium text-slate-900">
+                          Labor Charges ({selectedInvoice.laborHours || 0} hrs)
+                        </td>
+                        <td className="py-3 px-4 text-center text-slate-500">Labor</td>
+                        <td className="py-3 px-4 text-center font-mono">
+                          {selectedInvoice.laborHours || 1}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          ${selectedInvoice.laborCost.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-slate-400">—</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                          ${selectedInvoice.laborCost.toFixed(2)}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Calculations & Totals */}
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4 border-t border-slate-200">
+              {/* Payment & Terms Note */}
+              <div className="w-full sm:w-1/2 space-y-2 text-xs text-slate-600">
+                <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                  Payment Information
+                </div>
+                <div className="space-y-1">
+                  <p>Payment Method: <span className="font-semibold text-slate-900">{selectedInvoice.paymentMethod || '—'}</span></p>
+                  <p>Payment Status: <span className="font-semibold text-slate-900 uppercase">{selectedInvoice.status.replace('_', ' ')}</span></p>
+                  {selectedInvoice.paidAt && (
+                    <p>Settled At: <span className="font-mono text-slate-700">{selectedInvoice.paidAt}</span></p>
+                  )}
+                  {selectedInvoice.notes && (
+                    <p className="text-slate-500 text-[11px] pt-1">Notes: {selectedInvoice.notes}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Numerical Breakdown */}
+              <div className="w-full sm:w-80 space-y-2 text-xs">
+                <div className="flex justify-between py-1 border-b border-slate-100 text-slate-600">
+                  <span>Subtotal:</span>
+                  <span className="font-mono font-medium text-slate-900">
+                    ${(selectedInvoice.subtotal || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                {selectedInvoice.itemDiscountsTotal && selectedInvoice.itemDiscountsTotal > 0 ? (
+                  <div className="flex justify-between py-1 border-b border-slate-100 text-emerald-700">
+                    <span>Item Discounts:</span>
+                    <span className="font-mono font-medium">
+                      -${selectedInvoice.itemDiscountsTotal.toFixed(2)}
+                    </span>
+                  </div>
+                ) : null}
+
+                {selectedInvoice.manualDiscountsTotal && selectedInvoice.manualDiscountsTotal > 0 ? (
+                  <div className="flex justify-between py-1 border-b border-slate-100 text-emerald-700">
+                    <span>
+                      Order Discount {selectedInvoice.manualDiscountReason ? `(${selectedInvoice.manualDiscountReason})` : ''}:
+                    </span>
+                    <span className="font-mono font-medium">
+                      -${selectedInvoice.manualDiscountsTotal.toFixed(2)}
+                    </span>
+                  </div>
+                ) : null}
+
+                {selectedInvoice.campaignDiscountTotal && selectedInvoice.campaignDiscountTotal > 0 ? (
+                  <div className="flex justify-between py-1 border-b border-slate-100 text-emerald-700">
+                    <span>
+                      Campaign {selectedInvoice.campaignName ? `(${selectedInvoice.campaignName})` : ''}:
+                    </span>
+                    <span className="font-mono font-medium">
+                      -${selectedInvoice.campaignDiscountTotal.toFixed(2)}
+                    </span>
+                  </div>
+                ) : null}
+
+                {selectedInvoice.tax && selectedInvoice.tax > 0 ? (
+                  <div className="flex justify-between py-1 border-b border-slate-100 text-slate-600">
+                    <span>Tax:</span>
+                    <span className="font-mono font-medium text-slate-900">
+                      ${selectedInvoice.tax.toFixed(2)}
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className="flex justify-between py-2 border-b-2 border-slate-900 text-slate-900 font-bold text-sm">
+                  <span>Grand Total:</span>
+                  <span className="font-mono">
+                    ${(selectedInvoice.totalAmount || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-1 text-slate-700 font-medium">
+                  <span>Total Paid:</span>
+                  <span className="font-mono text-emerald-700 font-bold">
+                    ${(selectedInvoice.totalPaid || 0).toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-1 text-slate-900 font-bold">
+                  <span>Balance Due:</span>
+                  <span
+                    className={`font-mono ${
+                      (selectedInvoice.balanceRemaining ?? 0) > 0 ? 'text-rose-600' : 'text-slate-900'
+                    }`}
+                  >
+                    ${(selectedInvoice.balanceRemaining ?? 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment History Log (if any payments recorded) */}
+            {selectedInvoicePayments.length > 0 && (
+              <div className="pt-6 border-t border-slate-200 space-y-3">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Payment Transactions
+                </div>
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[11px]">
+                        <th className="py-2.5 px-4">Receipt #</th>
+                        <th className="py-2.5 px-4">Date</th>
+                        <th className="py-2.5 px-4">Method</th>
+                        <th className="py-2.5 px-4">Type</th>
+                        <th className="py-2.5 px-4 text-right">Amount</th>
+                        <th className="py-2.5 px-4">Recorded By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {selectedInvoicePayments.map((pay) => (
+                        <tr key={pay.id} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-4 font-mono text-slate-700">{pay.id}</td>
+                          <td className="py-2.5 px-4 font-mono text-slate-600">{pay.date}</td>
+                          <td className="py-2.5 px-4 text-slate-900 font-medium">{pay.method}</td>
+                          <td className="py-2.5 px-4 uppercase text-[10px] text-slate-500 font-semibold">
+                            {pay.type}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-700">
+                            ${pay.amount.toFixed(2)}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-600">{pay.recordedBy}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Terms & Footer Disclaimer from Settings */}
+            {(systemSettings.invoiceSettings.footerDisclaimer || systemSettings.invoiceSettings.paymentTerms) && (
+              <div className="pt-4 border-t border-slate-200 text-[11px] text-slate-500 space-y-1">
+                {systemSettings.invoiceSettings.paymentTerms && (
+                  <p><span className="font-semibold text-slate-700">Terms:</span> {systemSettings.invoiceSettings.paymentTerms}</p>
+                )}
+                {systemSettings.invoiceSettings.footerDisclaimer && (
+                  <p className="whitespace-pre-line">{systemSettings.invoiceSettings.footerDisclaimer}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Invoice List / Reporting Screen */
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-slate-700" />
+              Invoices
+            </h1>
+
+            {/* Running Total Summary Card */}
+            <div className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-3 shadow-xs">
+              <span className="text-xs text-slate-300 font-medium">Running Total:</span>
+              <span className="text-base font-bold font-mono text-emerald-400">
+                ${runningTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          {/* Filters and Table Container */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+            {/* Filter Bar */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+              {/* Search */}
+              <div className="relative w-full lg:w-72">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  id="search-invoices-input"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search invoice, customer, vehicle..."
+                  className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-none transition-colors"
+                />
+              </div>
+
+              {/* Date Range & Payment Method Filters */}
+              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                {/* Date Filter */}
+                <select
+                  id="invoice-date-filter-select"
+                  value={dateRangeFilter}
+                  onChange={(e) => setDateRangeFilter(e.target.value)}
+                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                >
+                  <option value="all">All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="past_7_days">Past 7 Days</option>
+                  <option value="this_month">This Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+
+                {dateRangeFilter === 'custom' && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
+                    />
+                    <span className="text-slate-400 text-xs">to</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
+                    />
+                  </div>
+                )}
+
+                {/* Payment Method Filter */}
+                <select
+                  id="invoice-payment-method-filter-select"
+                  value={paymentMethodFilter}
+                  onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                >
+                  <option value="all">All Payment Methods</option>
+                  {paymentMethods.map((pm) => (
+                    <option key={pm.id} value={pm.name}>
+                      {pm.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Payment Status Filter */}
+                <select
+                  id="invoice-status-filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="paid">Paid</option>
+                  <option value="partially_paid">Partially Paid</option>
+                  <option value="unpaid">Unpaid</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Invoices Table */}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
+                    <th className="py-3 px-4">Invoice Number</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Vehicle</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Payment Method</th>
+                    <th className="py-3 px-4 text-center">Payment Status</th>
+                    <th className="py-3 px-4 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredInvoices.length > 0 ? (
+                    filteredInvoices.map((inv) => (
+                      <tr
+                        key={inv.id}
+                        id={`invoice-row-${inv.id}`}
+                        onClick={() => setSelectedInvoice(inv)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                      >
+                        {/* Invoice Number */}
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                          {inv.id}
+                        </td>
+
+                        {/* Customer */}
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          {inv.customerName}
+                        </td>
+
+                        {/* Vehicle */}
+                        <td className="py-3.5 px-4 text-slate-700">
+                          {inv.vehicleInfo}
+                        </td>
+
+                        {/* Date */}
+                        <td className="py-3.5 px-4 font-mono text-slate-600">
+                          {inv.issuedAt ? inv.issuedAt.substring(0, 10) : '—'}
+                        </td>
+
+                        {/* Payment Method */}
+                        <td className="py-3.5 px-4 text-slate-700 font-medium">
+                          {inv.paymentMethod || '—'}
+                        </td>
+
+                        {/* Payment Status Badge */}
+                        <td className="py-3.5 px-4 text-center">
+                          <StatusBadge status={inv.status} size="sm" />
+                        </td>
+
+                        {/* Total */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                          ${(inv.totalAmount || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        No invoices match your selected filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

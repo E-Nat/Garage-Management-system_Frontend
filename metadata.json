@@ -1,0 +1,6 @@
+{
+  "name": "Garage Management System",
+  "description": "Comprehensive garage management platform featuring authentication, role-based home dashboards, vehicle & repair tracking, inventory alerts, and user administration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
