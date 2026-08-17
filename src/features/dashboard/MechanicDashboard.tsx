@@ -8,13 +8,10 @@ import {
   Pause,
   PlusCircle,
   CheckCircle2,
-  Package,
-  FileText,
-  Clock,
   X,
-  AlertCircle,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { StatusBadge } from '../../components/common/StatusBadge';
 
 export const MechanicDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -108,31 +105,32 @@ export const MechanicDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 text-slate-900">
+    <div className="space-y-6 text-slate-900 font-sans">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 bg-slate-900 text-white border border-slate-700 rounded-2xl shadow-xl flex items-center gap-3">
+        <div className="fixed bottom-6 right-6 z-50 p-4 bg-slate-900 text-white rounded-xl shadow-lg flex items-center gap-3 border border-slate-800">
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-xs font-semibold">{toastMessage}</span>
+          <span className="text-xs font-medium">{toastMessage}</span>
         </div>
       )}
 
       {/* Mechanic Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 text-slate-900 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Welcome, {currentUser?.name}</h1>
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Mechanic Workshop</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Assigned repair orders and diagnostic logs</p>
         </div>
 
         {/* Active Timer Pill */}
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4 shrink-0">
+        <div className="p-2.5 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center gap-3.5 shrink-0">
           <div>
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Labor Clock</div>
-            <div className="text-xl font-mono font-bold text-slate-900">{formatTimer(timerSeconds)}</div>
+            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Labor Clock</div>
+            <div className="text-lg font-mono font-semibold text-slate-900">{formatTimer(timerSeconds)}</div>
           </div>
           <button
             id="toggle-mechanic-timer-btn"
             onClick={() => setIsTimerRunning(!isTimerRunning)}
-            className={`p-2.5 rounded-xl font-bold text-white transition ${
+            className={`p-2 rounded-lg font-medium text-white transition-colors cursor-pointer ${
               isTimerRunning ? 'bg-slate-900 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-500'
             }`}
             title={isTimerRunning ? 'Pause Labor Timer' : 'Start Labor Timer'}
@@ -144,49 +142,47 @@ export const MechanicDashboard: React.FC = () => {
 
       {/* Repair Orders Queue */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <Wrench className="w-5 h-5 text-slate-700" />
-          Assigned Repair Queue ({assignedJobs.length})
+        <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+          <Wrench className="w-4 h-4 text-slate-500" />
+          Assigned Queue ({assignedJobs.length})
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignedJobs.map((job) => (
             <div
               key={job.id}
-              className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-4"
+              className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                  <span className="font-mono text-xs font-medium text-slate-900 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
                     {job.jobNumber}
                   </span>
-                  <span className="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    {job.status.replace('_', ' ')}
-                  </span>
+                  <StatusBadge status={job.status} />
                 </div>
 
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-semibold text-slate-900">
                   {job.vehicleMake} {job.vehicleModel}
                 </h3>
-                <div className="text-xs text-slate-500 font-mono mb-3">Plate: {job.licensePlate} • Customer: {job.customerName}</div>
+                <div className="text-xs text-slate-400 font-mono mb-3">Plate: {job.licensePlate} • Customer: {job.customerName}</div>
 
-                <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 mb-3">
+                <div className="text-xs text-slate-600 bg-slate-50/75 p-3 rounded-lg border border-slate-100 mb-3">
                   <strong className="text-slate-900">Work Scope:</strong> {job.description}
-                </p>
+                </div>
 
                 {/* Inspection Records List */}
                 {job.inspectionRecords && job.inspectionRecords.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Recorded Inspection Findings</span>
+                  <div className="space-y-1.5 mb-3">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Recorded Inspection Findings</span>
                     {job.inspectionRecords.map((rec) => (
-                      <div key={rec.id} className="p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs space-y-1">
-                        <div className="font-semibold text-indigo-900">{rec.diagnosticNotes}</div>
+                      <div key={rec.id} className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-xs space-y-1">
+                        <div className="font-medium text-slate-800">{rec.diagnosticNotes}</div>
                         {rec.partsUsed.length > 0 && (
-                          <div className="text-[10px] text-indigo-700 font-mono">
+                          <div className="text-[11px] text-slate-500 font-mono">
                             Parts: {rec.partsUsed.map((p) => `${p.partName} (x${p.quantity})`).join(', ')}
                           </div>
                         )}
-                        <div className="text-[9px] text-slate-400">By {rec.recordedBy} at {rec.recordedAt}</div>
+                        <div className="text-[10px] text-slate-400">By {rec.recordedBy} at {rec.recordedAt}</div>
                       </div>
                     ))}
                   </div>
@@ -195,7 +191,7 @@ export const MechanicDashboard: React.FC = () => {
                 <button
                   id={`record-inspection-btn-${job.id}`}
                   onClick={() => setSelectedJobForModal(job)}
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition"
+                  className="w-full py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-medium rounded-lg text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span>Record Inspection & Parts Used</span>
@@ -203,22 +199,22 @@ export const MechanicDashboard: React.FC = () => {
               </div>
 
               {/* Status Actions according to official workflow */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-500">Job Stage:</span>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-slate-400">Stage:</span>
                 <div className="flex items-center gap-2">
                   {job.status === 'pending_inspection' && (
                     <button
                       id={`record-inspection-btn-${job.id}`}
                       onClick={() => setSelectedJobForModal(job)}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs transition"
+                      className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <PlusCircle className="w-3.5 h-3.5" />
-                      <span>Record & Complete Inspection</span>
+                      <span>Record & Complete</span>
                     </button>
                   )}
 
                   {job.status === 'waiting_approval' && (
-                    <span className="px-3 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 font-bold rounded-lg text-xs">
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 font-medium rounded-md text-xs">
                       Awaiting Customer Approval
                     </span>
                   )}
@@ -228,9 +224,9 @@ export const MechanicDashboard: React.FC = () => {
                       id={`mechanic-stage-completed-${job.id}`}
                       onClick={() => {
                         updateRepairJobStatus(job.id, 'completed');
-                        showToast(`Job ${job.jobNumber} Marked Completed! Invoice, warranty & Telegram notification auto-dispatched.`);
+                        showToast(`Job ${job.jobNumber} Marked Completed!`);
                       }}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-xs transition"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Mark Completed</span>
@@ -238,20 +234,20 @@ export const MechanicDashboard: React.FC = () => {
                   )}
 
                   {job.status === 'completed' && (
-                    <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold rounded-lg text-xs flex items-center gap-1">
+                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-medium rounded-md text-xs flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       Completed
                     </span>
                   )}
 
                   {job.status === 'delivered' && (
-                    <span className="px-3 py-1 bg-teal-50 text-teal-800 border border-teal-200 font-bold rounded-lg text-xs">
+                    <span className="px-2.5 py-1 bg-slate-50 text-slate-700 border border-slate-200/60 font-medium rounded-md text-xs">
                       Delivered
                     </span>
                   )}
 
                   {job.status === 'declined' && (
-                    <span className="px-3 py-1 bg-rose-50 text-rose-800 border border-rose-200 font-bold rounded-lg text-xs">
+                    <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200/60 font-medium rounded-md text-xs">
                       Declined
                     </span>
                   )}
@@ -264,46 +260,45 @@ export const MechanicDashboard: React.FC = () => {
 
       {/* Record Inspection & Parts Modal */}
       {selectedJobForModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-slate-200 rounded-3xl shadow-xl max-w-lg w-full overflow-hidden text-slate-900"
+            className="bg-white border border-slate-100 rounded-xl shadow-xl max-w-lg w-full overflow-hidden text-slate-900"
           >
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-mono font-bold text-emerald-400">
+                <span className="text-[11px] font-mono text-emerald-400 font-medium">
                   {selectedJobForModal.jobNumber}
                 </span>
-                <h3 className="text-base font-bold">Record Inspection & Spare Parts Used</h3>
+                <h3 className="text-sm font-semibold">Record Inspection & Spare Parts</h3>
               </div>
               <button
                 id="close-inspection-modal"
                 onClick={() => setSelectedJobForModal(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveInspection} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs space-y-1">
-                <div className="font-bold">Workflow Notice:</div>
+            <form onSubmit={handleSaveInspection} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="p-3 bg-slate-50 border border-slate-100 text-slate-600 rounded-lg text-xs space-y-1">
                 <p>
-                  Submitting this inspection will save findings, deduct consumed parts from inventory, and automatically transition status to <strong className="uppercase">Waiting Approval</strong> for staff phone confirmation.
+                  Submitting this inspection will save findings, deduct consumed parts from inventory, and update status to <strong className="text-slate-900 font-medium">Waiting Approval</strong>.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
                     Inspection Outcome
                   </label>
                   <select
                     id="inspection-result-select"
                     value={inspectionResult}
                     onChange={(e) => setInspectionResult(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-slate-400 focus:outline-none"
                   >
                     <option value="Requires Repair">Requires Repair</option>
                     <option value="Passed - No Fault Found">Passed - No Fault Found</option>
@@ -313,7 +308,7 @@ export const MechanicDashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
                     Mileage at Inspection
                   </label>
                   <input
@@ -321,13 +316,13 @@ export const MechanicDashboard: React.FC = () => {
                     type="number"
                     value={mileageAtInspection}
                     onChange={(e) => setMileageAtInspection(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-900 focus:border-slate-400 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Diagnostic Findings & Fault Codes
                 </label>
                 <textarea
@@ -336,13 +331,13 @@ export const MechanicDashboard: React.FC = () => {
                   onChange={(e) => setDiagnosticNotes(e.target.value)}
                   placeholder="e.g. Scanned P0300 code. Cylinder 2 ignition coil failed resistance test."
                   rows={2}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-slate-400 focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Recommended Repairs
                 </label>
                 <textarea
@@ -351,12 +346,12 @@ export const MechanicDashboard: React.FC = () => {
                   onChange={(e) => setRecommendedRepairs(e.target.value)}
                   placeholder="e.g. Replace Cylinder 2 ignition coil, install 4 OEM spark plugs, perform road test."
                   rows={2}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-slate-400 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Inspection Photos / Attachment URL (Optional)
                 </label>
                 <input
@@ -365,19 +360,19 @@ export const MechanicDashboard: React.FC = () => {
                   value={photoUrl}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                   placeholder="https://images.unsplash.com/photo-1486006920555-c77dce18193b"
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-900 focus:border-slate-400 focus:outline-none"
                 />
               </div>
 
               {/* Spare Parts Log Selector */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                <span className="text-xs font-bold text-slate-900 block">Select Spare Parts Consumed</span>
+              <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-lg space-y-2">
+                <span className="text-xs font-medium text-slate-900 block">Spare Parts Consumed</span>
                 <div className="flex gap-2">
                   <select
                     id="part-select-for-repair"
                     value={selectedPartId}
                     onChange={(e) => setSelectedPartId(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-slate-400 focus:outline-none"
                   >
                     {inventory.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -391,13 +386,13 @@ export const MechanicDashboard: React.FC = () => {
                     min="1"
                     value={partQty}
                     onChange={(e) => setPartQty(Number(e.target.value))}
-                    className="w-16 px-2 py-2 text-xs bg-white border border-slate-200 rounded-xl font-mono text-center"
+                    className="w-16 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-center"
                   />
 
                   <button
                     type="button"
                     onClick={handleAddPartToRecord}
-                    className="px-3 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shrink-0"
+                    className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-medium rounded-lg shrink-0 cursor-pointer transition-colors"
                   >
                     Add Part
                   </button>
@@ -409,18 +404,18 @@ export const MechanicDashboard: React.FC = () => {
                     type="checkbox"
                     checked={isCustomerProvidedPart}
                     onChange={(e) => setIsCustomerProvidedPart(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-slate-900 border-slate-300 focus:ring-slate-900"
+                    className="w-3.5 h-3.5 rounded text-[#FF6B00] border-slate-300 focus:ring-[#FF6B00] cursor-pointer"
                   />
-                  <label htmlFor="customer-provided-part-checkbox" className="text-[11px] font-semibold text-slate-700">
-                    Customer Provided Part ($0 price / labor-only, no stock deduction)
+                  <label htmlFor="customer-provided-part-checkbox" className="text-xs text-slate-600 cursor-pointer">
+                    Customer Provided Part ($0 price / labor-only)
                   </label>
                 </div>
                 {partsUsed.length > 0 && (
                   <div className="space-y-1 pt-2">
                     {partsUsed.map((p, idx) => (
-                      <div key={idx} className="text-xs font-semibold text-slate-800 flex justify-between bg-white p-2 rounded-lg border border-slate-200">
+                      <div key={idx} className="text-xs font-medium text-slate-800 flex justify-between bg-white p-2 rounded-lg border border-slate-200/60">
                         <span>{p.partName} (x{p.quantity})</span>
-                        <span className="font-mono text-emerald-700">${p.unitPrice * p.quantity}</span>
+                        <span className="font-mono text-emerald-600 font-semibold">${p.unitPrice * p.quantity}</span>
                       </div>
                     ))}
                   </div>
@@ -428,7 +423,7 @@ export const MechanicDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Labor Hours Spent
                 </label>
                 <input
@@ -437,25 +432,25 @@ export const MechanicDashboard: React.FC = () => {
                   step="0.5"
                   value={laborHours}
                   onChange={(e) => setLaborHours(Number(e.target.value))}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-900 focus:border-slate-400 focus:outline-none"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
                 <button
                   id="cancel-inspection-btn"
                   type="button"
                   onClick={() => setSelectedJobForModal(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   id="submit-inspection-btn"
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition"
+                  className="px-4 py-1.5 text-xs font-medium text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
-                  Save Inspection Findings & Request Customer Approval
+                  Save Findings & Request Approval
                 </button>
               </div>
             </form>

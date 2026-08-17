@@ -460,7 +460,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       showToast(`Assigned mechanic set to ${mechObj.name}`);
                     }
                   }}
-                  className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold text-slate-900 outline-hidden focus:border-slate-900 shrink-0"
+                  className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] shrink-0"
                 >
                   {!job.assignedMechanicId && <option value="">Select Mechanic</option>}
                   {mechanicsList.map((m) => (
@@ -523,7 +523,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       type="button"
                       id="start-inspection-btn"
                       onClick={() => setIsInspecting(true)}
-                      className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xs transition cursor-pointer"
+                      className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg shadow-xs transition cursor-pointer"
                     >
                       Start Inspection
                     </button>
@@ -553,7 +553,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       value={inspectionFindingsInput}
                       onChange={(e) => setInspectionFindingsInput(e.target.value)}
                       placeholder="Describe findings discovered during inspection..."
-                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden resize-none"
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] outline-hidden resize-none"
                       required
                     />
                   </div>
@@ -567,7 +567,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       value={recommendedRepairInput}
                       onChange={(e) => setRecommendedRepairInput(e.target.value)}
                       placeholder="Describe recommended repair steps..."
-                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden resize-none"
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] outline-hidden resize-none"
                       required
                     />
                   </div>
@@ -583,7 +583,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                         step="0.01"
                         value={estimatedCostInput}
                         onChange={(e) => setEstimatedCostInput(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:bg-white focus:border-[#FF6B00] outline-hidden"
                         required
                       />
                     </div>
@@ -597,7 +597,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                         value={mechanicNotesInput}
                         onChange={(e) => setMechanicNotesInput(e.target.value)}
                         placeholder="Additional notes..."
-                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden resize-none"
+                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] outline-hidden resize-none"
                       />
                     </div>
                   </div>
@@ -605,7 +605,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                   <div className="pt-2 flex justify-end">
                     <button
                       type="submit"
-                      className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition cursor-pointer"
                     >
                       Submit for Approval
                     </button>
@@ -660,7 +660,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                     <button
                       id="customer-approve-btn"
                       onClick={handleCustomerApprove}
-                      className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition cursor-pointer"
+                      className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition cursor-pointer"
                     >
                       Customer Approved
                     </button>
@@ -688,7 +688,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                     onChange={(e) => setAdditionalFindingNote(e.target.value)}
                     placeholder="Enter additional findings or defects discovered during service..."
                     disabled={isReadOnly}
-                    className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:border-slate-900 resize-none disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] resize-none disabled:bg-slate-100 disabled:text-slate-500"
                   />
                   {!isReadOnly && (
                     <div className="flex justify-end">
@@ -696,7 +696,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                         type="button"
                         id="create-repair-job-from-finding-btn"
                         onClick={handleCreateRepairFromFinding}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xs transition cursor-pointer"
+                        className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg shadow-xs transition cursor-pointer"
                       >
                         Create Repair Job
                       </button>
@@ -824,7 +824,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={handleAddServiceLineItem}
-                        className="px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition shrink-0 cursor-pointer"
+                        className="px-3 py-1.5 bg-[#FF6B00] text-white text-xs font-semibold rounded-lg hover:bg-[#E56000] transition shrink-0 cursor-pointer"
                       >
                         Add Service
                       </button>
@@ -884,7 +884,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={handleAddPartLineItem}
-                        className="px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition shrink-0 cursor-pointer"
+                        className="px-3 py-1.5 bg-[#FF6B00] text-white text-xs font-semibold rounded-lg hover:bg-[#E56000] transition shrink-0 cursor-pointer"
                       >
                         Add Part
                       </button>
@@ -898,9 +898,9 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                     <button
                       id="complete-job-btn"
                       onClick={handleCompleteJob}
-                      className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-2 cursor-pointer"
+                      className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-2 cursor-pointer"
                     >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-white" />
                       <span>Complete Job</span>
                     </button>
                   </div>
@@ -1393,7 +1393,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                               required
                               value={paymentDate}
                               onChange={(e) => setPaymentDate(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900 outline-hidden focus:border-slate-900"
+                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                             />
                           </div>
 
@@ -1405,7 +1405,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                             <select
                               value={selectedPaymentMethod}
                               onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 outline-hidden focus:border-slate-900"
+                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                             >
                               {paymentMethods.map((pm) => (
                                 <option key={pm.id} value={pm.name}>
@@ -1474,12 +1474,12 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       onClick={handleMarkAsDelivered}
                       className={`px-5 py-2.5 text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-2 ${
                         hasRecordedPayment
-                          ? 'bg-slate-900 hover:bg-slate-800 text-white cursor-pointer'
+                          ? 'bg-[#FF6B00] hover:bg-[#E56000] text-white cursor-pointer'
                           : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       }`}
                       title={!hasRecordedPayment ? 'Record payment to enable vehicle delivery' : ''}
                     >
-                      <Car className={`w-4 h-4 ${hasRecordedPayment ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      <Car className={`w-4 h-4 ${hasRecordedPayment ? 'text-white' : 'text-slate-400'}`} />
                       <span>Mark as Delivered</span>
                     </button>
                   </div>
@@ -1603,7 +1603,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                 <select
                   value={selectedCampaignId}
                   onChange={(e) => setSelectedCampaignId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-slate-900 text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] text-xs"
                 >
                   <option value="">None (No Campaign Discount)</option>
                   {discountCampaigns
@@ -1644,9 +1644,9 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setDiscountScope('whole')}
-                          className={`py-2 px-3 text-xs font-semibold rounded-lg border transition text-center ${
+                          className={`py-2 px-3 text-xs font-semibold rounded-lg border transition text-center cursor-pointer ${
                             discountScope === 'whole'
-                              ? 'bg-slate-900 text-white border-slate-900'
+                              ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                               : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1655,9 +1655,9 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setDiscountScope('line_item')}
-                          className={`py-2 px-3 text-xs font-semibold rounded-lg border transition text-center ${
+                          className={`py-2 px-3 text-xs font-semibold rounded-lg border transition text-center cursor-pointer ${
                             discountScope === 'line_item'
-                              ? 'bg-slate-900 text-white border-slate-900'
+                              ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                               : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1673,7 +1673,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                           <select
                             value={discountLineItemKey}
                             onChange={(e) => setDiscountLineItemKey(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-slate-900 text-xs"
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] text-xs"
                           >
                             {(job.servicesPerformed || []).map((s, idx) => (
                               <option key={`service_${idx}`} value={`service_${idx}`}>
@@ -1698,7 +1698,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                         <select
                           value={manualDiscountType}
                           onChange={(e) => setManualDiscountType(e.target.value as 'fixed' | 'percentage')}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-slate-900 text-xs"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] text-xs"
                         >
                           <option value="fixed">Fixed Amount ($)</option>
                           <option value="percentage">Percentage (%)</option>
@@ -1722,7 +1722,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                           value={manualDiscountValue || ''}
                           onChange={(e) => setManualDiscountValue(parseFloat(e.target.value) || 0)}
                           placeholder="0"
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900 outline-hidden focus:border-slate-900 text-xs"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] text-xs"
                         />
                       </div>
                     </div>
@@ -1737,7 +1737,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       <select
                         value={manualDiscountReason}
                         onChange={(e) => setManualDiscountReason(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-slate-900 text-xs"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] text-xs"
                       >
                         <option value="">-- Select a Reason --</option>
                         {discountReasons
@@ -1766,7 +1766,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition cursor-pointer"
                 >
                   Apply Discounts
                 </button>

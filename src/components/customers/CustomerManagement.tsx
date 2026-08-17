@@ -469,7 +469,7 @@ export const CustomerManagement: React.FC = () => {
               id="add-customer-btn"
               type="button"
               onClick={handleOpenRegisterModal}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0"
+              className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add Customer</span>
@@ -489,7 +489,7 @@ export const CustomerManagement: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 placeholder="Search by customer name, phone number, or plate number..."
-                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-none transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none transition-colors"
               />
               {searchTerm && (
                 <button
@@ -568,7 +568,7 @@ export const CustomerManagement: React.FC = () => {
                       id="empty-add-customer-btn"
                       type="button"
                       onClick={handleOpenRegisterModal}
-                      className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5"
+                      className="mt-4 px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Add Customer</span>
@@ -873,7 +873,7 @@ export const CustomerManagement: React.FC = () => {
                 id="add-vehicle-to-customer-btn"
                 type="button"
                 onClick={() => handleOpenAddVehicleModal(activeCustomer)}
-                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Vehicle</span>
@@ -897,7 +897,7 @@ export const CustomerManagement: React.FC = () => {
                       id="empty-add-vehicle-btn"
                       type="button"
                       onClick={() => handleOpenAddVehicleModal(activeCustomer)}
-                      className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Vehicle</span>
@@ -1217,7 +1217,7 @@ export const CustomerManagement: React.FC = () => {
                         setRegFullName(detectedExistingCustomer.fullName);
                         setRegAddress(detectedExistingCustomer.address || '');
                       }}
-                      className="mt-2 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-2xs transition flex items-center gap-1.5"
+                      className="mt-2 px-3.5 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-semibold rounded-lg shadow-2xs transition flex items-center gap-1.5"
                     >
                       <UserCheck className="w-3.5 h-3.5" />
                       <span>Use Existing Customer</span>
@@ -1251,7 +1251,7 @@ export const CustomerManagement: React.FC = () => {
                         value={regFullName}
                         onChange={(e) => setRegFullName(e.target.value)}
                         placeholder="e.g. Sok Dara"
-                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                       />
                       {regErrors.fullName && <p className="text-[11px] text-rose-600 mt-1">{regErrors.fullName}</p>}
                     </div>
@@ -1266,7 +1266,7 @@ export const CustomerManagement: React.FC = () => {
                         value={regPhone}
                         onChange={(e) => setRegPhone(e.target.value)}
                         placeholder="e.g. 012 345 678"
-                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                       />
                       {regErrors.phone && <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>}
                     </div>
@@ -1281,7 +1281,7 @@ export const CustomerManagement: React.FC = () => {
                         value={regAddress}
                         onChange={(e) => setRegAddress(e.target.value)}
                         placeholder="e.g. Phnom Penh, Cambodia"
-                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                       />
                     </div>
                   </div>
@@ -1306,7 +1306,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regPlate}
                       onChange={(e) => setRegPlate(e.target.value)}
                       placeholder="e.g. 2AB-1234"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none uppercase font-mono font-bold"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none uppercase font-mono font-bold"
                     />
                     {regErrors.plateNumber && <p className="text-[11px] text-rose-600 mt-1">{regErrors.plateNumber}</p>}
                   </div>
@@ -1321,7 +1321,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regBrand}
                       onChange={(e) => setRegBrand(e.target.value)}
                       placeholder="e.g. Toyota"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                     />
                     {regErrors.brand && <p className="text-[11px] text-rose-600 mt-1">{regErrors.brand}</p>}
                   </div>
@@ -1336,7 +1336,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regModel}
                       onChange={(e) => setRegModel(e.target.value)}
                       placeholder="e.g. Camry"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                     />
                     {regErrors.model && <p className="text-[11px] text-rose-600 mt-1">{regErrors.model}</p>}
                   </div>
@@ -1351,7 +1351,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regYear}
                       onChange={(e) => setRegYear(e.target.value)}
                       placeholder="e.g. 2022"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                     />
                     {regErrors.year && <p className="text-[11px] text-rose-600 mt-1">{regErrors.year}</p>}
                   </div>
@@ -1366,7 +1366,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regColor}
                       onChange={(e) => setRegColor(e.target.value)}
                       placeholder="e.g. White"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                     />
                     {regErrors.color && <p className="text-[11px] text-rose-600 mt-1">{regErrors.color}</p>}
                   </div>
@@ -1381,7 +1381,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regMileage}
                       onChange={(e) => setRegMileage(e.target.value)}
                       placeholder="e.g. 45000"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                     />
                   </div>
 
@@ -1395,7 +1395,7 @@ export const CustomerManagement: React.FC = () => {
                       value={regVin}
                       onChange={(e) => setRegVin(e.target.value)}
                       placeholder="e.g. 4T1B11HK5JU123456"
-                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none font-mono"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none font-mono"
                     />
                   </div>
                 </div>
@@ -1415,7 +1415,7 @@ export const CustomerManagement: React.FC = () => {
                 <button
                   id="submit-register-btn"
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   {selectedExistingCustomer ? 'Add Vehicle to Existing Customer' : 'Register Customer & Vehicle'}
                 </button>
@@ -1465,7 +1465,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehPlate}
                     onChange={(e) => setAddVehPlate(e.target.value)}
                     placeholder="e.g. 2AC-5678"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none uppercase font-mono font-bold"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none uppercase font-mono font-bold"
                   />
                   {addVehErrors.plateNumber && <p className="text-[11px] text-rose-600 mt-1">{addVehErrors.plateNumber}</p>}
                 </div>
@@ -1480,7 +1480,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehBrand}
                     onChange={(e) => setAddVehBrand(e.target.value)}
                     placeholder="e.g. Honda"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   />
                   {addVehErrors.brand && <p className="text-[11px] text-rose-600 mt-1">{addVehErrors.brand}</p>}
                 </div>
@@ -1495,7 +1495,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehModel}
                     onChange={(e) => setAddVehModel(e.target.value)}
                     placeholder="e.g. Civic"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   />
                   {addVehErrors.model && <p className="text-[11px] text-rose-600 mt-1">{addVehErrors.model}</p>}
                 </div>
@@ -1510,7 +1510,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehYear}
                     onChange={(e) => setAddVehYear(e.target.value)}
                     placeholder="e.g. 2020"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   />
                   {addVehErrors.year && <p className="text-[11px] text-rose-600 mt-1">{addVehErrors.year}</p>}
                 </div>
@@ -1525,7 +1525,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehColor}
                     onChange={(e) => setAddVehColor(e.target.value)}
                     placeholder="e.g. Black"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   />
                   {addVehErrors.color && <p className="text-[11px] text-rose-600 mt-1">{addVehErrors.color}</p>}
                 </div>
@@ -1540,7 +1540,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehMileage}
                     onChange={(e) => setAddVehMileage(e.target.value)}
                     placeholder="e.g. 62000"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   />
                 </div>
 
@@ -1554,7 +1554,7 @@ export const CustomerManagement: React.FC = () => {
                     value={addVehVin}
                     onChange={(e) => setAddVehVin(e.target.value)}
                     placeholder="e.g. 1HGCR2F83HA123456"
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none font-mono"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none font-mono"
                   />
                 </div>
               </div>
@@ -1571,7 +1571,7 @@ export const CustomerManagement: React.FC = () => {
                 <button
                   id="submit-add-veh-btn"
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   Add Vehicle
                 </button>
@@ -1614,7 +1614,7 @@ export const CustomerManagement: React.FC = () => {
                   type="text"
                   value={editCustomerFullName}
                   onChange={(e) => setEditCustomerFullName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   required
                 />
               </div>
@@ -1628,7 +1628,7 @@ export const CustomerManagement: React.FC = () => {
                   type="text"
                   value={editCustomerPhone}
                   onChange={(e) => setEditCustomerPhone(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   required
                 />
               </div>
@@ -1642,7 +1642,7 @@ export const CustomerManagement: React.FC = () => {
                   type="text"
                   value={editCustomerAddress}
                   onChange={(e) => setEditCustomerAddress(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                 />
               </div>
 
@@ -1659,7 +1659,7 @@ export const CustomerManagement: React.FC = () => {
                 <button
                   id="save-edit-cust-btn"
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   Save Changes
                 </button>
@@ -1703,7 +1703,7 @@ export const CustomerManagement: React.FC = () => {
                     type="text"
                     value={editVehiclePlate}
                     onChange={(e) => setEditVehiclePlate(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none uppercase font-mono font-bold"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none uppercase font-mono font-bold"
                     required
                   />
                 </div>
@@ -1717,7 +1717,7 @@ export const CustomerManagement: React.FC = () => {
                     type="text"
                     value={editVehicleBrand}
                     onChange={(e) => setEditVehicleBrand(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                     required
                   />
                 </div>
@@ -1731,7 +1731,7 @@ export const CustomerManagement: React.FC = () => {
                     type="text"
                     value={editVehicleModel}
                     onChange={(e) => setEditVehicleModel(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                     required
                   />
                 </div>
@@ -1745,7 +1745,7 @@ export const CustomerManagement: React.FC = () => {
                     type="number"
                     value={editVehicleYear}
                     onChange={(e) => setEditVehicleYear(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                     required
                   />
                 </div>
@@ -1759,7 +1759,7 @@ export const CustomerManagement: React.FC = () => {
                     type="text"
                     value={editVehicleColor}
                     onChange={(e) => setEditVehicleColor(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                     required
                   />
                 </div>
@@ -1773,7 +1773,7 @@ export const CustomerManagement: React.FC = () => {
                     type="number"
                     value={editVehicleMileage}
                     onChange={(e) => setEditVehicleMileage(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
                   />
                 </div>
 
@@ -1786,7 +1786,7 @@ export const CustomerManagement: React.FC = () => {
                     type="text"
                     value={editVehicleVin}
                     onChange={(e) => setEditVehicleVin(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none font-mono"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none font-mono"
                   />
                 </div>
               </div>
@@ -1804,7 +1804,7 @@ export const CustomerManagement: React.FC = () => {
                 <button
                   id="save-edit-veh-btn"
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   Save Changes
                 </button>
@@ -1841,19 +1841,19 @@ export const CustomerManagement: React.FC = () => {
                 </span>
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs text-slate-700">
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">1</span>
                     <span>Customer Registration</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">2</span>
                     <span>Scan Telegram QR Code</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">3</span>
                     <span>Start Telegram Bot</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">4</span>
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">4</span>
                     <span>Share Phone Number ({telegramCustomer.phone})</span>
                   </div>
                   <div className="flex items-center gap-2 font-bold text-emerald-800">

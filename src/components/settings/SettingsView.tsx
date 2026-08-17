@@ -565,9 +565,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-garage"
           onClick={() => setActiveTab('garage')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'garage'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -578,9 +578,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-invoice"
           onClick={() => setActiveTab('invoice')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'invoice'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -591,9 +591,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-payments"
           onClick={() => setActiveTab('payments')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'payments'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -604,9 +604,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-telegram"
           onClick={() => setActiveTab('telegram')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'telegram'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -617,9 +617,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-categories"
           onClick={() => setActiveTab('categories')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'categories'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -630,9 +630,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-discounts"
           onClick={() => setActiveTab('discounts')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'discounts'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -643,9 +643,9 @@ export const SettingsView: React.FC = () => {
         <button
           id="tab-rbac"
           onClick={() => setActiveTab('rbac')}
-          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+          className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
             activeTab === 'rbac'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -657,9 +657,9 @@ export const SettingsView: React.FC = () => {
           <button
             id="tab-activity"
             onClick={() => setActiveTab('activity')}
-            className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition ${
+            className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
               activeTab === 'activity'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-[#FF6B00] text-[#FF6B00]'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -683,7 +683,7 @@ export const SettingsView: React.FC = () => {
                   required
                   value={garageName}
                   onChange={(e) => setGarageName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
@@ -694,7 +694,7 @@ export const SettingsView: React.FC = () => {
                   required
                   value={garageAddress}
                   onChange={(e) => setGarageAddress(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
@@ -705,7 +705,7 @@ export const SettingsView: React.FC = () => {
                   required
                   value={garagePhone}
                   onChange={(e) => setGaragePhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
@@ -716,7 +716,7 @@ export const SettingsView: React.FC = () => {
                   required
                   value={garageEmail}
                   onChange={(e) => setGarageEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
@@ -726,7 +726,7 @@ export const SettingsView: React.FC = () => {
                   type="text"
                   value={garageTaxId}
                   onChange={(e) => setGarageTaxId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                 />
               </div>
 
@@ -783,7 +783,7 @@ export const SettingsView: React.FC = () => {
               <button
                 type="submit"
                 id="save-garage-info-btn"
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-xs"
+                className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-xs cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>Save</span>
@@ -810,7 +810,7 @@ export const SettingsView: React.FC = () => {
                   value={invPrefix}
                   onChange={(e) => setInvPrefix(e.target.value)}
                   placeholder="INV-"
-                  className="w-full max-w-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full max-w-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                 />
               </div>
 
@@ -824,7 +824,7 @@ export const SettingsView: React.FC = () => {
                   value={invTerms}
                   onChange={(e) => setInvTerms(e.target.value)}
                   placeholder="Due Upon Collection"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                 />
               </div>
 
@@ -837,7 +837,7 @@ export const SettingsView: React.FC = () => {
                   value={invFooterDisclaimer}
                   onChange={(e) => setInvFooterDisclaimer(e.target.value)}
                   placeholder="Terms & Conditions text rendered on every invoice..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                 />
               </div>
             </div>
@@ -846,7 +846,7 @@ export const SettingsView: React.FC = () => {
               <button
                 type="submit"
                 id="save-invoice-settings-btn"
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-xs"
+                className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-xs cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>Save</span>
@@ -869,12 +869,12 @@ export const SettingsView: React.FC = () => {
                   placeholder="Method Name"
                   value={newMethodName}
                   onChange={(e) => setNewMethodName(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900 w-full sm:w-48"
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] w-full sm:w-48"
                 />
                 <button
                   type="submit"
                   id="add-payment-method-btn"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                  className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add</span>
@@ -899,7 +899,7 @@ export const SettingsView: React.FC = () => {
                           type="text"
                           value={editingMethodName}
                           onChange={(e) => setEditingMethodName(e.target.value)}
-                          className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-slate-900"
+                          className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                         />
                         <button
                           type="button"
@@ -1104,7 +1104,7 @@ export const SettingsView: React.FC = () => {
                     value={itemCatSearch}
                     onChange={(e) => setItemCatSearch(e.target.value)}
                     placeholder="Search item categories..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                   />
                 </div>
 
@@ -1115,12 +1115,12 @@ export const SettingsView: React.FC = () => {
                     placeholder="New Item Category"
                     value={newItemCat}
                     onChange={(e) => setNewItemCat(e.target.value)}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900 w-full sm:w-48"
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] w-full sm:w-48"
                   />
                   <button
                     type="submit"
                     id="add-item-cat-btn"
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                    className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add</span>
@@ -1142,7 +1142,7 @@ export const SettingsView: React.FC = () => {
                             type="text"
                             value={editingItemCatName}
                             onChange={(e) => setEditingItemCatName(e.target.value)}
-                            className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-slate-900"
+                            className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-[#FF6B00]"
                           />
                           <button
                             type="button"
@@ -1208,7 +1208,7 @@ export const SettingsView: React.FC = () => {
                     value={serviceCatSearch}
                     onChange={(e) => setServiceCatSearch(e.target.value)}
                     placeholder="Search service categories..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                   />
                 </div>
 
@@ -1219,12 +1219,12 @@ export const SettingsView: React.FC = () => {
                     placeholder="New Service Category"
                     value={newServiceCat}
                     onChange={(e) => setNewServiceCat(e.target.value)}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900 w-full sm:w-48"
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] w-full sm:w-48"
                   />
                   <button
                     type="submit"
                     id="add-service-cat-btn"
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                    className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add</span>
@@ -1246,7 +1246,7 @@ export const SettingsView: React.FC = () => {
                             type="text"
                             value={editingServiceCatName}
                             onChange={(e) => setEditingServiceCatName(e.target.value)}
-                            className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-slate-900"
+                            className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
                           />
                           <button
                             type="button"
@@ -1314,7 +1314,7 @@ export const SettingsView: React.FC = () => {
                 id="create-promotion-btn"
                 type="button"
                 onClick={handleOpenCreatePromotion}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Create Promotion</span>
@@ -1393,7 +1393,7 @@ export const SettingsView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditPromotion(promo)}
-                                className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md text-xs font-semibold flex items-center gap-1 transition"
+                                className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                                 <span>Edit</span>
@@ -1402,7 +1402,7 @@ export const SettingsView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleTogglePromoStatus(promo)}
-                                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition ${
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
                                   isActive
                                     ? 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
                                     : 'text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50'
@@ -1439,11 +1439,11 @@ export const SettingsView: React.FC = () => {
                   placeholder="New Reason"
                   value={newReasonText}
                   onChange={(e) => setNewReasonText(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900 w-full sm:w-56"
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] w-full sm:w-56"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                  className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add</span>
@@ -1542,7 +1542,7 @@ export const SettingsView: React.FC = () => {
                           disabled={isAdmin}
                           checked={isPermitted}
                           onChange={() => toggleRolePermission(roleDef.role, mod.id)}
-                          className="w-4 h-4 accent-slate-900 rounded"
+                          className="w-4 h-4 accent-[#FF6B00] rounded"
                         />
                         <span>{mod.name}</span>
                       </label>
@@ -1567,7 +1567,7 @@ export const SettingsView: React.FC = () => {
                 placeholder="Search audit records..."
                 value={activitySearchQuery}
                 onChange={(e) => setActivitySearchQuery(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
               />
             </div>
           </div>
@@ -1646,9 +1646,9 @@ export const SettingsView: React.FC = () => {
                       setPromoSourceType('campaign');
                       setPromoStep(2);
                     }}
-                    className="p-5 border-2 border-slate-200 hover:border-slate-900 hover:bg-slate-50/60 rounded-xl text-left transition group flex flex-col justify-between space-y-3"
+                    className="p-5 border-2 border-slate-200 hover:border-[#FF6B00] hover:bg-[#FFF1E8]/30 rounded-xl text-left transition group flex flex-col justify-between space-y-3 cursor-pointer"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-slate-900 group-hover:text-white text-slate-800 flex items-center justify-center transition">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-[#FF6B00] group-hover:text-white text-slate-800 flex items-center justify-center transition">
                       <ShoppingBag className="w-5 h-5" />
                     </div>
                     <div>
@@ -1663,9 +1663,9 @@ export const SettingsView: React.FC = () => {
                       setPromoSourceType('item_service');
                       setPromoStep(2);
                     }}
-                    className="p-5 border-2 border-slate-200 hover:border-slate-900 hover:bg-slate-50/60 rounded-xl text-left transition group flex flex-col justify-between space-y-3"
+                    className="p-5 border-2 border-slate-200 hover:border-[#FF6B00] hover:bg-[#FFF1E8]/30 rounded-xl text-left transition group flex flex-col justify-between space-y-3 cursor-pointer"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-slate-900 group-hover:text-white text-slate-800 flex items-center justify-center transition">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 group-hover:bg-[#FF6B00] group-hover:text-white text-slate-800 flex items-center justify-center transition">
                       <Wrench className="w-5 h-5" />
                     </div>
                     <div>
@@ -1692,7 +1692,7 @@ export const SettingsView: React.FC = () => {
                 {/* Type Indicator Pill */}
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type:</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-900 text-white">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FF6B00] text-white">
                     {promoSourceType === 'campaign' ? 'Whole Order Campaign' : 'Item / Service Discount'}
                   </span>
                 </div>
@@ -1712,7 +1712,7 @@ export const SettingsView: React.FC = () => {
                     }
                     value={promoName}
                     onChange={(e) => setPromoName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                   />
                 </div>
 
@@ -1730,9 +1730,9 @@ export const SettingsView: React.FC = () => {
                             setPromoTargetType('item');
                             setPromoTargetId(inventory[0]?.id || '');
                           }}
-                          className={`py-1.5 text-xs font-bold rounded-md border transition ${
+                          className={`py-1.5 text-xs font-bold rounded-md border transition cursor-pointer ${
                             promoTargetType === 'item'
-                              ? 'bg-slate-900 text-white border-slate-900'
+                              ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1744,9 +1744,9 @@ export const SettingsView: React.FC = () => {
                             setPromoTargetType('service');
                             setPromoTargetId(services[0]?.id || '');
                           }}
-                          className={`py-1.5 text-xs font-bold rounded-md border transition ${
+                          className={`py-1.5 text-xs font-bold rounded-md border transition cursor-pointer ${
                             promoTargetType === 'service'
-                              ? 'bg-slate-900 text-white border-slate-900'
+                              ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1758,9 +1758,9 @@ export const SettingsView: React.FC = () => {
                             setPromoTargetType('category');
                             setPromoTargetId(systemSettings.itemCategories[0] || '');
                           }}
-                          className={`py-1.5 text-xs font-bold rounded-md border transition ${
+                          className={`py-1.5 text-xs font-bold rounded-md border transition cursor-pointer ${
                             promoTargetType === 'category'
-                              ? 'bg-slate-900 text-white border-slate-900'
+                              ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1780,7 +1780,7 @@ export const SettingsView: React.FC = () => {
                       <select
                         value={promoTargetId}
                         onChange={(e) => setPromoTargetId(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                       >
                         {promoTargetType === 'item' &&
                           inventory.map((inv) => (
@@ -1825,7 +1825,7 @@ export const SettingsView: React.FC = () => {
                         onChange={(e) =>
                           setPromoDiscountValue(e.target.value === '' ? '' : parseFloat(e.target.value))
                         }
-                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-hidden focus:border-slate-900"
+                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-hidden focus:border-[#FF6B00]"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
                         {promoDiscountType === 'percentage' ? '%' : '$'}
@@ -1841,7 +1841,7 @@ export const SettingsView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setPromoDiscountType('percentage')}
-                        className={`text-xs font-bold rounded flex items-center justify-center gap-1 transition ${
+                        className={`text-xs font-bold rounded flex items-center justify-center gap-1 transition cursor-pointer ${
                           promoDiscountType === 'percentage'
                             ? 'bg-white text-slate-900 shadow-2xs'
                             : 'text-slate-600 hover:text-slate-900'
@@ -1853,7 +1853,7 @@ export const SettingsView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setPromoDiscountType('fixed')}
-                        className={`text-xs font-bold rounded flex items-center justify-center gap-1 transition ${
+                        className={`text-xs font-bold rounded flex items-center justify-center gap-1 transition cursor-pointer ${
                           promoDiscountType === 'fixed'
                             ? 'bg-white text-slate-900 shadow-2xs'
                             : 'text-slate-600 hover:text-slate-900'
@@ -1876,7 +1876,7 @@ export const SettingsView: React.FC = () => {
                       required
                       value={promoStartDate}
                       onChange={(e) => setPromoStartDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                     />
                   </div>
 
@@ -1889,7 +1889,7 @@ export const SettingsView: React.FC = () => {
                       required
                       value={promoEndDate}
                       onChange={(e) => setPromoEndDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-slate-900"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
                     />
                   </div>
                 </div>
@@ -1899,13 +1899,13 @@ export const SettingsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsPromoModalOpen(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                    className="px-5 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>{editingPromoId ? 'Update Promotion' : 'Save Promotion'}</span>

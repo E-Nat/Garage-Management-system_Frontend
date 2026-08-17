@@ -198,9 +198,9 @@ export const StockManagement: React.FC = () => {
         <button
           id="tab-stock-in"
           onClick={() => setActiveSubTab('stock_in')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
             activeSubTab === 'stock_in'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -211,9 +211,9 @@ export const StockManagement: React.FC = () => {
         <button
           id="tab-stock-adjustment"
           onClick={() => setActiveSubTab('adjust')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
             activeSubTab === 'adjust'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -224,9 +224,9 @@ export const StockManagement: React.FC = () => {
         <button
           id="tab-stock-history"
           onClick={() => setActiveSubTab('history')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
             activeSubTab === 'history'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -253,7 +253,7 @@ export const StockManagement: React.FC = () => {
                 id="stock-in-item-select"
                 value={stockInItemId}
                 onChange={(e) => setStockInItemId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-slate-900 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 required
               >
                 {inventory.map((item) => (
@@ -276,7 +276,7 @@ export const StockManagement: React.FC = () => {
                   min="1"
                   value={stockInQty}
                   onChange={(e) => setStockInQty(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                   required
                 />
               </div>
@@ -290,7 +290,7 @@ export const StockManagement: React.FC = () => {
                   type="date"
                   value={stockInDate}
                   onChange={(e) => setStockInDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                   required
                 />
               </div>
@@ -304,14 +304,14 @@ export const StockManagement: React.FC = () => {
                 type="text"
                 value={stockInRemarks}
                 onChange={(e) => setStockInRemarks(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
               />
             </div>
 
             <button
               id="submit-stock-in-btn"
               type="submit"
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shadow-xs transition text-xs"
+              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg shadow-xs transition text-xs cursor-pointer"
             >
               Record Stock In
             </button>
@@ -337,7 +337,7 @@ export const StockManagement: React.FC = () => {
                 id="adjust-item-select"
                 value={adjustItemId}
                 onChange={(e) => setAdjustItemId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-slate-900 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 required
               >
                 {inventory.map((item) => (
@@ -396,7 +396,7 @@ export const StockManagement: React.FC = () => {
                   min="1"
                   value={adjustQty}
                   onChange={(e) => setAdjustQty(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                   required
                 />
               </div>
@@ -410,7 +410,7 @@ export const StockManagement: React.FC = () => {
                   type="date"
                   value={adjustDate}
                   onChange={(e) => setAdjustDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                   required
                 />
               </div>
@@ -426,7 +426,7 @@ export const StockManagement: React.FC = () => {
                 type="text"
                 value={adjustReason}
                 onChange={(e) => setAdjustReason(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 required
               />
             </div>
@@ -439,14 +439,14 @@ export const StockManagement: React.FC = () => {
                 type="text"
                 value={adjustRemarks}
                 onChange={(e) => setAdjustRemarks(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
               />
             </div>
 
             <button
               id="submit-adjust-btn"
               type="submit"
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shadow-xs transition text-xs"
+              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg shadow-xs transition text-xs cursor-pointer"
             >
               Save Adjustment
             </button>
@@ -469,7 +469,7 @@ export const StockManagement: React.FC = () => {
                   placeholder="Search..."
                   value={historySearch}
                   onChange={(e) => setHistorySearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-slate-900 outline-none"
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 />
               </div>
 
@@ -477,7 +477,7 @@ export const StockManagement: React.FC = () => {
                 id="history-type-filter"
                 value={historyTypeFilter}
                 onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
               >
                 <option value="all">All Movement Types</option>
                 <option value="stock_in">Stock In</option>
@@ -489,7 +489,7 @@ export const StockManagement: React.FC = () => {
                 id="history-date-filter"
                 value={dateRangeFilter}
                 onChange={(e) => setDateRangeFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
               >
                 <option value="all">All Dates</option>
                 <option value="today">Today</option>
@@ -519,9 +519,9 @@ export const StockManagement: React.FC = () => {
               <button
                 id="export-stock-history-btn"
                 onClick={handleExportToExcel}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition shadow-xs"
+                className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 text-white" />
                 <span>Export to Excel</span>
               </button>
             </div>

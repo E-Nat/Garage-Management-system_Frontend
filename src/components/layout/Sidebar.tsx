@@ -89,12 +89,12 @@ export const Sidebar: React.FC = () => {
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
                     isActive
-                      ? 'bg-slate-50 text-slate-900 font-semibold'
+                      ? 'bg-[#FFF1E8] text-[#FF6B00] font-semibold'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50/70 font-medium'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#FF6B00]' : 'text-slate-400'}`} />
                     <span>{item.label}</span>
                   </div>
                 </button>
@@ -114,7 +114,7 @@ export const Sidebar: React.FC = () => {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-slate-400">Role</span>
-          <span className="text-slate-800 font-semibold uppercase text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">
+          <span className="text-[#FF6B00] font-semibold uppercase text-[10px] bg-[#FFF1E8] px-1.5 py-0.5 rounded">
             {currentUser.role.replace('_', ' ')}
           </span>
         </div>

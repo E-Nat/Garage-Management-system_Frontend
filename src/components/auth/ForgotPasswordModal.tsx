@@ -43,7 +43,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Mail className="w-5 h-5 text-orange-500" />
+              <Mail className="w-5 h-5 text-[#FF6B00]" />
               Reset Account Password
             </h3>
             <button
@@ -81,7 +81,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. advisor@apexgarage.com"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white"
+                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#FF6B00] text-slate-900 dark:text-white"
                       required
                     />
                   </div>
@@ -92,14 +92,14 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
                     id="cancel-forgot-pass-btn"
                     type="button"
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+                    className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     id="submit-forgot-pass-btn"
                     type="submit"
-                    className="px-5 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-orange-600 dark:hover:bg-orange-500 rounded-xl shadow-md transition"
+                    className="px-5 py-2 text-sm font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer"
                   >
                     Send Recovery Link
                   </button>
@@ -119,7 +119,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
                 <button
                   id="done-forgot-pass-btn"
                   onClick={handleReset}
-                  className="w-full py-2.5 text-sm font-semibold text-white bg-slate-900 dark:bg-orange-600 rounded-xl hover:bg-slate-800 transition"
+                  className="w-full py-2.5 text-sm font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl transition cursor-pointer"
                 >
                   Return to Login
                 </button>

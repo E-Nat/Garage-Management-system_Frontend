@@ -121,9 +121,9 @@ export const DeliverVehicleModal: React.FC<DeliverVehicleModalProps> = ({
             <button
               type="button"
               onClick={handleConfirmDelivery}
-              className="px-4 py-2 font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition flex items-center gap-1.5"
+              className="px-4 py-2 font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-white" />
               <span>Confirm Vehicle Delivered</span>
             </button>
           </div>

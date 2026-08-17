@@ -15,9 +15,9 @@ export const Header: React.FC = () => {
     <>
       <header className="bg-white border-b border-slate-100 text-slate-900 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Left: Brand */}
+            {/* Left: Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-[#FF6B00] text-white flex items-center justify-center font-bold">
               <Wrench className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
@@ -41,7 +41,7 @@ export const Header: React.FC = () => {
                   onClick={() => quickSwitchRole(roleKey)}
                   className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
                     isCurrent
-                      ? 'bg-white text-slate-900 font-semibold shadow-xs border border-slate-200/60'
+                      ? 'bg-[#FFF1E8] text-[#FF6B00] font-semibold shadow-xs border border-[#FF6B00]/30'
                       : 'text-slate-500 hover:text-slate-900 font-medium'
                   }`}
                   title={`Switch role to ${roleKey.replace('_', ' ')}`}
@@ -62,7 +62,7 @@ export const Header: React.FC = () => {
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-slate-900" />
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#FF6B00]" />
             </button>
 
             {/* User Profile Pill */}
@@ -72,7 +72,7 @@ export const Header: React.FC = () => {
                 onClick={() => setIsProfileOpen(true)}
                 className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-50 transition-colors text-left cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-md bg-slate-900 text-white font-semibold flex items-center justify-center text-xs">
+                <div className="w-7 h-7 rounded-md bg-[#FF6B00] text-white font-semibold flex items-center justify-center text-xs">
                   {currentUser.name.charAt(0)}
                 </div>
                 <div className="hidden md:block">

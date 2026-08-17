@@ -74,7 +74,7 @@ export const TelegramLinking: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search customer name, phone, or @handle..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
             />
           </div>
 
@@ -116,11 +116,11 @@ export const TelegramLinking: React.FC = () => {
                           value={editingHandle.handle}
                           onChange={(e) => setEditingHandle({ ...editingHandle, handle: e.target.value })}
                           placeholder="@username"
-                          className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:border-slate-900 outline-hidden font-mono"
+                          className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden font-mono"
                         />
                         <button
                           onClick={() => handleSaveHandle(cust.id, editingHandle.handle)}
-                          className="px-2.5 py-1 bg-slate-900 text-white font-bold rounded-lg text-[10px]"
+                          className="px-2.5 py-1 bg-[#FF6B00] hover:bg-[#E56000] text-white font-bold rounded-lg text-[10px] cursor-pointer"
                         >
                           Save
                         </button>

@@ -93,9 +93,9 @@ export const RepairJobManagement: React.FC = () => {
         <button
           id="create-job-btn"
           onClick={() => setIsNewJobModalOpen(true)}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
+          className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-emerald-400" />
+          <Plus className="w-4 h-4 text-white" />
           <span>Create Job</span>
         </button>
       </div>
@@ -114,7 +114,7 @@ export const RepairJobManagement: React.FC = () => {
                 placeholder="Search by customer name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-slate-900"
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
               />
             </div>
 
@@ -127,7 +127,7 @@ export const RepairJobManagement: React.FC = () => {
                 id="filter-job-type-select"
                 value={jobTypeFilter}
                 onChange={(e) => setJobTypeFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-slate-900 font-medium"
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] font-medium"
               >
                 <option value="all">All Types</option>
                 <option value="service">Service</option>
@@ -144,7 +144,7 @@ export const RepairJobManagement: React.FC = () => {
                 id="filter-status-select"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-slate-900 font-medium"
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] font-medium"
               >
                 <option value="all">All Statuses</option>
                 <option value="pending_inspection">Pending Inspection</option>
@@ -165,7 +165,7 @@ export const RepairJobManagement: React.FC = () => {
                 id="filter-mechanic-select"
                 value={mechanicFilter}
                 onChange={(e) => setMechanicFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-slate-900 font-medium"
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] font-medium"
               >
                 <option value="all">All Mechanics</option>
                 <option value="unassigned">Unassigned</option>

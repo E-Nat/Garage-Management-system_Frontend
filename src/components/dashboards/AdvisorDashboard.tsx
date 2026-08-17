@@ -55,7 +55,7 @@ export const AdvisorDashboard: React.FC = () => {
         <button
           id="advisor-new-intake-btn"
           onClick={() => setIsNewJobModalOpen(true)}
-          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg text-sm flex items-center gap-2 transition-colors shrink-0 cursor-pointer"
+          className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-medium rounded-lg text-sm flex items-center gap-2 transition-colors shrink-0 cursor-pointer"
         >
           <PlusCircle className="w-4 h-4" />
           <span>New Vehicle Intake</span>
@@ -99,7 +99,7 @@ export const AdvisorDashboard: React.FC = () => {
                     onClick={() => setSelectedStatusFilter(tab.id)}
                     className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
                       isActive
-                        ? 'bg-white text-slate-900 font-semibold shadow-xs border border-slate-200/60'
+                        ? 'bg-[#FFF1E8] text-[#FF6B00] font-semibold shadow-xs border border-[#FF6B00]/30'
                         : 'text-slate-500 hover:text-slate-900 font-medium'
                     }`}
                   >
@@ -117,7 +117,7 @@ export const AdvisorDashboard: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search RO#, make, plate..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-slate-400 focus:ring-1 focus:ring-slate-400 focus:outline-none"
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] focus:outline-none"
               />
             </div>
           </div>

@@ -228,7 +228,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                 onClick={() => setJobType('service')}
                 className={`py-3.5 px-4 rounded-xl font-bold text-sm text-center transition cursor-pointer ${
                   jobType === 'service'
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-[#FF6B00] text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
@@ -241,7 +241,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                 onClick={() => setJobType('repair')}
                 className={`py-3.5 px-4 rounded-xl font-bold text-sm text-center transition cursor-pointer ${
                   jobType === 'repair'
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-[#FF6B00] text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
@@ -278,7 +278,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                     }
                   }}
                   placeholder="Type to search by name or phone..."
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-slate-900 outline-hidden"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                 />
                 <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
@@ -329,7 +329,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                     id="select-vehicle-dropdown"
                     value={selectedVehicleId}
                     onChange={(e) => setSelectedVehicleId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   >
                     {customerVehicles.map((v) => (
@@ -361,7 +361,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                 type="date"
                 value={serviceDate}
                 onChange={(e) => setServiceDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono focus:bg-white focus:border-slate-900 outline-hidden"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                 required
               />
             </div>
@@ -375,7 +375,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                 id="select-mechanic-dropdown"
                 value={assignedMechanicId}
                 onChange={(e) => setAssignedMechanicId(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-slate-900 outline-hidden"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
               >
                 <option value="">-- Select Mechanic (Optional) --</option>
                 {mechanicsList.map((m) => (
@@ -435,9 +435,9 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                   <button
                     type="button"
                     onClick={handleAddService}
-                    className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition shrink-0 flex items-center gap-1 cursor-pointer"
+                    className="px-3 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-semibold rounded-lg transition shrink-0 flex items-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <Plus className="w-3.5 h-3.5 text-white" />
                     <span>Add Service</span>
                   </button>
                 </div>
@@ -454,7 +454,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
                   value={customerComplaint}
                   onChange={(e) => setCustomerComplaint(e.target.value)}
                   placeholder="Enter vehicle complaint or issue described by customer..."
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden resize-none"
+                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] outline-hidden resize-none"
                   required
                 />
               </div>
@@ -474,7 +474,7 @@ export const NewRepairJobModal: React.FC<NewRepairJobModalProps> = ({
             <button
               id="submit-create-job-btn"
               type="submit"
-              className="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition cursor-pointer"
+              className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition cursor-pointer"
             >
               Create Job
             </button>

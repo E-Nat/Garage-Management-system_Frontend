@@ -151,7 +151,7 @@ export const PartsDashboard: React.FC = () => {
                         <button
                           id={`reorder-stock-${item.id}`}
                           onClick={() => handleTriggerReorder(item.name)}
-                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white transition-colors cursor-pointer"
+                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#FF6B00] hover:bg-[#E56000] text-white transition-colors cursor-pointer"
                         >
                           Reorder
                         </button>

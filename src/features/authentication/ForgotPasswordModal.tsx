@@ -43,7 +43,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Mail className="w-5 h-5 text-orange-500" />
+              <Mail className="w-5 h-5 text-[#FF6B00]" />
               Reset Account Password
             </h3>
             <button
@@ -81,7 +81,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. advisor@apexgarage.com"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white"
+                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#FF6B00] text-slate-900 dark:text-white"
                       required
                     />
                   </div>
@@ -92,37 +92,37 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen
                     id="cancel-forgot-pass-btn"
                     type="button"
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+                    className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     id="submit-forgot-pass-btn"
                     type="submit"
-                    className="px-5 py-2 text-sm font-bold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 rounded-xl hover:bg-slate-800 transition"
+                    className="px-5 py-2 text-sm font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer"
                   >
-                    Send Reset Link
+                    Send Recovery Link
                   </button>
                 </div>
               </form>
             ) : (
-              <div className="text-center py-4 space-y-3">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-6 h-6" />
+              <div className="text-center py-4 space-y-4">
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-7 h-7" />
                 </div>
-                <h4 className="text-lg font-bold text-slate-900 dark:text-white">Reset Link Sent!</h4>
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  We have dispatched reset instructions to <strong className="text-slate-900 dark:text-white">{email}</strong>. Please check your inbox and follow the steps.
-                </p>
-                <div className="pt-3">
-                  <button
-                    id="done-forgot-pass-btn"
-                    onClick={handleReset}
-                    className="w-full py-2.5 text-xs font-bold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 rounded-xl"
-                  >
-                    Return to Sign In
-                  </button>
+                <div>
+                  <h4 className="text-base font-semibold text-slate-900 dark:text-white">Reset Link Dispatched</h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    An automated recovery instruction has been sent to <span className="font-semibold text-slate-900 dark:text-slate-200">{email}</span>. Please check your inbox or contact your garage administrator.
+                  </p>
                 </div>
+                <button
+                  id="done-forgot-pass-btn"
+                  onClick={handleReset}
+                  className="w-full py-2.5 text-sm font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl transition cursor-pointer"
+                >
+                  Return to Login
+                </button>
               </div>
             )}
           </div>

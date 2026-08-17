@@ -191,7 +191,7 @@ export const MechanicDashboard: React.FC = () => {
                 <button
                   id={`record-inspection-btn-${job.id}`}
                   onClick={() => setSelectedJobForModal(job)}
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-medium rounded-lg text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span>Record Inspection & Parts Used</span>
@@ -206,7 +206,7 @@ export const MechanicDashboard: React.FC = () => {
                     <button
                       id={`record-inspection-btn-${job.id}`}
                       onClick={() => setSelectedJobForModal(job)}
-                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-medium rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <PlusCircle className="w-3.5 h-3.5" />
                       <span>Record & Complete</span>
@@ -392,7 +392,7 @@ export const MechanicDashboard: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleAddPartToRecord}
-                    className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg shrink-0 cursor-pointer"
+                    className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-medium rounded-lg shrink-0 cursor-pointer transition-colors"
                   >
                     Add Part
                   </button>
@@ -404,7 +404,7 @@ export const MechanicDashboard: React.FC = () => {
                     type="checkbox"
                     checked={isCustomerProvidedPart}
                     onChange={(e) => setIsCustomerProvidedPart(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-slate-900 border-slate-300 focus:ring-slate-900 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded text-[#FF6B00] border-slate-300 focus:ring-[#FF6B00] cursor-pointer"
                   />
                   <label htmlFor="customer-provided-part-checkbox" className="text-xs text-slate-600 cursor-pointer">
                     Customer Provided Part ($0 price / labor-only)
@@ -448,7 +448,7 @@ export const MechanicDashboard: React.FC = () => {
                 <button
                   id="submit-inspection-btn"
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-medium text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   Save Findings & Request Approval
                 </button>

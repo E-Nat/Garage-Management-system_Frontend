@@ -30,28 +30,24 @@ export const PartsDashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 text-slate-900">
-      {/* Parts Manager Welcome Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 text-slate-900 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 text-slate-900 font-sans">
+      {/* Parts Manager Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold mb-2">
-            <Package className="w-3.5 h-3.5 text-slate-900" />
-            Inventory & Procurement Workbench
-          </div>
-          <h1 className="text-2xl font-bold">Welcome, {currentUser?.name}</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Monitor spare parts stock levels, issue critical reorders, and update bin locations.
-          </p>
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Parts Inventory</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Stock levels, bin locations, and procurement alerts</p>
         </div>
 
-        <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-right">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold">Low Stock Items</div>
-          <div className="text-xl font-extrabold text-rose-600">{lowStockItems.length} Critical Alerts</div>
-        </div>
+        {lowStockItems.length > 0 && (
+          <div className="px-3.5 py-2 bg-white border border-rose-100 rounded-xl text-right shadow-sm">
+            <div className="text-[10px] text-slate-400 uppercase font-medium">Reorder Alerts</div>
+            <div className="text-sm font-semibold text-rose-600">{lowStockItems.length} Low Stock Items</div>
+          </div>
+        )}
       </div>
 
       {reorderSuccess && (
-        <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-medium flex items-center gap-2">
+        <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200/60 rounded-xl text-xs font-medium flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-emerald-600" />
           <span>{reorderSuccess}</span>
         </div>
@@ -59,26 +55,25 @@ export const PartsDashboard: React.FC = () => {
 
       {/* Low Stock Warnings Banner */}
       {lowStockItems.length > 0 && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-900 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+        <div className="p-3.5 bg-rose-50/70 border border-rose-200/60 rounded-xl text-rose-900 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <div>
-              <span className="font-bold">Low Stock Warning: </span>
-              {lowStockItems.map((i) => `${i.name} (${i.stock} left)`).join(', ')}
+              <span className="font-semibold text-rose-800">Low Stock Notice: </span>
+              <span className="text-rose-700">{lowStockItems.map((i) => `${i.name} (${i.stock} left)`).join(', ')}</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Inventory Table */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Package className="w-5 h-5 text-slate-700" />
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <Package className="w-4 h-4 text-slate-500" />
               Spare Parts Catalog ({filteredInventory.length})
             </h2>
-            <p className="text-xs text-slate-500">Live stock levels & minimum reorder thresholds</p>
           </div>
 
           <div className="relative w-full sm:w-64">
@@ -88,59 +83,59 @@ export const PartsDashboard: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search part # or name..."
-              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:border-slate-400 focus:outline-none"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto border border-slate-100 rounded-xl">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-3">Part #</th>
-                <th className="py-3 px-3">Description</th>
-                <th className="py-3 px-3">Category</th>
-                <th className="py-3 px-3">Bin Location</th>
-                <th className="py-3 px-3">Stock Level</th>
-                <th className="py-3 px-3 text-right">Unit Price</th>
-                <th className="py-3 px-3 text-center">Actions</th>
+              <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-500 uppercase tracking-wider text-[11px] font-medium">
+                <th className="py-3 px-4">Part #</th>
+                <th className="py-3 px-4">Description</th>
+                <th className="py-3 px-4">Category</th>
+                <th className="py-3 px-4">Bin Location</th>
+                <th className="py-3 px-4">Stock Level</th>
+                <th className="py-3 px-4 text-right">Unit Price</th>
+                <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredInventory.map((item) => {
                 const isLow = item.stock <= item.minStock;
                 return (
-                  <tr key={item.id} className="hover:bg-slate-50 transition">
-                    <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                  <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-medium text-slate-900">
                       {item.partNumber}
                     </td>
-                    <td className="py-3 px-3 font-semibold text-slate-900">
+                    <td className="py-3.5 px-4 font-medium text-slate-900">
                       {item.name}
                     </td>
-                    <td className="py-3 px-3 text-slate-500">{item.category}</td>
-                    <td className="py-3 px-3 font-mono text-slate-500">{item.location}</td>
-                    <td className="py-3 px-3">
+                    <td className="py-3.5 px-4 text-slate-500">{item.category}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-400">{item.location}</td>
+                    <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <span className={`font-bold text-sm ${isLow ? 'text-rose-600' : 'text-slate-900'}`}>
+                        <span className={`font-semibold text-xs ${isLow ? 'text-rose-600' : 'text-slate-900'}`}>
                           {item.stock}
                         </span>
-                        <span className="text-[10px] text-slate-400">(Min: {item.minStock})</span>
+                        <span className="text-[11px] text-slate-400">(Min: {item.minStock})</span>
                         {isLow && (
-                          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-bold uppercase">
+                          <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200/60 text-[10px] font-medium uppercase">
                             Low
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-right font-bold text-slate-900">
+                    <td className="py-3.5 px-4 text-right font-medium text-slate-900">
                       ${item.unitPrice}
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3.5 px-4">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           id={`decrement-stock-${item.id}`}
                           onClick={() => handleAdjustStock(item.id, -1)}
-                          className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          className="p-1 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60 cursor-pointer"
                           title="Decrease stock"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -148,7 +143,7 @@ export const PartsDashboard: React.FC = () => {
                         <button
                           id={`increment-stock-${item.id}`}
                           onClick={() => handleAdjustStock(item.id, 1)}
-                          className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          className="p-1 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60 cursor-pointer"
                           title="Increase stock"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -156,7 +151,7 @@ export const PartsDashboard: React.FC = () => {
                         <button
                           id={`reorder-stock-${item.id}`}
                           onClick={() => handleTriggerReorder(item.name)}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs"
+                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#FF6B00] hover:bg-[#E56000] text-white transition-colors cursor-pointer"
                         >
                           Reorder
                         </button>

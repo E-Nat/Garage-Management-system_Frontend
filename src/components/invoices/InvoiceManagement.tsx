@@ -116,7 +116,7 @@ export const InvoiceManagement: React.FC = () => {
             <button
               id="download-invoice-pdf-btn"
               onClick={handlePrintPDF}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs"
+              className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Download PDF</span>
@@ -139,7 +139,7 @@ export const InvoiceManagement: React.FC = () => {
                       className="h-10 max-w-32 object-contain rounded-lg border border-slate-200"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                    <div className="w-8 h-8 rounded-lg bg-[#FF6B00] text-white flex items-center justify-center font-bold text-sm">
                       {garageInfo.garageName ? garageInfo.garageName.charAt(0) : 'A'}
                     </div>
                   )}
@@ -509,7 +509,7 @@ export const InvoiceManagement: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search invoice, customer, vehicle..."
-                  className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-none transition-colors"
+                  className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none transition-colors"
                 />
               </div>
 
@@ -520,7 +520,7 @@ export const InvoiceManagement: React.FC = () => {
                   id="invoice-date-filter-select"
                   value={dateRangeFilter}
                   onChange={(e) => setDateRangeFilter(e.target.value)}
-                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 >
                   <option value="all">All Dates</option>
                   <option value="today">Today</option>
@@ -552,7 +552,7 @@ export const InvoiceManagement: React.FC = () => {
                   id="invoice-payment-method-filter-select"
                   value={paymentMethodFilter}
                   onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 >
                   <option value="all">All Payment Methods</option>
                   {paymentMethods.map((pm) => (
@@ -567,7 +567,7 @@ export const InvoiceManagement: React.FC = () => {
                   id="invoice-status-filter-select"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-slate-900 outline-none"
+                  className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                 >
                   <option value="all">All Statuses</option>
                   <option value="paid">Paid</option>

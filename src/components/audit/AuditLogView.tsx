@@ -142,7 +142,7 @@ export const AuditLogView: React.FC = () => {
               placeholder="Search by user, reference (e.g. RO-2026-0481), action, description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:border-slate-900 transition"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] transition"
             />
             {searchQuery && (
               <button
@@ -243,7 +243,7 @@ export const AuditLogView: React.FC = () => {
                           e.stopPropagation();
                           setSelectedLog(log);
                         }}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 font-bold rounded-lg text-[11px] inline-flex items-center gap-1.5 transition"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-[#FF6B00] hover:text-white text-slate-700 font-bold rounded-lg text-[11px] inline-flex items-center gap-1.5 transition cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>View Details</span>
@@ -371,7 +371,7 @@ export const AuditLogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedLog(null)}
-                className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs transition"
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-xl text-xs transition cursor-pointer"
               >
                 Close
               </button>

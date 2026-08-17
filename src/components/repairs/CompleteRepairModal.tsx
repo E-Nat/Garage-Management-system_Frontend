@@ -384,9 +384,9 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                   <button
                     type="button"
                     onClick={handleAddService}
-                    className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1"
+                    className="w-full py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <Plus className="w-3.5 h-3.5 text-white" />
                     <span>Add Service</span>
                   </button>
                 </div>
@@ -406,9 +406,9 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setPartSource('garage')}
-                    className={`px-2 py-0.5 font-bold rounded transition ${
+                    className={`px-2 py-0.5 font-bold rounded transition cursor-pointer ${
                       partSource === 'garage'
-                        ? 'bg-slate-900 text-white'
+                        ? 'bg-[#FF6B00] text-white'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -417,7 +417,7 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setPartSource('customer')}
-                    className={`px-2 py-0.5 font-bold rounded transition ${
+                    className={`px-2 py-0.5 font-bold rounded transition cursor-pointer ${
                       partSource === 'customer'
                         ? 'bg-purple-700 text-white'
                         : 'text-slate-600 hover:text-slate-900'
@@ -467,9 +467,9 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                   <button
                     type="button"
                     onClick={handleAddPart}
-                    className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1"
+                    className="w-full py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <Plus className="w-3.5 h-3.5 text-white" />
                     <span>Add Part</span>
                   </button>
                 </div>
@@ -671,7 +671,7 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
               <button
                 type="button"
                 onClick={handleProceedToConfirm}
-                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition"
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition cursor-pointer"
               >
                 Proceed to Complete Repair
               </button>

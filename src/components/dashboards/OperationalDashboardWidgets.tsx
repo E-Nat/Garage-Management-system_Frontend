@@ -216,7 +216,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
                 onClick={() => handlePresetSelect(preset)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-slate-900 text-white font-semibold'
+                    ? 'bg-[#FF6B00] text-white font-semibold shadow-xs'
                     : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
                 }`}
               >
@@ -480,7 +480,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
             </div>
             <button
               onClick={() => setActiveTab('invoices')}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-sm"
+              className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-medium rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-sm"
             >
               <Receipt className="w-3.5 h-3.5" />
               <span>View Invoices</span>

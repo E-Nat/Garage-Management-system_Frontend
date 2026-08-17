@@ -105,7 +105,7 @@ export const ReassignMechanicModal: React.FC<ReassignMechanicModalProps> = ({
                 setNewMechanicId(e.target.value);
                 setErrorMsg(null);
               }}
-              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:border-slate-900 outline-hidden"
+              className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
               required
             >
               <option value="">-- Select Mechanic --</option>
@@ -146,9 +146,9 @@ export const ReassignMechanicModal: React.FC<ReassignMechanicModalProps> = ({
               id="confirm-reassign-btn"
               type="submit"
               disabled={!newMechanicId}
-              className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
+              className="px-4 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
               <span>Confirm Change</span>
             </button>
           </div>

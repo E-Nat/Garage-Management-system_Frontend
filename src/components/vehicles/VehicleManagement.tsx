@@ -253,9 +253,9 @@ export const VehicleManagement: React.FC = () => {
         <button
           id="register-vehicle-btn"
           onClick={handleOpenRegisterModal}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0"
+          className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-emerald-400" />
+          <Plus className="w-4 h-4 text-white" />
           <span>Register Vehicle</span>
         </button>
       </div>
@@ -272,7 +272,7 @@ export const VehicleManagement: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by plate number, brand, model, owner..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:border-slate-900"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
             />
           </div>
 
@@ -671,7 +671,7 @@ export const VehicleManagement: React.FC = () => {
                       customerName: cust ? cust.fullName : '',
                     });
                   }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   required
                 >
                   <option value="">-- Select Owner --</option>
@@ -697,7 +697,7 @@ export const VehicleManagement: React.FC = () => {
                       setFormData({ ...formData, plateNumber: e.target.value.toUpperCase() })
                     }
                     placeholder="e.g. 7XYZ890"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
                 </div>
@@ -714,7 +714,7 @@ export const VehicleManagement: React.FC = () => {
                       setFormData({ ...formData, vin: e.target.value.toUpperCase() })
                     }
                     placeholder="17-Digit VIN"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
                 </div>
               </div>
@@ -731,7 +731,7 @@ export const VehicleManagement: React.FC = () => {
                     value={formData.brand}
                     onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                     placeholder="Toyota"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
                 </div>
@@ -746,7 +746,7 @@ export const VehicleManagement: React.FC = () => {
                     value={formData.model}
                     onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                     placeholder="Camry"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
                 </div>
@@ -760,7 +760,7 @@ export const VehicleManagement: React.FC = () => {
                     type="number"
                     value={formData.year}
                     onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
                 </div>
               </div>
@@ -777,7 +777,7 @@ export const VehicleManagement: React.FC = () => {
                     value={formData.color}
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                     placeholder="Silver"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
                 </div>
 
@@ -790,7 +790,7 @@ export const VehicleManagement: React.FC = () => {
                     type="number"
                     value={formData.mileage}
                     onChange={(e) => setFormData({ ...formData, mileage: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:bg-white focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
                 </div>
@@ -809,7 +809,7 @@ export const VehicleManagement: React.FC = () => {
                 <button
                   id="submit-vehicle-form-btn"
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition"
+                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg shadow-xs transition cursor-pointer"
                 >
                   {editingVehicle ? 'Save Changes' : 'Register Vehicle'}
                 </button>

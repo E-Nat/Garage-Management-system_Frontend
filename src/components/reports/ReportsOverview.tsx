@@ -183,7 +183,7 @@ export const ReportsOverview: React.FC = () => {
               onClick={() => handleApplyQuickRange(item.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                 quickRange === item.id
-                  ? 'bg-slate-900 text-white shadow-xs'
+                  ? 'bg-[#FF6B00] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -201,7 +201,7 @@ export const ReportsOverview: React.FC = () => {
               setStartDate(e.target.value);
               setQuickRange('custom');
             }}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs outline-hidden focus:border-slate-900"
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs outline-hidden focus:border-[#FF6B00]"
           />
           <span className="text-slate-400 font-bold">to</span>
           <input
@@ -211,7 +211,7 @@ export const ReportsOverview: React.FC = () => {
               setEndDate(e.target.value);
               setQuickRange('custom');
             }}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs outline-hidden focus:border-slate-900"
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs outline-hidden focus:border-[#FF6B00]"
           />
         </div>
       </div>
@@ -232,7 +232,7 @@ export const ReportsOverview: React.FC = () => {
               onClick={() => setActiveTab(tab.id as ReportTab)}
               className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
                 isActive
-                  ? 'bg-slate-900 text-white shadow-sm'
+                  ? 'bg-[#FF6B00] text-white shadow-sm'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
             >

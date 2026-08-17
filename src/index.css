@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #FF6B00;
+  --color-primary-hover: #E56000;
+  --color-primary-light: #FFF1E8;
+  --color-dark-text: #172033;
+  --color-secondary-text: #64748B;
+  --color-app-bg: #F8FAFC;
+  --color-card-bg: #FFFFFF;
+  --color-app-border: #E5E7EB;
+}
+
+:root {
+  --primary: #FF6B00;
+  --primary-hover: #E56000;
+  --primary-light: #FFF1E8;
+  --dark-text: #172033;
+  --secondary-text: #64748B;
+  --app-bg: #F8FAFC;
+  --card-bg: #FFFFFF;
+  --app-border: #E5E7EB;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--dark-text);
+}
+

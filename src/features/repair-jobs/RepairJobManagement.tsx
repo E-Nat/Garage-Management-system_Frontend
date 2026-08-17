@@ -1,201 +1,237 @@
 import React, { useState } from 'react';
 import { useGarage } from '../../context/GarageContext';
+import { useAuth } from '../../context/AuthContext';
 import { RepairJob } from '../../types';
 import {
-  Wrench,
   Plus,
   Search,
-  Eye,
-  Send,
-  User,
-  Car,
-  Calendar,
-  DollarSign,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  XCircle,
-  Phone,
 } from 'lucide-react';
 import { NewRepairJobModal } from './NewRepairJobModal';
 import { RepairJobDetailModal } from './RepairJobDetailModal';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { JobTypeBadge } from '../../components/common/JobTypeBadge';
 
 export const RepairJobManagement: React.FC = () => {
-  const { repairJobs } = useGarage();
+  const { repairJobs, invoices, paymentRecords } = useGarage();
+  const { users } = useAuth();
 
+  const mechanicsList = users.filter((u) => u.role === 'mechanic');
+
+  // Filter States
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
-  const [notifiedToast, setNotifiedToast] = useState<string | null>(null);
+  const [jobTypeFilter, setJobTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    return sessionStorage.getItem('repair_job_status_filter') || 'all';
+  });
+  const [mechanicFilter, setMechanicFilter] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
+  React.useEffect(() => {
+    const saved = sessionStorage.getItem('repair_job_status_filter');
+    if (saved) {
+      setStatusFilter(saved);
+      sessionStorage.removeItem('repair_job_status_filter');
+    }
+  }, []);
 
   // Modals state
   const [isNewJobModalOpen, setIsNewJobModalOpen] = useState(false);
   const [selectedJobForDetail, setSelectedJobForDetail] = useState<RepairJob | null>(null);
 
-  const handleNotifyTelegram = (e: React.MouseEvent, jobId: string, customerName: string) => {
-    e.stopPropagation();
-    setNotifiedToast(`Telegram notification sent to ${customerName}!`);
-    setTimeout(() => setNotifiedToast(null), 3000);
-  };
-
   const filteredJobs = repairJobs.filter((j) => {
-    const term = searchTerm.toLowerCase();
+    // 1. Search term - primary search by Customer Name (and phone/plate helper)
+    const term = searchTerm.toLowerCase().trim();
     const matchesSearch =
-      j.jobNumber.toLowerCase().includes(term) ||
+      !term ||
       j.customerName.toLowerCase().includes(term) ||
-      j.vehicleMake.toLowerCase().includes(term) ||
-      j.vehicleModel.toLowerCase().includes(term) ||
-      j.licensePlate.toLowerCase().includes(term) ||
-      (j.assignedMechanicName && j.assignedMechanicName.toLowerCase().includes(term));
+      (j.customerPhone && j.customerPhone.toLowerCase().includes(term)) ||
+      j.jobNumber.toLowerCase().includes(term);
 
+    // 2. Job Type filter
+    const matchesJobType =
+      jobTypeFilter === 'all' || j.jobType === jobTypeFilter;
+
+    // 3. Status filter
     const matchesStatus =
-      selectedStatusFilter === 'all' || j.status === selectedStatusFilter;
+      statusFilter === 'all' || j.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    // 4. Mechanic filter
+    const matchesMechanic =
+      mechanicFilter === 'all'
+        ? true
+        : mechanicFilter === 'unassigned'
+        ? !j.assignedMechanicId
+        : j.assignedMechanicId === mechanicFilter;
+
+    // 5. Date range filter
+    const jobDate = j.serviceDate || j.receivedDate || j.entryDate || '';
+    const matchesStartDate = !startDate || jobDate >= startDate;
+    const matchesEndDate = !endDate || jobDate <= endDate;
+
+    return (
+      matchesSearch &&
+      matchesJobType &&
+      matchesStatus &&
+      matchesMechanic &&
+      matchesStartDate &&
+      matchesEndDate
+    );
   });
-
-  const getStatusBadge = (status: RepairJob['status']) => {
-    switch (status) {
-      case 'pending_inspection':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-            Pending Inspection
-          </span>
-        );
-      case 'waiting_approval':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
-            <Clock className="w-3 h-3 text-indigo-600" />
-            Waiting Approval
-          </span>
-        );
-      case 'in_progress':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 border border-sky-200">
-            <Wrench className="w-3 h-3 text-sky-600" />
-            In Progress
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-            Completed
-          </span>
-        );
-      case 'delivered':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800 border border-teal-200">
-            <CheckCircle2 className="w-3 h-3 text-teal-600" />
-            Delivered
-          </span>
-        );
-      case 'declined':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200">
-            <XCircle className="w-3 h-3 text-rose-600" />
-            Declined
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 capitalize">
-            {String(status).replace('_', ' ')}
-          </span>
-        );
-    }
-  };
 
   return (
     <div className="space-y-6 text-slate-900">
       {/* Header Bar */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Repair Jobs</h1>
+          <h1 className="text-xl font-bold text-slate-900">Jobs</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage vehicle inspections, repairs, approvals, and job status.
+            Manage Service and Repair jobs, track progress, inspect vehicles, and record payments.
           </p>
         </div>
 
         <button
-          id="create-repair-job-btn-feat"
+          id="create-job-btn"
           onClick={() => setIsNewJobModalOpen(true)}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0"
+          className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-emerald-400" />
-          <span>Create Repair Job</span>
+          <Plus className="w-4 h-4 text-white" />
+          <span>Create Job</span>
         </button>
       </div>
 
-      {notifiedToast && (
-        <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-medium flex items-center gap-2 animate-fade-in">
-          <Send className="w-4 h-4 text-emerald-600" />
-          <span>{notifiedToast}</span>
-        </div>
-      )}
-
-      {/* Main Repair Jobs List */}
+      {/* Main Jobs List Card */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-        {/* Controls Header */}
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search job ID, customer, vehicle, plate, mechanic..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-slate-900"
-            />
-          </div>
+        {/* Filter Controls Bar above the table */}
+        <div className="p-4 border-b border-slate-200 bg-slate-50/60 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+            {/* Search Input - Primary search by customer name */}
+            <div className="relative md:col-span-2">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+              <input
+                id="search-jobs-input"
+                type="text"
+                placeholder="Search by customer name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
+              />
+            </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-            {[
-              { id: 'all', label: 'All Jobs' },
-              { id: 'pending_inspection', label: 'Pending Inspection' },
-              { id: 'waiting_approval', label: 'Waiting Approval' },
-              { id: 'in_progress', label: 'In Progress' },
-              { id: 'completed', label: 'Completed' },
-              { id: 'delivered', label: 'Delivered' },
-              { id: 'declined', label: 'Declined' },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setSelectedStatusFilter(f.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition shrink-0 ${
-                  selectedStatusFilter === f.id
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
+            {/* Job Type Dropdown */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Job Type
+              </label>
+              <select
+                id="filter-job-type-select"
+                value={jobTypeFilter}
+                onChange={(e) => setJobTypeFilter(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] font-medium"
               >
-                {f.label}
-              </button>
-            ))}
+                <option value="all">All Types</option>
+                <option value="service">Service</option>
+                <option value="repair">Repair</option>
+              </select>
+            </div>
+
+            {/* Status Dropdown */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Status
+              </label>
+              <select
+                id="filter-status-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] font-medium"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending_inspection">Pending Inspection</option>
+                <option value="waiting_approval">Waiting Approval</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="delivered">Delivered</option>
+                <option value="declined">Declined</option>
+              </select>
+            </div>
+
+            {/* Mechanic Dropdown */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Mechanic
+              </label>
+              <select
+                id="filter-mechanic-select"
+                value={mechanicFilter}
+                onChange={(e) => setMechanicFilter(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] font-medium"
+              >
+                <option value="all">All Mechanics</option>
+                <option value="unassigned">Unassigned</option>
+                {mechanicsList.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Range Inputs */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Date Range
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-1/2 px-1.5 py-1 bg-white border border-slate-200 rounded text-[11px] font-mono text-slate-900 focus:outline-hidden"
+                  title="Start Date"
+                />
+                <span className="text-slate-400 text-xs">-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-1/2 px-1.5 py-1 bg-white border border-slate-200 rounded text-[11px] font-mono text-slate-900 focus:outline-hidden"
+                  title="End Date"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Jobs Table */}
+        {/* Data Table: Columns as plain text headers, rows as plain text rows */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                 <th className="py-3 px-4">Job ID</th>
+                <th className="py-3 px-4">Job Type</th>
                 <th className="py-3 px-4">Customer</th>
                 <th className="py-3 px-4">Vehicle</th>
-                <th className="py-3 px-4">Mechanic</th>
-                <th className="py-3 px-4">Received Date</th>
+                <th className="py-3 px-4">Assigned Mechanic</th>
+                <th className="py-3 px-4">Service Date</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Total Cost</th>
-                <th className="py-3 px-4 text-center">Actions</th>
+                <th className="py-3 px-4 text-right">Total Cost & Payment</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredJobs.length > 0 ? (
                 filteredJobs.map((job) => {
+                  const isService = job.jobType === 'service';
+                  const jobPayments = paymentRecords.filter((p) => p.repairJobId === job.id || p.jobId === job.id);
+                  const existingInvoice = invoices.find((i) => i.repairJobId === job.id || i.jobId === job.id);
+                  const isPaid = jobPayments.length > 0 || existingInvoice?.status === 'paid' || (existingInvoice?.totalPaid || 0) > 0;
+
                   const calculatedTotal =
+                    existingInvoice?.totalAmount ||
                     job.totalRepairCost ||
                     (job.inspectionFee || 0) +
-                      (job.partsUsed?.reduce((sum, p) => sum + p.unitPrice * p.quantity, 0) || 0) +
+                      (job.partsUsed?.reduce((sum, p) => sum + (p.isCustomerProvided ? 0 : p.unitPrice * p.quantity), 0) || 0) +
+                      (job.servicesPerformed?.reduce((sum, s) => sum + (s.totalPrice || s.unitPrice * s.quantity), 0) || 0) +
                       (job.laborCost || 0) ||
                     job.estimatedCost ||
                     0;
@@ -204,60 +240,42 @@ export const RepairJobManagement: React.FC = () => {
                     <tr
                       key={job.id}
                       onClick={() => setSelectedJobForDetail(job)}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                     >
-                      <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
                         {job.jobNumber}
                       </td>
 
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900">{job.customerName}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">{job.customerPhone}</div>
+                      <td className="py-3.5 px-4">
+                        <JobTypeBadge type={job.jobType === 'repair' ? 'Repair' : 'Service'} />
                       </td>
 
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-900">
-                          {job.vehicleMake} {job.vehicleModel}
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono">
-                          Plate: {job.licensePlate}
-                        </div>
+                      <td className="py-3.5 px-4 font-medium text-slate-900">
+                        {job.customerName}
                       </td>
 
-                      <td className="py-3 px-4 font-medium text-slate-700">
-                        {job.assignedMechanicName ? (
-                          <span className="flex items-center gap-1.5">
-                            <Wrench className="w-3 h-3 text-slate-400" />
-                            {job.assignedMechanicName}
+                      <td className="py-3.5 px-4 text-slate-800">
+                        {job.vehicleMake} {job.vehicleModel} ({job.licensePlate})
+                      </td>
+
+                      <td className="py-3.5 px-4 text-slate-700">
+                        {job.assignedMechanicName || <span className="text-slate-400 italic">Unassigned</span>}
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono text-slate-600">
+                        {job.serviceDate || job.receivedDate || job.entryDate}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <StatusBadge status={job.status} />
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="font-mono font-bold text-slate-900">
+                            ${calculatedTotal.toFixed(2)}
                           </span>
-                        ) : (
-                          <span className="text-slate-400 italic">Unassigned</span>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-4 font-mono text-slate-600">
-                        {job.receivedDate || job.entryDate}
-                      </td>
-
-                      <td className="py-3 px-4">{getStatusBadge(job.status)}</td>
-
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                        {job.status === 'pending_inspection' ? (
-                          <span className="text-slate-400 font-normal italic">Pending Inspection</span>
-                        ) : (
-                          `$${(calculatedTotal || 0).toFixed(2)}`
-                        )}
-                      </td>
-
-                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center">
-                          <button
-                            onClick={() => setSelectedJobForDetail(job)}
-                            className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition shadow-2xs flex items-center gap-1.5"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-slate-500" />
-                            <span>View Details</span>
-                          </button>
+                          <StatusBadge status={isPaid ? 'Paid' : 'Unpaid'} />
                         </div>
                       </td>
                     </tr>
@@ -266,12 +284,9 @@ export const RepairJobManagement: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
-                    <Wrench className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="font-semibold text-slate-600">No repair jobs found</p>
+                    <p className="font-semibold text-slate-600">No jobs found</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {searchTerm || selectedStatusFilter !== 'all'
-                        ? 'Try clearing your search query or filters.'
-                        : 'Click "Create Repair Job" above to register a new repair intake.'}
+                      Try adjusting your search criteria or filter options.
                     </p>
                   </td>
                 </tr>
@@ -281,15 +296,20 @@ export const RepairJobManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Create New Repair Job Modal */}
+      {/* Create New Job Modal */}
       {isNewJobModalOpen && (
         <NewRepairJobModal
           isOpen={isNewJobModalOpen}
           onClose={() => setIsNewJobModalOpen(false)}
+          onSuccess={(createdJob) => {
+            setIsNewJobModalOpen(false);
+            // Navigate straight to created job's detail page
+            setSelectedJobForDetail(createdJob);
+          }}
         />
       )}
 
-      {/* Repair Job Detail Modal */}
+      {/* Job Detail Modal */}
       {selectedJobForDetail && (
         <RepairJobDetailModal
           job={selectedJobForDetail}

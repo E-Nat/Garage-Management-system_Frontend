@@ -266,7 +266,7 @@ export const UserManagement: React.FC = () => {
         <button
           id="add-user-btn"
           onClick={handleOpenAddModal}
-          className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-2xl text-xs flex items-center gap-2 shadow-xs transition shrink-0"
+          className="px-5 py-3 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-2xl text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
         >
           <UserPlus className="w-4 h-4 stroke-[2.5]" />
           <span>Provision New User</span>
@@ -285,7 +285,7 @@ export const UserManagement: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search user by name, email, or phone..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
             />
           </div>
 
@@ -295,7 +295,7 @@ export const UserManagement: React.FC = () => {
               id="filter-role-select"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+              className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
             >
               <option value="all">Filter: All System Roles</option>
               <option value="admin">Admin / Garage Owner</option>
@@ -312,7 +312,7 @@ export const UserManagement: React.FC = () => {
               id="filter-status-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+              className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
             >
               <option value="all">Filter: All Account Statuses</option>
               <option value="active">Active Only</option>
@@ -348,7 +348,7 @@ export const UserManagement: React.FC = () => {
                   <tr key={user.id} className="hover:bg-slate-50 transition">
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold flex items-center justify-center text-sm shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-[#FF6B00] text-white font-bold flex items-center justify-center text-sm shrink-0">
                           {user.name.charAt(0)}
                         </div>
                         <div>
@@ -511,7 +511,7 @@ export const UserManagement: React.FC = () => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. David Miller"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   required
                 />
               </div>
@@ -527,7 +527,7 @@ export const UserManagement: React.FC = () => {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="name@apexgarage.com"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
                 </div>
@@ -544,7 +544,7 @@ export const UserManagement: React.FC = () => {
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="••••••••••••"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                       required
                     />
                   </div>
@@ -567,7 +567,7 @@ export const UserManagement: React.FC = () => {
                     id="user-modal-role-select"
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   >
                     <option value="admin">Admin / Garage Owner</option>
                     <option value="advisor">Service Advisor</option>
@@ -598,7 +598,7 @@ export const UserManagement: React.FC = () => {
                       id="user-modal-status-select"
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as UserStatus })}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     >
                       <option value="active">Active</option>
                       <option value="deactivated">Deactivated</option>
@@ -620,7 +620,7 @@ export const UserManagement: React.FC = () => {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+1 (555) 000-0000"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
                 </div>
 
@@ -634,7 +634,7 @@ export const UserManagement: React.FC = () => {
                     value={formData.telegramHandle}
                     onChange={(e) => setFormData({ ...formData, telegramHandle: e.target.value })}
                     placeholder="@handle"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
                 </div>
               </div>
@@ -651,7 +651,7 @@ export const UserManagement: React.FC = () => {
                 <button
                   id="submit-user-modal-btn"
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition"
+                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer"
                 >
                   {editingUser ? 'Save Updates' : 'Provision Account'}
                 </button>
@@ -708,7 +708,7 @@ export const UserManagement: React.FC = () => {
                   value={resetPassData.newPassword}
                   onChange={(e) => setResetPassData({ ...resetPassData, newPassword: e.target.value })}
                   placeholder="Min 6 characters"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
                   required
                 />
               </div>
@@ -723,7 +723,7 @@ export const UserManagement: React.FC = () => {
                   value={resetPassData.confirmPassword}
                   onChange={(e) => setResetPassData({ ...resetPassData, confirmPassword: e.target.value })}
                   placeholder="Re-enter password"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
                   required
                 />
               </div>
@@ -740,7 +740,7 @@ export const UserManagement: React.FC = () => {
                 <button
                   id="submit-admin-reset-btn"
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition"
+                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer"
                 >
                   Reset Password
                 </button>

@@ -89,7 +89,7 @@ export const CustomerDashboard: React.FC = () => {
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs mb-2 transition-all ${
                       isCurrent
-                        ? 'bg-slate-900 text-white ring-2 ring-slate-200'
+                        ? 'bg-[#FF6B00] text-white ring-2 ring-[#FFF1E8]'
                         : isPassed
                         ? 'bg-emerald-600 text-white'
                         : 'bg-slate-100 text-slate-400'

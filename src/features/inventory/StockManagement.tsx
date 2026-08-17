@@ -1,1059 +1,618 @@
 import React, { useState } from 'react';
 import { useGarage } from '../../context/GarageContext';
 import { useAuth } from '../../context/AuthContext';
-import { InventoryItem } from '../../types';
 import {
   Package,
-  Plus,
   Sliders,
   History,
   CheckCircle2,
-  AlertTriangle,
-  Boxes,
-  X,
   Search,
-  Filter,
-  Edit2,
-  Trash2,
-  Eye,
-  Tag,
-  DollarSign,
-  MapPin,
-  TrendingUp,
-  TrendingDown,
-  Layers,
+  Plus,
+  Minus,
+  Download,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 export const StockManagement: React.FC = () => {
   const { currentUser } = useAuth();
-  const {
-    inventory,
-    stockTransactions,
-    adjustStockQuantity,
-    addInventoryItem,
-    updateInventoryItem,
-    deleteInventoryItem,
-  } = useGarage();
+  const { inventory, stockTransactions, adjustStockQuantity } = useGarage();
 
-  const [activeSubTab, setActiveSubTab] = useState<'catalog' | 'stock_in' | 'adjust' | 'history'>('catalog');
-  
-  // Search & Filters for Catalog
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deactivated' | 'low_stock'>('all');
+  const [activeSubTab, setActiveSubTab] = useState<'stock_in' | 'adjust' | 'history'>('stock_in');
 
-  // Stock In / Adjust state
-  const [selectedPartId, setSelectedPartId] = useState(inventory[0]?.id || '');
-  const [quantity, setQuantity] = useState(1);
-  const [reason, setReason] = useState('New Shipment Supplier Restock');
-  const [supplierName, setSupplierName] = useState('');
+  // Today's Date String YYYY-MM-DD
+  const todayStr = new Date().toISOString().substring(0, 10);
 
-  // History Filter
-  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'stock_in' | 'usage' | 'adjustment'>('all');
+  // Stock In Form State (Item, Quantity, Date, Remarks)
+  const [stockInItemId, setStockInItemId] = useState(inventory[0]?.id || '');
+  const [stockInQty, setStockInQty] = useState(1);
+  const [stockInDate, setStockInDate] = useState(todayStr);
+  const [stockInRemarks, setStockInRemarks] = useState('');
+
+  // Stock Adjustment Form State (Item, Increase/Decrease, Quantity, Reason, Date, Remarks)
+  const [adjustItemId, setAdjustItemId] = useState(inventory[0]?.id || '');
+  const [adjustDirection, setAdjustDirection] = useState<'increase' | 'decrease'>('increase');
+  const [adjustQty, setAdjustQty] = useState(1);
+  const [adjustReason, setAdjustReason] = useState('Physical Count Audit');
+  const [adjustDate, setAdjustDate] = useState(todayStr);
+  const [adjustRemarks, setAdjustRemarks] = useState('');
+
+  // Stock History Filters
   const [historySearch, setHistorySearch] = useState('');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'stock_in' | 'adjustment' | 'usage'>('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Modals state
-  const [isNewPartModalOpen, setIsNewPartModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
-
-  // Form State for Create / Edit
-  const [itemFormData, setItemFormData] = useState({
-    partNumber: '',
-    name: '',
-    category: 'Braking System',
-    brand: 'OEM',
-    unit: 'Pcs',
-    unitPrice: 100,
-    stock: 10,
-    minStock: 5,
-    location: 'Warehouse Bay A',
-    status: 'active' as 'active' | 'deactivated',
-  });
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const openCreateModal = () => {
-    setItemFormData({
-      partNumber: '',
-      name: '',
-      category: 'Braking System',
-      brand: 'Brembo',
-      unit: 'Pcs',
-      unitPrice: 120,
-      stock: 10,
-      minStock: 5,
-      location: 'Bay A - Shelf 1',
-      status: 'active',
-    });
-    setIsNewPartModalOpen(true);
-  };
-
-  const openEditModal = (item: InventoryItem) => {
-    setEditingItem(item);
-    setItemFormData({
-      partNumber: item.partNumber,
-      name: item.name,
-      category: item.category,
-      brand: item.brand || '',
-      unit: item.unit || 'Pcs',
-      unitPrice: item.unitPrice,
-      stock: item.stock,
-      minStock: item.minStock,
-      location: item.location || '',
-      status: item.status || 'active',
-    });
-  };
-
-  const handleCreatePart = (e: React.FormEvent) => {
+  // Handle Stock In Submit
+  const handleStockInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!itemFormData.partNumber || !itemFormData.name) return;
+    if (!stockInItemId) return;
+    const qty = Math.abs(Number(stockInQty));
+    if (qty <= 0) return;
 
-    addInventoryItem(itemFormData);
-    showToast(`New spare part "${itemFormData.name}" added to catalog!`);
-    setIsNewPartModalOpen(false);
-  };
-
-  const handleUpdatePart = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingItem) return;
-
-    updateInventoryItem(editingItem.id, itemFormData);
-    showToast(`Part details for "${itemFormData.name}" updated successfully!`);
-    setEditingItem(null);
-  };
-
-  const handleDeletePart = (item: InventoryItem) => {
-    if (window.confirm(`Are you sure you want to deactivate "${item.name}"?`)) {
-      deleteInventoryItem(item.id);
-      showToast(`Part "${item.name}" set to Deactivated.`);
-    }
-  };
-
-  const handleStockAction = (e: React.FormEvent, type: 'stock_in' | 'adjustment') => {
-    e.preventDefault();
-    if (!selectedPartId) return;
-
-    const delta = type === 'stock_in' ? Math.abs(quantity) : quantity;
     const res = adjustStockQuantity(
-      selectedPartId,
-      delta,
-      type,
-      reason,
+      stockInItemId,
+      qty,
+      'stock_in',
+      stockInRemarks || 'Stock In receiving',
       currentUser?.name || 'Staff User',
-      supplierName
+      stockInRemarks
     );
 
     if (res.success) {
-      const p = inventory.find((x) => x.id === selectedPartId);
-      showToast(`Stock updated for ${p?.name || 'Item'}. Recorded ${type === 'stock_in' ? 'Stock In' : 'Adjustment'} of ${delta > 0 ? '+' : ''}${delta}.`);
-      setQuantity(1);
+      const item = inventory.find((i) => i.id === stockInItemId);
+      showToast(`Logged Stock In: +${qty} for ${item?.name || 'Item'}`);
+      setStockInQty(1);
+      setStockInRemarks('');
     } else {
       alert(res.error);
     }
   };
 
-  // Filter Catalog
-  const categories = Array.from(new Set(inventory.map((i) => i.category)));
-  const filteredCatalog = inventory.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.brand && item.brand.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Handle Stock Adjustment Submit
+  const handleStockAdjustmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustItemId) return;
+    const qtyVal = Math.abs(Number(adjustQty));
+    if (qtyVal <= 0) return;
 
-    const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+    const delta = adjustDirection === 'increase' ? qtyVal : -qtyVal;
+    const combinedReason = adjustRemarks.trim()
+      ? `${adjustReason} - ${adjustRemarks.trim()}`
+      : adjustReason;
 
-    let matchesStatus = true;
-    if (statusFilter === 'active') matchesStatus = item.status !== 'deactivated';
-    else if (statusFilter === 'deactivated') matchesStatus = item.status === 'deactivated';
-    else if (statusFilter === 'low_stock') matchesStatus = item.stock <= item.minStock;
+    const res = adjustStockQuantity(
+      adjustItemId,
+      delta,
+      'adjustment',
+      `${combinedReason} (Date: ${adjustDate})`,
+      currentUser?.name || 'Staff User'
+    );
 
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+    if (res.success) {
+      const item = inventory.find((i) => i.id === adjustItemId);
+      showToast(
+        `Stock Adjustment recorded for ${item?.name || 'Item'}: ${delta > 0 ? '+' : ''}${delta}`
+      );
+      setAdjustQty(1);
+      setAdjustRemarks('');
+    } else {
+      alert(res.error);
+    }
+  };
 
-  // Filter Transactions History
-  const filteredTransactions = stockTransactions.filter((tx) => {
+  // Filter History with Date Range
+  const filteredHistory = stockTransactions.filter((tx) => {
     const matchesType = historyTypeFilter === 'all' || tx.type === historyTypeFilter;
+    const term = historySearch.toLowerCase();
     const matchesSearch =
-      tx.partName.toLowerCase().includes(historySearch.toLowerCase()) ||
-      tx.partNumber.toLowerCase().includes(historySearch.toLowerCase()) ||
-      tx.reason.toLowerCase().includes(historySearch.toLowerCase());
-    return matchesType && matchesSearch;
+      tx.partName.toLowerCase().includes(term) ||
+      tx.partNumber.toLowerCase().includes(term) ||
+      (tx.reason && tx.reason.toLowerCase().includes(term));
+
+    let matchesDate = true;
+    const txDate = tx.timestamp.substring(0, 10);
+
+    if (dateRangeFilter === 'today') {
+      matchesDate = txDate === todayStr;
+    } else if (dateRangeFilter === 'past_7_days') {
+      const past7 = new Date();
+      past7.setDate(past7.getDate() - 7);
+      const past7Str = past7.toISOString().substring(0, 10);
+      matchesDate = txDate >= past7Str;
+    } else if (dateRangeFilter === 'this_month') {
+      matchesDate = txDate.substring(0, 7) === todayStr.substring(0, 7);
+    } else if (dateRangeFilter === 'custom') {
+      if (customStartDate && txDate < customStartDate) matchesDate = false;
+      if (customEndDate && txDate > customEndDate) matchesDate = false;
+    }
+
+    return matchesType && matchesSearch && matchesDate;
   });
+
+  // Export to Excel / CSV
+  const handleExportToExcel = () => {
+    if (filteredHistory.length === 0) {
+      alert('No rows available to export.');
+      return;
+    }
+
+    const headers = ['Item', 'Part Number', 'Movement Type', 'Quantity', 'Date & Time', 'Reason / Remarks', 'Recorded By'];
+    const rows = filteredHistory.map((tx) => {
+      const typeLabel =
+        tx.type === 'stock_in'
+          ? 'Stock In'
+          : tx.type === 'usage'
+          ? 'Usage'
+          : 'Adjustment';
+      const qtyStr = tx.quantity > 0 ? `+${tx.quantity}` : `${tx.quantity}`;
+      const reasonStr = [tx.reason, tx.supplier ? `Ref: ${tx.supplier}` : ''].filter(Boolean).join(' | ');
+
+      return [
+        `"${(tx.partName || '').replace(/"/g, '""')}"`,
+        `"${(tx.partNumber || '').replace(/"/g, '""')}"`,
+        `"${typeLabel}"`,
+        `"${qtyStr}"`,
+        `"${tx.timestamp}"`,
+        `"${reasonStr.replace(/"/g, '""')}"`,
+        `"${(tx.performedBy || '').replace(/"/g, '""')}"`,
+      ];
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Stock_History_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Exported filtered stock records to Excel (CSV).');
+  };
 
   return (
-    <div className="space-y-6 text-slate-900">
-      {/* Toast Notification */}
+    <div className="space-y-6 text-slate-900 font-sans">
+      {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 bg-slate-900 text-white border border-slate-700 rounded-2xl shadow-xl flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-xs font-semibold">{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl flex items-center gap-2 text-xs font-semibold">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Header Banner */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 text-slate-900 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold mb-2">
-            <Boxes className="w-3.5 h-3.5 text-slate-900" />
-            Parts Inventory & Stock Control
-          </div>
-          <h1 className="text-2xl font-bold">Items & Stock Management</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Manage spare parts catalog, log incoming shipments, perform physical count adjustments, and track stock deductions.
-          </p>
-        </div>
-
-        <button
-          id="add-item-btn"
-          onClick={openCreateModal}
-          className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-2xl text-xs flex items-center gap-2 shadow-xs transition shrink-0"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Add New Spare Part</span>
-        </button>
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-xl font-bold text-slate-900">Stock</h1>
       </div>
 
-      {/* Main Navigation Tabs */}
+      {/* Sub Tabs */}
       <div className="flex border-b border-slate-200 space-x-4 overflow-x-auto">
-        <button
-          id="tab-catalog"
-          onClick={() => setActiveSubTab('catalog')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
-            activeSubTab === 'catalog'
-              ? 'border-slate-900 text-slate-900'
-              : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Parts Catalog ({inventory.length})</span>
-        </button>
-
         <button
           id="tab-stock-in"
           onClick={() => setActiveSubTab('stock_in')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
             activeSubTab === 'stock_in'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >
           <Package className="w-4 h-4" />
-          <span>Stock In (Supplier Receiving)</span>
+          <span>Stock In</span>
         </button>
 
         <button
-          id="tab-adjust"
+          id="tab-stock-adjustment"
           onClick={() => setActiveSubTab('adjust')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
             activeSubTab === 'adjust'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >
           <Sliders className="w-4 h-4" />
-          <span>Stock Adjustments</span>
+          <span>Stock Adjustment</span>
         </button>
 
         <button
-          id="tab-history"
+          id="tab-stock-history"
           onClick={() => setActiveSubTab('history')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
             activeSubTab === 'history'
-              ? 'border-slate-900 text-slate-900'
+              ? 'border-[#FF6B00] text-[#FF6B00]'
               : 'border-transparent text-slate-400 hover:text-slate-600'
           }`}
         >
           <History className="w-4 h-4" />
-          <span>Transaction History ({stockTransactions.length})</span>
+          <span>Stock History ({stockTransactions.length})</span>
         </button>
       </div>
 
-      {/* TAB 1: PARTS CATALOG */}
-      {activeSubTab === 'catalog' && (
-        <div className="space-y-4">
-          {/* Search & Filter Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                id="catalog-search-input"
-                type="text"
-                placeholder="Search part name, SKU code, brand..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-              />
-            </div>
-
-            <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto">
-              <select
-                id="catalog-category-filter"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:border-slate-900 outline-hidden"
-              >
-                <option value="all">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                id="catalog-status-filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:border-slate-900 outline-hidden"
-              >
-                <option value="all">All Statuses</option>
-                <option value="active">Active Only</option>
-                <option value="low_stock">Low Stock Alerts</option>
-                <option value="deactivated">Deactivated</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Catalog Table */}
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[10px] font-bold">
-                    <th className="py-3 px-4">SKU / Item Code</th>
-                    <th className="py-3 px-4">Item Name & Category</th>
-                    <th className="py-3 px-4">Brand / Unit</th>
-                    <th className="py-3 px-4 text-right">Selling Price</th>
-                    <th className="py-3 px-4 text-center">Stock Level</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCatalog.map((item) => {
-                    const isLowStock = item.stock <= item.minStock;
-                    const isDeactivated = item.status === 'deactivated';
-
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                          {item.partNumber}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">{item.name}</div>
-                          <div className="text-[10px] text-slate-500">{item.category}</div>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-slate-800">{item.brand || '—'}</div>
-                          <div className="text-[10px] text-slate-400">{item.unit || 'Pcs'}</div>
-                        </td>
-
-                        <td className="py-3 px-4 text-right font-bold text-slate-900 font-mono">
-                          ${item.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </td>
-
-                        <td className="py-3 px-4 text-center">
-                          <div className="inline-flex items-center gap-1.5 font-bold font-mono">
-                            <span className={isLowStock ? 'text-amber-600 font-black' : 'text-slate-900'}>
-                              {item.stock}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-normal">
-                              (Min: {item.minStock})
-                            </span>
-                          </div>
-                          {isLowStock && (
-                            <div className="text-[9px] font-bold text-amber-600 flex items-center justify-center gap-0.5 mt-0.5">
-                              <AlertTriangle className="w-3 h-3" /> Low Stock
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              isDeactivated
-                                ? 'bg-slate-100 text-slate-400'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
-                          >
-                            {isDeactivated ? 'Deactivated' : 'Active'}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              title="View Details"
-                              onClick={() => setViewingItem(item)}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              title="Edit Item"
-                              onClick={() => openEditModal(item)}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            {!isDeactivated && (
-                              <button
-                                title="Deactivate Item"
-                                onClick={() => handleDeletePart(item)}
-                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {filteredCatalog.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400 italic">
-                        No spare parts found matching your filter criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: STOCK IN (SUPPLIER SHIPMENT) */}
+      {/* TAB 1: STOCK IN FORM */}
       {activeSubTab === 'stock_in' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs max-w-2xl space-y-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-xl space-y-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Package className="w-5 h-5 text-slate-700" />
-            Log Stock In (Supplier Receiving)
+            Stock In
           </h2>
 
-          <form onSubmit={(e) => handleStockAction(e, 'stock_in')} className="space-y-4 text-xs">
+          <form onSubmit={handleStockInSubmit} className="space-y-4 text-xs">
+            {/* Item Select (Item name only) */}
             <div>
-              <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                Select Part from Catalog
+              <label className="block text-slate-700 font-semibold mb-1">
+                Item <span className="text-rose-500">*</span>
               </label>
               <select
-                id="stock-in-part-select"
-                value={selectedPartId}
-                onChange={(e) => setSelectedPartId(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden font-medium"
+                id="stock-in-item-select"
+                value={stockInItemId}
+                onChange={(e) => setStockInItemId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                required
               >
-                {inventory.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.partNumber}) — Stock: {p.stock} {p.unit || 'Pcs'}
+                {inventory.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Quantity & Date */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                  Received Quantity (+ Units)
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Quantity <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  id="stock-in-qty-input"
+                  id="stock-in-quantity-input"
                   type="number"
                   min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:border-slate-900 outline-hidden"
+                  value={stockInQty}
+                  onChange={(e) => setStockInQty(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                  Supplier Name (Optional)
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Date <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  id="stock-in-supplier-input"
-                  type="text"
-                  value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder="e.g. Brembo Direct USA"
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
+                  id="stock-in-date-input"
+                  type="date"
+                  value={stockInDate}
+                  onChange={(e) => setStockInDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                  required
                 />
               </div>
             </div>
 
+            {/* Remarks */}
             <div>
-              <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                Reason / Supplier PO Reference #
-              </label>
+              <label className="block text-slate-700 font-semibold mb-1">Remarks</label>
               <input
-                id="stock-in-reason-input"
+                id="stock-in-remarks-input"
                 type="text"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. PO-8921 Brembo Restock Shipment"
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                required
+                value={stockInRemarks}
+                onChange={(e) => setStockInRemarks(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
               />
             </div>
 
             <button
               id="submit-stock-in-btn"
               type="submit"
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs shadow-xs transition"
+              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg shadow-xs transition text-xs cursor-pointer"
             >
-              Record & Increase Stock Quantity
+              Record Stock In
             </button>
           </form>
         </div>
       )}
 
-      {/* TAB 3: STOCK ADJUSTMENTS */}
+      {/* TAB 2: STOCK ADJUSTMENT FORM */}
       {activeSubTab === 'adjust' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs max-w-2xl space-y-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-xl space-y-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Sliders className="w-5 h-5 text-amber-600" />
-            Inventory Stock Adjustment
+            Stock Adjustment
           </h2>
 
-          <form onSubmit={(e) => handleStockAction(e, 'adjustment')} className="space-y-4 text-xs">
+          <form onSubmit={handleStockAdjustmentSubmit} className="space-y-4 text-xs">
+            {/* Item Select (Item name only) */}
             <div>
-              <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                Select Part
+              <label className="block text-slate-700 font-semibold mb-1">
+                Item <span className="text-rose-500">*</span>
               </label>
               <select
-                id="adjust-part-select"
-                value={selectedPartId}
-                onChange={(e) => setSelectedPartId(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden font-medium"
+                id="adjust-item-select"
+                value={adjustItemId}
+                onChange={(e) => setAdjustItemId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                required
               >
-                {inventory.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.partNumber}) — Stock: {p.stock}
+                {inventory.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Increase / Decrease Toggle */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">
+                Adjustment Type <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  id="adjust-toggle-increase"
+                  onClick={() => setAdjustDirection('increase')}
+                  className={`py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border transition ${
+                    adjustDirection === 'increase'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Plus className="w-4 h-4 text-emerald-600" />
+                  <span>Increase (+)</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="adjust-toggle-decrease"
+                  onClick={() => setAdjustDirection('decrease')}
+                  className={`py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border transition ${
+                    adjustDirection === 'decrease'
+                      ? 'bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-400'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Minus className="w-4 h-4 text-rose-600" />
+                  <span>Decrease (-)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quantity & Date */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                  Quantity Delta (+ or -)
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Quantity <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  id="adjust-qty-input"
+                  id="adjust-quantity-input"
                   type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:border-slate-900 outline-hidden"
+                  min="1"
+                  value={adjustQty}
+                  onChange={(e) => setAdjustQty(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
                   required
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Use negative values (e.g. -2) for damaged or discarded items.
-                </span>
               </div>
 
               <div>
-                <label className="block text-slate-600 font-bold uppercase text-[10px] mb-1">
-                  Adjustment Category
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Date <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  id="adjust-reason-select"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                >
-                  <option value="Physical Count Audit Correction">Physical Count Audit Correction</option>
-                  <option value="Damaged / Unusable Stock Write-off">Damaged / Unusable Stock Write-off</option>
-                  <option value="Returned Defective to Supplier">Returned Defective to Supplier</option>
-                  <option value="Manual Inventory Adjustment">Manual Inventory Adjustment</option>
-                </select>
+                <input
+                  id="adjust-date-input"
+                  type="date"
+                  value={adjustDate}
+                  onChange={(e) => setAdjustDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                  required
+                />
               </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">
+                Reason <span className="text-rose-500">*</span>
+              </label>
+              <input
+                id="adjust-reason-input"
+                type="text"
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                required
+              />
+            </div>
+
+            {/* Remarks */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Remarks</label>
+              <input
+                id="adjust-remarks-input"
+                type="text"
+                value={adjustRemarks}
+                onChange={(e) => setAdjustRemarks(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+              />
             </div>
 
             <button
               id="submit-adjust-btn"
               type="submit"
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs shadow-xs transition"
+              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg shadow-xs transition text-xs cursor-pointer"
             >
-              Save Stock Adjustment Log
+              Save Adjustment
             </button>
           </form>
         </div>
       )}
 
-      {/* TAB 4: TRANSACTION AUDIT HISTORY */}
+      {/* TAB 3: STOCK HISTORY TABLE */}
       {activeSubTab === 'history' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <h2 className="text-base font-bold text-slate-900">Stock Movement Audit History</h2>
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+            <h2 className="text-sm font-bold text-slate-900">Stock History</h2>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <input
-                type="text"
-                placeholder="Search transaction..."
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-              />
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="history-search-input"
+                  type="text"
+                  placeholder="Search..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                />
+              </div>
 
               <select
+                id="history-type-filter"
                 value={historyTypeFilter}
                 onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:border-slate-900 outline-hidden"
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
               >
-                <option value="all">All Types</option>
+                <option value="all">All Movement Types</option>
                 <option value="stock_in">Stock In</option>
-                <option value="usage">Usage (Deductions)</option>
-                <option value="adjustment">Adjustments</option>
+                <option value="adjustment">Stock Adjustment</option>
+                <option value="usage">Usage</option>
               </select>
+
+              <select
+                id="history-date-filter"
+                value={dateRangeFilter}
+                onChange={(e) => setDateRangeFilter(e.target.value)}
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="past_7_days">Past 7 Days</option>
+                <option value="this_month">This Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+
+              {dateRangeFilter === 'custom' && (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
+                  />
+                  <span className="text-slate-400 text-xs">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
+                  />
+                </div>
+              )}
+
+              <button
+                id="export-stock-history-btn"
+                onClick={handleExportToExcel}
+                className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-white" />
+                <span>Export to Excel</span>
+              </button>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Movements Table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-lg">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-3">Timestamp</th>
-                  <th className="py-3 px-3">Part Name & Code</th>
-                  <th className="py-3 px-3">Type</th>
-                  <th className="py-3 px-3 text-right">Qty Delta</th>
-                  <th className="py-3 px-3">Reason / Details</th>
-                  <th className="py-3 px-3">Performed By</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
+                  <th className="py-3 px-4">Item</th>
+                  <th className="py-3 px-4">Movement Type</th>
+                  <th className="py-3 px-4 text-right">Quantity</th>
+                  <th className="py-3 px-4">Date & Time</th>
+                  <th className="py-3 px-4">Reason / Remarks</th>
+                  <th className="py-3 px-4">Recorded By</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTransactions.map((tx) => {
-                  const isPositive = tx.quantity > 0;
-                  return (
-                    <tr key={tx.id} className="hover:bg-slate-50 transition">
-                      <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">
-                        {tx.timestamp}
-                      </td>
+                {filteredHistory.length > 0 ? (
+                  filteredHistory.map((tx, idx) => {
+                    const isPositive = tx.quantity > 0;
 
-                      <td className="py-3 px-3">
-                        <div className="font-bold text-slate-900">{tx.partName}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{tx.partNumber}</div>
-                      </td>
+                    return (
+                      <tr key={tx.id ? `${tx.id}-${idx}` : idx} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Item */}
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">{tx.partName}</div>
+                          <div className="text-[10px] font-mono text-slate-500">{tx.partNumber}</div>
+                        </td>
 
-                      <td className="py-3 px-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            tx.type === 'stock_in'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        {/* Type */}
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${
+                              tx.type === 'stock_in'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : tx.type === 'usage'
+                                ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {tx.type === 'stock_in'
+                              ? 'Stock In'
                               : tx.type === 'usage'
-                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              ? 'Usage'
+                              : 'Adjustment'}
+                          </span>
+                        </td>
+
+                        {/* Quantity */}
+                        <td
+                          className={`py-3 px-4 text-right font-bold font-mono text-xs ${
+                            isPositive ? 'text-emerald-700' : 'text-rose-700'
                           }`}
                         >
-                          {tx.type.replace('_', ' ')}
-                        </span>
-                      </td>
+                          {isPositive ? `+${tx.quantity}` : tx.quantity}
+                        </td>
 
-                      <td
-                        className={`py-3 px-3 text-right font-bold font-mono ${
-                          isPositive ? 'text-emerald-600' : 'text-rose-600'
-                        }`}
-                      >
-                        {isPositive ? `+${tx.quantity}` : tx.quantity}
-                      </td>
+                        {/* Date */}
+                        <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
+                          {tx.timestamp}
+                        </td>
 
-                      <td className="py-3 px-3 text-slate-600">
-                        {tx.reason || '—'}
-                        {tx.supplier && (
-                          <span className="text-[10px] text-slate-400 block font-semibold">
-                            Supplier: {tx.supplier}
-                          </span>
-                        )}
-                      </td>
+                        {/* Reason / Remarks */}
+                        <td className="py-3 px-4 text-slate-700">
+                          {tx.reason || '—'}
+                          {tx.supplier && (
+                            <span className="block text-[10px] text-slate-400">
+                              Ref: {tx.supplier}
+                            </span>
+                          )}
+                        </td>
 
-                      <td className="py-3 px-3 font-medium text-slate-800">{tx.performedBy}</td>
-                    </tr>
-                  );
-                })}
-
-                {filteredTransactions.length === 0 && (
+                        {/* Recorded By */}
+                        <td className="py-3 px-4 text-slate-700 font-medium">
+                          {tx.performedBy}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400 italic">
-                      No stock transactions match your search filter.
+                    <td colSpan={6} className="py-8 text-center text-slate-400">
+                      No stock history records match your search filter.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* CREATE NEW PART MODAL */}
-      {isNewPartModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-slate-200 rounded-3xl shadow-xl max-w-lg w-full overflow-hidden text-slate-900"
-          >
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <Package className="w-5 h-5 text-white" />
-                Add New Spare Part
-              </h3>
-              <button
-                id="close-create-part-modal"
-                onClick={() => setIsNewPartModalOpen(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreatePart} className="p-6 space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Item Code / SKU</label>
-                  <input
-                    id="part-code-input"
-                    type="text"
-                    value={itemFormData.partNumber}
-                    onChange={(e) => setItemFormData({ ...itemFormData, partNumber: e.target.value.toUpperCase() })}
-                    placeholder="e.g. BP-POR-911-F"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Item Name</label>
-                  <input
-                    id="part-name-input"
-                    type="text"
-                    value={itemFormData.name}
-                    onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
-                    placeholder="e.g. Ceramic Front Brake Pads"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Category</label>
-                  <input
-                    id="part-category-input"
-                    type="text"
-                    value={itemFormData.category}
-                    onChange={(e) => setItemFormData({ ...itemFormData, category: e.target.value })}
-                    placeholder="e.g. Braking System"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Brand</label>
-                  <input
-                    id="part-brand-input"
-                    type="text"
-                    value={itemFormData.brand}
-                    onChange={(e) => setItemFormData({ ...itemFormData, brand: e.target.value })}
-                    placeholder="e.g. Brembo"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Unit</label>
-                  <input
-                    id="part-unit-input"
-                    type="text"
-                    value={itemFormData.unit}
-                    onChange={(e) => setItemFormData({ ...itemFormData, unit: e.target.value })}
-                    placeholder="e.g. Set / Pcs / Liter"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Selling Price ($)</label>
-                  <input
-                    id="part-price-input"
-                    type="number"
-                    value={itemFormData.unitPrice}
-                    onChange={(e) => setItemFormData({ ...itemFormData, unitPrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Initial Stock</label>
-                  <input
-                    id="part-stock-input"
-                    type="number"
-                    value={itemFormData.stock}
-                    onChange={(e) => setItemFormData({ ...itemFormData, stock: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Min Stock Alert</label>
-                  <input
-                    id="part-min-stock-input"
-                    type="number"
-                    value={itemFormData.minStock}
-                    onChange={(e) => setItemFormData({ ...itemFormData, minStock: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Warehouse Location</label>
-                <input
-                  id="part-location-input"
-                  type="text"
-                  value={itemFormData.location}
-                  onChange={(e) => setItemFormData({ ...itemFormData, location: e.target.value })}
-                  placeholder="e.g. Bay B - Shelf 4"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                <button
-                  id="cancel-create-part-btn"
-                  type="button"
-                  onClick={() => setIsNewPartModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  id="submit-create-part-btn"
-                  type="submit"
-                  className="px-5 py-2 bg-slate-900 text-white rounded-xl font-bold shadow-xs"
-                >
-                  Save Item
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
-      {/* EDIT PART MODAL */}
-      {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-slate-200 rounded-3xl shadow-xl max-w-lg w-full overflow-hidden text-slate-900"
-          >
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-white" />
-                Update Item #{editingItem.partNumber}
-              </h3>
-              <button
-                id="close-edit-part-modal"
-                onClick={() => setEditingItem(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdatePart} className="p-6 space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Item Code / SKU</label>
-                  <input
-                    type="text"
-                    value={itemFormData.partNumber}
-                    onChange={(e) => setItemFormData({ ...itemFormData, partNumber: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Item Name</label>
-                  <input
-                    type="text"
-                    value={itemFormData.name}
-                    onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Category</label>
-                  <input
-                    type="text"
-                    value={itemFormData.category}
-                    onChange={(e) => setItemFormData({ ...itemFormData, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Brand</label>
-                  <input
-                    type="text"
-                    value={itemFormData.brand}
-                    onChange={(e) => setItemFormData({ ...itemFormData, brand: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Unit</label>
-                  <input
-                    type="text"
-                    value={itemFormData.unit}
-                    onChange={(e) => setItemFormData({ ...itemFormData, unit: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Selling Price ($)</label>
-                  <input
-                    type="number"
-                    value={itemFormData.unitPrice}
-                    onChange={(e) => setItemFormData({ ...itemFormData, unitPrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Min Stock Alert</label>
-                  <input
-                    type="number"
-                    value={itemFormData.minStock}
-                    onChange={(e) => setItemFormData({ ...itemFormData, minStock: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:border-slate-900 outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 uppercase font-bold text-[10px] mb-1">Status</label>
-                  <select
-                    value={itemFormData.status}
-                    onChange={(e) => setItemFormData({ ...itemFormData, status: e.target.value as any })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 outline-hidden"
-                  >
-                    <option value="active">Active</option>
-                    <option value="deactivated">Deactivated</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingItem(null)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-slate-900 text-white rounded-xl font-bold shadow-xs"
-                >
-                  Update Item
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
-      {/* VIEW ITEM DETAILS MODAL */}
-      {viewingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white border border-slate-200 rounded-3xl shadow-xl max-w-md w-full overflow-hidden text-slate-900"
-          >
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold">{viewingItem.name}</h3>
-                <span className="text-[10px] font-mono text-slate-400">{viewingItem.partNumber}</span>
-              </div>
-              <button
-                id="close-view-item-modal"
-                onClick={() => setViewingItem(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                <div>
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Current Stock</div>
-                  <div className="text-xl font-mono font-bold text-slate-900 mt-0.5">
-                    {viewingItem.stock} <span className="text-xs text-slate-500 font-normal">{viewingItem.unit || 'Pcs'}</span>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Selling Price</div>
-                  <div className="text-xl font-mono font-bold text-slate-900 mt-0.5">
-                    ${(viewingItem.unitPrice || 0).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-slate-700">
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Category:</span>
-                  <span className="font-bold text-slate-800">{viewingItem.category}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Brand:</span>
-                  <span className="font-bold text-slate-800">{viewingItem.brand || '—'}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Minimum Stock Alert:</span>
-                  <span className="font-mono font-bold text-slate-800">{viewingItem.minStock}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-400">Warehouse Location:</span>
-                  <span className="font-semibold text-slate-800">{viewingItem.location || '—'}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <button
-                  onClick={() => setViewingItem(null)}
-                  className="px-5 py-2 bg-slate-900 text-white rounded-xl font-bold"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </motion.div>
         </div>
       )}
     </div>
