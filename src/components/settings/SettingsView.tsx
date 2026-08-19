@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   ShoppingBag,
 } from 'lucide-react';
+import logoImg from '../../assets/images/logo.png';
 
 const ALL_ROLES: Array<{ role: UserRole; label: string; badge: string }> = [
   {
@@ -735,15 +736,11 @@ export const SettingsView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase">Logo</label>
                 <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                    {garageLogoUrl ? (
-                      <img
-                        src={garageLogoUrl}
-                        alt="Garage Logo Preview"
-                        className="w-full h-full object-contain p-1"
-                      />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-slate-400" />
-                    )}
+                    <img
+                      src={(garageLogoUrl && !garageLogoUrl.includes('unsplash.com')) ? garageLogoUrl : logoImg}
+                      alt="Garage Logo Preview"
+                      className="w-full h-full object-contain p-1"
+                    />
                   </div>
 
                   <div className="space-y-2 flex-1">

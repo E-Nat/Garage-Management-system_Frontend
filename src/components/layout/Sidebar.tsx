@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole } from '../../types';
+import logoImg from '../../assets/images/logo.png';
 
 interface NavConfig {
   id: string;
@@ -32,7 +33,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
   const { currentUser, activeTab, setActiveTab, quickSwitchRole, logout } = useAuth();
   const { systemSettings } = useGarage();
 
-  const logoUrl = systemSettings?.garageInfo?.logoUrl || '/images/logo.png';
+  const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
+    ? systemSettings.garageInfo.logoUrl
+    : logoImg;
 
   // Close on Escape key press
   useEffect(() => {

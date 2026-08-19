@@ -16,6 +16,7 @@ import {
   Download,
 } from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
+import logoImg from '../../assets/images/logo.png';
 
 export const InvoiceManagement: React.FC = () => {
   const {
@@ -132,17 +133,11 @@ export const InvoiceManagement: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-200 pb-8">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-3">
-                  {garageInfo.logoUrl ? (
-                    <img
-                      src={garageInfo.logoUrl}
-                      alt={garageInfo.garageName || 'Garage Logo'}
-                      className="h-10 max-w-32 object-contain rounded-lg border border-slate-200"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg bg-[#FF6B00] text-white flex items-center justify-center font-bold text-sm">
-                      {garageInfo.garageName ? garageInfo.garageName.charAt(0) : 'A'}
-                    </div>
-                  )}
+                  <img
+                    src={(garageInfo.logoUrl && !garageInfo.logoUrl.includes('unsplash.com')) ? garageInfo.logoUrl : logoImg}
+                    alt={garageInfo.garageName || 'Garage Logo'}
+                    className="h-10 max-w-32 object-contain rounded-lg border border-slate-200"
+                  />
                   <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                     {garageInfo.garageName || 'Apex Performance Auto'}
                   </h1>

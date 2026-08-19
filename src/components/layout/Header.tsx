@@ -4,6 +4,7 @@ import { useGarage } from '../../context/GarageContext';
 import { Wrench, LogOut, Bell, Send, CheckCircle2, Menu, X } from 'lucide-react';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { UserRole } from '../../types';
+import logoImg from '../../assets/images/logo.png';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -16,7 +17,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showNotificationToast, setShowNotificationToast] = useState(false);
 
-  const logoUrl = systemSettings?.garageInfo?.logoUrl || '/images/logo.png';
+  const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
+    ? systemSettings.garageInfo.logoUrl
+    : logoImg;
 
   if (!currentUser) return null;
 

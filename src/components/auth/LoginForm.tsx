@@ -5,13 +5,16 @@ import { Wrench, Lock, Mail, Eye, EyeOff, AlertTriangle, ShieldCheck, ArrowRight
 import { motion } from 'motion/react';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import { UserRole } from '../../types';
+import logoImg from '../../assets/images/logo.png';
 
 export const LoginForm: React.FC = () => {
   const { login, loginError, clearLoginError } = useAuth();
   const { systemSettings } = useGarage();
   const [email, setEmail] = useState('');
 
-  const logoUrl = systemSettings?.garageInfo?.logoUrl || '/images/logo.png';
+  const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
+    ? systemSettings.garageInfo.logoUrl
+    : logoImg;
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
