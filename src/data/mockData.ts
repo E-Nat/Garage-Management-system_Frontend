@@ -19,7 +19,7 @@ export const INITIAL_SYSTEM_SETTINGS: SystemSettings = {
     email: 'support@apexautocare.com',
     taxId: 'VAT-99201928-KH',
     currency: 'USD',
-    logoUrl: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=120&q=80',
+    logoUrl: '/images/logo.png',
     businessHours: 'Mon - Sat: 8:00 AM - 6:00 PM (Closed Sundays)',
   },
   invoiceSettings: {

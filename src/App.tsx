@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GarageProvider, useGarage } from './context/GarageContext';
 import { LoginForm } from './components/auth/LoginForm';
@@ -21,6 +21,30 @@ import { motion, AnimatePresence } from 'motion/react';
 
 function AppContent() {
   const { currentUser, activeTab } = useAuth();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Lock background body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileSidebarOpen]);
+
+  // Close mobile sidebar if window resizes to >= 1200px
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1200 && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobileSidebarOpen]);
 
   if (!currentUser) {
     return <LoginForm />;
@@ -73,11 +97,17 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#172033] flex flex-col font-sans selection:bg-[#FF6B00] selection:text-white">
-      <Header />
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
-        <Sidebar />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#172033] flex flex-col font-sans selection:bg-[#FF6B00] selection:text-white max-w-full overflow-x-hidden">
+      <Header
+        onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        isSidebarOpen={isMobileSidebarOpen}
+      />
+      <div className="flex-1 flex max-w-7xl w-full mx-auto min-w-0">
+        <Sidebar
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${currentUser.id}-${activeTab}-${currentUser.role}`}
@@ -85,6 +115,7 @@ function AppContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
+              className="min-w-0"
             >
               {renderTabContent()}
             </motion.div>

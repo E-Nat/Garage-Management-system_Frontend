@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useGarage } from '../../context/GarageContext';
 import { Wrench, Lock, Mail, Eye, EyeOff, AlertTriangle, ShieldCheck, ArrowRight, UserCheck, KeyRound } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
@@ -7,7 +8,10 @@ import { UserRole } from '../../types';
 
 export const LoginForm: React.FC = () => {
   const { login, loginError, clearLoginError } = useAuth();
+  const { systemSettings } = useGarage();
   const [email, setEmail] = useState('');
+
+  const logoUrl = systemSettings?.garageInfo?.logoUrl || '/images/logo.png';
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -62,8 +66,20 @@ export const LoginForm: React.FC = () => {
           <div>
             {/* Header / Logo */}
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-[#FF6B00] text-white rounded-2xl flex items-center justify-center font-extrabold shadow-xs">
-                <Wrench className="w-6 h-6 stroke-[2.5]" />
+              <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs shrink-0">
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.parentElement?.querySelector('.login-logo-fallback');
+                    if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                  }}
+                />
+                <div className="login-logo-fallback hidden w-12 h-12 bg-[#FF6B00] text-white rounded-2xl items-center justify-center font-extrabold">
+                  <Wrench className="w-6 h-6 stroke-[2.5]" />
+                </div>
               </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight text-slate-900">APEX GARAGE</h1>
