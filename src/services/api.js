@@ -849,5 +849,108 @@ export async function createVehicle(vehicleData) {
   */
 }
 
+/* ==========================================================================
+   6. TELEGRAM NOTIFICATIONS & LINKING API (PHASE 7)
+   ========================================================================== */
+
+export async function getTelegramStatus() {
+  const response = await api.get('/api/telegram/status');
+  return response.data;
+}
+
+export async function linkTelegramCustomer(customerId, data) {
+  const response = await api.post(`/api/customers/${customerId}/telegram-link`, data);
+  return response.data;
+}
+
+export async function unlinkTelegramCustomer(customerId) {
+  const response = await api.post(`/api/customers/${customerId}/telegram-unlink`);
+  return response.data;
+}
+
+export async function sendTelegramTestAlert(customerId) {
+  const response = await api.post('/api/telegram/test-alert', { customer_id: customerId });
+  return response.data;
+}
+
+export async function getNotificationLogs(params = {}) {
+  const response = await api.get('/api/notification-logs', { params });
+  return response.data;
+}
+
+/* ==========================================================================
+   7. DASHBOARD API (PHASE 8)
+   ========================================================================== */
+
+export async function getDashboardOverview(params = {}) {
+  const response = await api.get('/api/dashboard/overview', { params });
+  return response.data;
+}
+
+export async function getAdvisorDashboard() {
+  const response = await api.get('/api/dashboard/advisor');
+  return response.data;
+}
+
+export async function getMechanicDashboard() {
+  const response = await api.get('/api/dashboard/mechanic');
+  return response.data;
+}
+
+export async function getPartsDashboard() {
+  const response = await api.get('/api/dashboard/parts');
+  return response.data;
+}
+
+export async function getCustomerDashboard() {
+  const response = await api.get('/api/dashboard/customer');
+  return response.data;
+}
+
+/* ==========================================================================
+   8. REPORTS & ANALYTICS API (PHASE 8)
+   ========================================================================== */
+
+export async function getRevenueReport(params = {}) {
+  const response = await api.get('/api/reports/revenue', { params });
+  return response.data;
+}
+
+export async function getRepairsReport(params = {}) {
+  const response = await api.get('/api/reports/repairs', { params });
+  return response.data;
+}
+
+export async function getMechanicsReport(params = {}) {
+  const response = await api.get('/api/reports/mechanics', { params });
+  return response.data;
+}
+
+export async function getInventoryReport(params = {}) {
+  const response = await api.get('/api/reports/inventory', { params });
+  return response.data;
+}
+
+export function getReportExportUrl(type = 'revenue', params = {}) {
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const query = new URLSearchParams({ type, ...params }).toString();
+  return `${baseUrl}/api/reports/export?${query}`;
+}
+
+/* ==========================================================================
+   9. SYSTEM SETTINGS API (PHASE 8)
+   ========================================================================== */
+
+export async function getSystemSettings() {
+  const response = await api.get('/api/settings');
+  return response.data;
+}
+
+export async function updateSystemSettings(group, data) {
+  const response = await api.put(`/api/settings/${group}`, data);
+  return response.data;
+}
+
 // Export the base axios instance for custom requests
 export default api;
+
