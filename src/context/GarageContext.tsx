@@ -1930,10 +1930,12 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Role Permissions Logic
   const updateRolePermissions = (role: UserRole, permissions: ModulePermissionId[]) => {
+    const normalized = Array.from(new Set((permissions || []).filter(Boolean))) as ModulePermissionId[];
     setRolePermissions((prev) => ({
       ...prev,
-      [role]: permissions,
+      [role]: normalized,
     }));
+    window.dispatchEvent(new CustomEvent('garage-role-permissions-changed'));
   };
 
   const toggleRolePermission = (role: UserRole, permission: ModulePermissionId) => {
@@ -1943,10 +1945,9 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const newPerms = hasPerm
         ? currentPerms.filter((p) => p !== permission)
         : [...currentPerms, permission];
-      return {
-        ...prev,
-        [role]: newPerms,
-      };
+      const next = { ...prev, [role]: newPerms };
+      window.dispatchEvent(new CustomEvent('garage-role-permissions-changed'));
+      return next;
     });
   };
 
@@ -1963,6 +1964,7 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const resetRolePermissions = () => {
     setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
     setRoleDiscountPermissions(DEFAULT_ROLE_DISCOUNT_PERMISSIONS);
+    window.dispatchEvent(new CustomEvent('garage-role-permissions-changed'));
   };
 
   // System Settings Actions

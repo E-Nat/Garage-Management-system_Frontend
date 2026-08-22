@@ -8,6 +8,7 @@ export interface User {
   email: string;
   password?: string;
   role: UserRole;
+  permissions?: ModulePermissionId[];
   avatarUrl?: string;
   phone: string;
   telegramHandle?: string;
@@ -432,6 +433,27 @@ export type ModulePermissionId =
 
 export type RolePermissionsMap = Record<string, ModulePermissionId[]>;
 export type RoleDiscountPermissionsMap = Record<string, RoleDiscountPermission>;
+
+export interface RolePermissionSaveResult {
+  success: boolean;
+  error?: string;
+}
+
+export const ALL_MODULE_PERMISSION_IDS: ModulePermissionId[] = [
+  'dashboard',
+  'customers',
+  'vehicles',
+  'repairs',
+  'invoices',
+  'inventory',
+  'stock_in',
+  'stock',
+  'reports',
+  'telegram',
+  'users',
+  'settings',
+  'audit',
+];
 
 /* ==========================================================================
    LARAVEL DATABASE SCHEMA TYPES (SNAKE_CASE FOR RESTFUL API)

@@ -701,9 +701,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsMap = {
     'vehicles',
     'repairs',
     'invoices',
-    'inventory',
-    'stock_in',
-    'stock',
+    'reports',
     'telegram',
   ],
   staff: [
@@ -712,9 +710,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsMap = {
     'vehicles',
     'repairs',
     'invoices',
-    'inventory',
-    'stock_in',
-    'stock',
+    'reports',
     'telegram',
   ],
   mechanic: [
@@ -722,8 +718,8 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsMap = {
     'repairs',
     'vehicles',
     'inventory',
-    'stock_in',
     'stock',
+    'stock_in',
   ],
   parts_manager: [
     'dashboard',

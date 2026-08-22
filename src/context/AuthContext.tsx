@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole, UserStatus, AuditLog } from '../types';
+import { User, UserRole, UserStatus, AuditLog, RolePermissionsMap, ModulePermissionId } from '../types';
 import { INITIAL_USERS } from '../data/mockUsers';
-import { INITIAL_AUDIT_LOGS } from '../data/mockData';
+import { DEFAULT_ROLE_PERMISSIONS, INITIAL_AUDIT_LOGS } from '../data/mockData';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -11,6 +11,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => { success: boolean; error?: string };
   logout: () => void;
   quickSwitchRole: (role: UserRole) => void;
+  refreshCurrentUserPermissions: () => void;
   addUser: (userData: Omit<User, 'id' | 'createdAt'>) => { success: boolean; error?: string };
   updateUser: (userId: string, updates: Partial<User>) => { success: boolean; error?: string };
   updateUserRole: (userId: string, role: UserRole) => void;
@@ -38,6 +39,36 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const LOCAL_STORAGE_USER_KEY = 'apex_garage_user';
 const LOCAL_STORAGE_USERS_LIST_KEY = 'apex_garage_users_list';
 const LOCAL_STORAGE_LOGS_KEY = 'apex_garage_audit_logs';
+const PERMISSIONS_STORAGE_KEY = 'apex_garage_role_permissions';
+
+const readStoredRolePermissions = (): RolePermissionsMap => {
+  try {
+    const raw = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
+    if (!raw) return DEFAULT_ROLE_PERMISSIONS;
+    const parsed = JSON.parse(raw) as Partial<RolePermissionsMap>;
+    return {
+      ...DEFAULT_ROLE_PERMISSIONS,
+      ...parsed,
+    };
+  } catch (error) {
+    console.error('Failed to read stored role permissions', error);
+    return DEFAULT_ROLE_PERMISSIONS;
+  }
+};
+
+const resolveUserPermissions = (role: UserRole): ModulePermissionId[] => {
+  const storedRoles = readStoredRolePermissions();
+  if (role === 'admin' || role === 'owner') {
+    return [...new Set(DEFAULT_ROLE_PERMISSIONS.admin ?? [])];
+  }
+  const rolePermissions = storedRoles[role] ?? DEFAULT_ROLE_PERMISSIONS[role] ?? [];
+  return [...new Set(rolePermissions)];
+};
+
+const hydrateUserPermissions = (user: User): User => ({
+  ...user,
+  permissions: resolveUserPermissions(user.role),
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
@@ -50,12 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Failed to parse saved users', e);
       }
     }
-    // Always guarantee primary owner account (usr-1 / owner@apexgarage.com) is active & present
     return loadedUsers.map((u) => {
       if (u.id === 'usr-1' || u.email.toLowerCase() === 'owner@apexgarage.com') {
-        return { ...u, status: 'active', role: 'admin' };
+        return hydrateUserPermissions({ ...u, status: 'active', role: 'admin' });
       }
-      return u;
+      return hydrateUserPermissions(u);
     });
   });
 
@@ -64,19 +94,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedUser) {
       try {
         const parsed: User = JSON.parse(savedUser);
-        // If the saved session is the primary owner or was deactivated, restore as active admin
         if (parsed.id === 'usr-1' || parsed.email.toLowerCase() === 'owner@apexgarage.com') {
-          return { ...parsed, status: 'active', role: 'admin' };
+          return hydrateUserPermissions({ ...parsed, status: 'active', role: 'admin' });
         }
         if (parsed.status === 'active') {
-          return parsed;
+          return hydrateUserPermissions(parsed);
         }
       } catch (e) {
         console.error('Failed to parse saved current user', e);
       }
     }
-    // Default fallback to Marcus Vance (Garage Owner)
-    return INITIAL_USERS[0];
+    return hydrateUserPermissions(INITIAL_USERS[0]);
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
@@ -109,6 +137,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_LOGS_KEY, JSON.stringify(auditLogs));
   }, [auditLogs]);
+
+  useEffect(() => {
+    const handleRolePermissionChange = () => {
+      setCurrentUser((prev) => (prev ? hydrateUserPermissions({ ...prev }) : prev));
+      setUsers((prev) => prev.map((user) => hydrateUserPermissions(user)));
+    };
+
+    window.addEventListener('garage-role-permissions-changed', handleRolePermissionChange);
+    return () => {
+      window.removeEventListener('garage-role-permissions-changed', handleRolePermissionChange);
+    };
+  }, []);
 
   const addAuditLog = (
     action: string,
@@ -193,11 +233,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: err };
     }
 
-    // Successful login!
-    const updatedUser: User = {
+    const updatedUser: User = hydrateUserPermissions({
       ...foundUser,
       lastLoginAt: new Date().toISOString(),
-    };
+    });
 
     setCurrentUser(updatedUser);
     setActiveTab('dashboard');
@@ -220,12 +259,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveTab('dashboard');
   };
 
+  const refreshCurrentUserPermissions = () => {
+    setCurrentUser((prev) => {
+      if (!prev) return prev;
+      return hydrateUserPermissions({ ...prev, permissions: resolveUserPermissions(prev.role) });
+    });
+    setUsers((prev) => prev.map((user) => hydrateUserPermissions(user)));
+  };
+
   const quickSwitchRole = (role: UserRole) => {
     const roleUser = users.find((u) => u.role === role && u.status === 'active');
     if (roleUser) {
-      setCurrentUser(roleUser);
+      const hydratedUser = hydrateUserPermissions(roleUser);
+      setCurrentUser(hydratedUser);
       setActiveTab('dashboard');
-      addAuditLog('Role Switch', 'User', roleUser.id, `Switched context to ${role} role`, undefined, undefined, roleUser.name);
+      addAuditLog('Role Switch', 'User', hydratedUser.id, `Switched context to ${role} role`, undefined, undefined, hydratedUser.name);
     }
   };
 
@@ -293,10 +341,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserRole = (userId: string, newRole: UserRole) => {
     setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      prev.map((u) => (u.id === userId ? hydrateUserPermissions({ ...u, role: newRole }) : hydrateUserPermissions(u)))
     );
     if (currentUser && currentUser.id === userId) {
-      setCurrentUser((prev) => (prev ? { ...prev, role: newRole } : null));
+      setCurrentUser((prev) => (prev ? hydrateUserPermissions({ ...prev, role: newRole }) : null));
     }
     if (currentUser) {
       addAuditLog(currentUser.id, currentUser.name, 'UPDATE_USER_ROLE', `Updated role for user ${userId} to ${newRole}`);
@@ -446,6 +494,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         quickSwitchRole,
+        refreshCurrentUserPermissions,
         addUser,
         updateUser,
         updateUserRole,

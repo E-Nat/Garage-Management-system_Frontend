@@ -31,11 +31,31 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
   const { currentUser, activeTab, setActiveTab, quickSwitchRole, logout } = useAuth();
-  const { systemSettings } = useGarage();
+  const { systemSettings, rolePermissions } = useGarage();
 
   const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
     ? systemSettings.garageInfo.logoUrl
     : logoImg;
+
+  const hasPermission = (tabId: string) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin' || currentUser.role === 'owner') return true;
+
+    const permissionMap: Record<string, string> = {
+      dashboard: 'dashboard',
+      customers: 'customers',
+      vehicles: 'vehicles',
+      jobs: 'repairs',
+      items: 'inventory',
+      stock: 'stock',
+      invoices: 'invoices',
+      reports: 'reports',
+      settings: 'settings',
+    };
+    const permission = permissionMap[tabId];
+    const permissions = currentUser.permissions ?? rolePermissions[currentUser.role] ?? [];
+    return permission ? permissions.includes(permission) : true;
+  };
 
   // Close on Escape key press
   useEffect(() => {
@@ -96,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       label: 'Settings',
       icon: Settings,
     },
-  ];
+  ].filter((item) => hasPermission(item.id));
 
   const handleNavClick = (id: string) => {
     setActiveTab(id);

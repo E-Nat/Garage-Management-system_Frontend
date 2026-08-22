@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGarage } from '../../context/GarageContext';
-import { UserRole, ModulePermissionId } from '../../types';
+import { UserRole, ModulePermissionId, RolePermissionsMap } from '../../types';
+import { DEFAULT_ROLE_PERMISSIONS } from '../../data/mockData';
 import {
   Building2,
   FileText,
@@ -97,7 +98,7 @@ export const SettingsView: React.FC = () => {
   const { currentUser } = useAuth();
   const {
     rolePermissions,
-    toggleRolePermission,
+    updateRolePermissions,
     resetRolePermissions,
     paymentMethods,
     addPaymentMethod,
@@ -133,7 +134,20 @@ export const SettingsView: React.FC = () => {
   >('garage');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [rbacDraft, setRbacDraft] = useState<RolePermissionsMap>(() => ({
+    advisor: rolePermissions.advisor ?? [],
+    mechanic: rolePermissions.mechanic ?? [],
+  }));
+  const [rbacSaving, setRbacSaving] = useState(false);
+  const [rbacError, setRbacError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setRbacDraft({
+      advisor: rolePermissions.advisor ?? [],
+      mechanic: rolePermissions.mechanic ?? [],
+    });
+  }, [rolePermissions]);
 
   // Garage Info Form State
   const [garageName, setGarageName] = useState(systemSettings.garageInfo.garageName);
@@ -532,6 +546,57 @@ export const SettingsView: React.FC = () => {
 
   const isOwnerOrAdmin = currentUser?.role === 'admin';
 
+  const editableRoleDefs = ALL_ROLES.filter((roleDef) => roleDef.role === 'advisor' || roleDef.role === 'mechanic');
+
+  const handleRbacToggle = (role: 'advisor' | 'mechanic', permission: ModulePermissionId) => {
+    setRbacError(null);
+    setRbacDraft((prev) => {
+      const existing = prev[role] ?? [];
+      const next = existing.includes(permission)
+        ? existing.filter((value) => value !== permission)
+        : [...existing, permission];
+      return {
+        ...prev,
+        [role]: next,
+      };
+    });
+  };
+
+  const saveRolePermissionConfig = () => {
+    setRbacSaving(true);
+    setRbacError(null);
+
+    const previousSnapshot = {
+      advisor: rolePermissions.advisor ?? [],
+      mechanic: rolePermissions.mechanic ?? [],
+    };
+
+    try {
+      (Object.keys(rbacDraft) as Array<'advisor' | 'mechanic'>).forEach((role) => {
+        const permissions = (rbacDraft[role] ?? []) as ModulePermissionId[];
+        updateRolePermissions(role as UserRole, permissions);
+      });
+
+      showToast('Advisor and mechanic permissions saved.');
+    } catch (error) {
+      setRbacDraft(previousSnapshot);
+      setRbacError('Permission update failed. Previous values were restored.');
+    } finally {
+      setRbacSaving(false);
+    }
+  };
+
+  const resetRolePermissionConfig = () => {
+    const fallback = {
+      advisor: DEFAULT_ROLE_PERMISSIONS.advisor ?? [],
+      mechanic: DEFAULT_ROLE_PERMISSIONS.mechanic ?? [],
+    };
+    setRbacDraft(fallback);
+    setRbacError(null);
+    resetRolePermissions();
+    showToast('Role permissions reset to the default policy.');
+  };
+
   return (
     <div className="space-y-6 text-slate-900 font-sans max-w-7xl mx-auto pb-12">
       {/* Toast Notification */}
@@ -547,17 +612,25 @@ export const SettingsView: React.FC = () => {
         <h1 className="text-xl font-bold text-slate-900">Settings</h1>
 
         {activeTab === 'rbac' && (
-          <button
-            id="reset-permissions-btn"
-            onClick={() => {
-              resetRolePermissions();
-              showToast('Role permissions reset to default policy.');
-            }}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs flex items-center gap-2 border border-slate-200 transition"
-          >
-            <RotateCcw className="w-4 h-4 text-slate-500" />
-            <span>Reset RBAC Policy</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              id="reset-permissions-btn"
+              onClick={resetRolePermissionConfig}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs flex items-center gap-2 border border-slate-200 transition"
+            >
+              <RotateCcw className="w-4 h-4 text-slate-500" />
+              <span>Reset RBAC Policy</span>
+            </button>
+            <button
+              id="save-permissions-btn"
+              onClick={saveRolePermissionConfig}
+              disabled={rbacSaving}
+              className="px-3.5 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 border border-[#FF6B00] transition disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" />
+              <span>{rbacSaving ? 'Saving...' : 'Save Permissions'}</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -1506,10 +1579,21 @@ export const SettingsView: React.FC = () => {
       {/* TAB 7: ROLE PERMISSIONS (RBAC) - PURE MODULE/SCREEN ACCESS */}
       {activeTab === 'rbac' && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-4xl space-y-6">
-          <h2 className="text-base font-bold text-slate-900">Role Permissions</h2>
+          <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Role Permissions</h2>
+              <p className="text-xs text-slate-500 mt-1">Configure access for the Advisor and Mechanic roles. Admin access remains unchanged.</p>
+            </div>
+          </div>
+
+          {rbacError && (
+            <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-medium">
+              {rbacError}
+            </div>
+          )}
 
           <div className="space-y-4">
-            {ALL_ROLES.map((roleDef) => (
+            {editableRoleDefs.map((roleDef) => (
               <div key={roleDef.role} className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="p-4 bg-slate-50/80 flex items-center justify-between border-b border-slate-200">
                   <div className="flex items-center gap-3">
@@ -1522,12 +1606,11 @@ export const SettingsView: React.FC = () => {
 
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {MODULE_DEFINITIONS.map((mod) => {
-                    const isPermitted = rolePermissions[roleDef.role]?.includes(mod.id);
-                    const isAdmin = roleDef.role === 'admin';
+                    const isPermitted = rbacDraft[roleDef.role]?.includes(mod.id) ?? false;
 
                     return (
                       <label
-                        key={mod.id}
+                        key={`${roleDef.role}-${mod.id}`}
                         className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs font-semibold transition cursor-pointer ${
                           isPermitted
                             ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
@@ -1536,9 +1619,8 @@ export const SettingsView: React.FC = () => {
                       >
                         <input
                           type="checkbox"
-                          disabled={isAdmin}
                           checked={isPermitted}
-                          onChange={() => toggleRolePermission(roleDef.role, mod.id)}
+                          onChange={() => handleRbacToggle(roleDef.role as 'advisor' | 'mechanic', mod.id)}
                           className="w-4 h-4 accent-[#FF6B00] rounded"
                         />
                         <span>{mod.name}</span>

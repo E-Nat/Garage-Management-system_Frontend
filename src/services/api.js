@@ -951,6 +951,27 @@ export async function updateSystemSettings(group, data) {
   return response.data;
 }
 
+/* ==========================================================================
+   10. ROLE PERMISSIONS API (OWNER / ADMIN CONTROLLED)
+   ========================================================================== */
+
+export async function getRolePermissions() {
+  const response = await api.get('/api/permissions/roles');
+  return response.data;
+}
+
+export async function updateRolePermissions(role, permissions) {
+  const response = await api.put(`/api/permissions/roles/${role}`, {
+    permissions,
+  });
+  return response.data;
+}
+
+export async function saveRolePermissions(payload = {}) {
+  const response = await api.put('/api/permissions/roles', payload);
+  return response.data;
+}
+
 // Export the base axios instance for custom requests
 export default api;
 

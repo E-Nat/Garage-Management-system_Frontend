@@ -146,6 +146,30 @@ export interface LaravelSystemSettings {
   };
 }
 
+export type ModulePermissionName =
+  | 'dashboard'
+  | 'customers'
+  | 'vehicles'
+  | 'repairs'
+  | 'invoices'
+  | 'inventory'
+  | 'stock_in'
+  | 'stock'
+  | 'reports'
+  | 'telegram'
+  | 'users'
+  | 'settings'
+  | 'audit';
+
+export interface RolePermissionMap {
+  admin?: ModulePermissionName[];
+  owner?: ModulePermissionName[];
+  advisor?: ModulePermissionName[];
+  mechanic?: ModulePermissionName[];
+  parts_manager?: ModulePermissionName[];
+  customer?: ModulePermissionName[];
+}
+
 // 1. Customers API
 export declare function getCustomers(params?: Record<string, any>): Promise<{ data: LaravelCustomer[] }>;
 export declare function createCustomer(data: Partial<LaravelCustomer>): Promise<{ data: LaravelCustomer }>;
@@ -204,6 +228,11 @@ export declare function getReportExportUrl(type: 'revenue' | 'repairs' | 'invent
 // 9. System Settings API (Phase 8)
 export declare function getSystemSettings(): Promise<{ success: boolean; data: LaravelSystemSettings }>;
 export declare function updateSystemSettings(group: 'garage' | 'invoice' | 'telegram', data: Record<string, any>): Promise<{ success: boolean; message: string; data: any }>;
+
+// 10. RBAC / Role Permissions API
+export declare function getRolePermissions(): Promise<{ success: boolean; data: RolePermissionMap }>;
+export declare function updateRolePermissions(role: 'advisor' | 'mechanic' | 'admin' | 'owner' | 'parts_manager' | 'customer', permissions: ModulePermissionName[]): Promise<{ success: boolean; message: string; data: RolePermissionMap }>;
+export declare function saveRolePermissions(payload: Partial<RolePermissionMap>): Promise<{ success: boolean; message: string; data: RolePermissionMap }>;
 
 declare const api: AxiosInstance;
 export default api;
