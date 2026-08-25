@@ -70,6 +70,11 @@ const hydrateUserPermissions = (user: User): User => ({
   permissions: resolveUserPermissions(user.role),
 });
 
+const passwordMeetsRequirements = (value: string): boolean => {
+  if (!value || value.length < 6) return false;
+  return /[A-Za-z]/.test(value) && /\d/.test(value);
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_USERS_LIST_KEY);
@@ -278,13 +283,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addUser = (userData: Omit<User, 'id' | 'createdAt'>): { success: boolean; error?: string } => {
-    const exists = users.some((u) => u.email.toLowerCase() === userData.email.toLowerCase());
+    const email = userData.email?.trim();
+    const password = userData.password?.trim() ?? '';
+
+    if (!email) {
+      return { success: false, error: 'Email address is required.' };
+    }
+
+    const exists = users.some((u) => u.email.toLowerCase() === email.toLowerCase());
     if (exists) {
       return { success: false, error: 'A user account with this email/username already exists. Duplicate credentials rejected.' };
     }
 
+    if (!passwordMeetsRequirements(password)) {
+      return {
+        success: false,
+        error: 'Initial password must be at least 6 characters and contain both letters and numbers.',
+      };
+    }
+
     const newUser: User = {
       ...userData,
+      email,
+      password,
       id: `usr-${Date.now()}`,
       createdAt: new Date().toISOString(),
       status: userData.status || 'active',
@@ -431,14 +452,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Current password does not match.' };
     }
 
-    if (newPass.length < 6) {
-      return { success: false, error: 'New password must be at least 6 characters long.' };
-    }
-
-    const hasLetter = /[a-zA-Z]/.test(newPass);
-    const hasNumber = /[0-9]/.test(newPass);
-    if (!hasLetter || !hasNumber) {
-      return { success: false, error: 'New password must contain both letters and numbers for security.' };
+    if (!passwordMeetsRequirements(newPass)) {
+      return { success: false, error: 'New password must be at least 6 characters and include both letters and numbers.' };
     }
 
     if (newPass !== confirmPass) {
@@ -453,7 +468,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const adminResetUserPassword = (targetUserId: string, newPass: string): { success: boolean; error?: string } => {
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'advisor')) {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'owner')) {
       return { success: false, error: 'Only Garage Owner/Admin can reset user passwords.' };
     }
 
@@ -462,8 +477,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'User not found.' };
     }
 
-    if (!newPass || newPass.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters long.' };
+    if (!passwordMeetsRequirements(newPass)) {
+      return { success: false, error: 'Password must be at least 6 characters and include both letters and numbers.' };
     }
 
     setUsers((prev) =>

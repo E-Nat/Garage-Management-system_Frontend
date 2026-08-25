@@ -30,8 +30,10 @@ import {
   Trash2,
   ArrowLeft,
   ShoppingBag,
+  Users,
 } from 'lucide-react';
 import logoImg from '../../assets/images/logo.png';
+import { UserManagement } from '../users/UserManagement';
 
 const ALL_ROLES: Array<{ role: UserRole; label: string; badge: string }> = [
   {
@@ -130,7 +132,7 @@ export const SettingsView: React.FC = () => {
   } = useGarage();
 
   const [activeTab, setActiveTab] = useState<
-    'garage' | 'invoice' | 'payments' | 'telegram' | 'categories' | 'discounts' | 'rbac' | 'activity'
+    'garage' | 'invoice' | 'payments' | 'telegram' | 'categories' | 'discounts' | 'rbac' | 'users' | 'activity'
   >('garage');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -544,7 +546,8 @@ export const SettingsView: React.FC = () => {
     setEditingPromoId(null);
   };
 
-  const isOwnerOrAdmin = currentUser?.role === 'admin';
+  const isOwnerOrAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const canManageUsers = isOwnerOrAdmin;
 
   const editableRoleDefs = ALL_ROLES.filter((roleDef) => roleDef.role === 'advisor' || roleDef.role === 'mechanic');
 
@@ -726,6 +729,21 @@ export const SettingsView: React.FC = () => {
           <Lock className="w-4 h-4" />
           <span>Role Access (RBAC)</span>
         </button>
+
+        {canManageUsers && (
+          <button
+            id="tab-users"
+            onClick={() => setActiveTab('users')}
+            className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+              activeTab === 'users'
+                ? 'border-[#FF6B00] text-[#FF6B00]'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>User Management</span>
+          </button>
+        )}
 
         {isOwnerOrAdmin && (
           <button
@@ -1668,7 +1686,7 @@ export const SettingsView: React.FC = () => {
                       <span className="font-bold">{job.status}</span>
                     </td>
                     <td className="py-2.5 px-4 text-slate-600">
-                      {job.assignedMechanic || 'System'}
+                      {job.assignedMechanicId || 'System'}
                     </td>
                     <td className="py-2.5 px-4 font-mono text-slate-500">
                       {job.entryDate || 'Today'}
@@ -1682,6 +1700,8 @@ export const SettingsView: React.FC = () => {
       )}
 
       {/* CREATE / EDIT PROMOTION MODAL */}
+      {activeTab === 'users' && canManageUsers && <UserManagement />}
+
       {isPromoModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">

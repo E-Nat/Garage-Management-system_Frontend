@@ -382,6 +382,8 @@ export interface InventoryItem {
   unitPrice: number; // Selling Price
   location: string;
   status?: 'active' | 'deactivated';
+  sku: string;
+  sellingPrice: number;
 }
 
 export interface StockTransaction {

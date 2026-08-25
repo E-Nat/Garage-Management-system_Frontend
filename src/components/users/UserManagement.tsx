@@ -162,17 +162,18 @@ export const UserManagement: React.FC = () => {
 
     if (!userToResetPass) return;
 
-    if (!resetPassData.newPassword || resetPassData.newPassword.length < 6) {
-      setResetPassError('New password must be at least 6 characters long.');
+    const { newPassword } = resetPassData;
+    if (!newPassword || newPassword.length < 6 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      setResetPassError('New password must be at least 6 characters and include both letters and numbers.');
       return;
     }
 
-    if (resetPassData.newPassword !== resetPassData.confirmPassword) {
+    if (newPassword !== resetPassData.confirmPassword) {
       setResetPassError('Passwords do not match.');
       return;
     }
 
-    const res = adminResetUserPassword(userToResetPass.id, resetPassData.newPassword);
+    const res = adminResetUserPassword(userToResetPass.id, newPassword);
     if (!res.success) {
       setResetPassError(res.error || 'Failed to reset password.');
       return;
@@ -227,12 +228,18 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  const getStatusDisplayText = (status: UserStatus) => {
+    if (status === 'deactivated' || status === 'inactive') return 'Inactive';
+    if (status === 'active') return 'Active';
+    if (status === 'suspended') return 'Suspended';
+    return status;
+  };
+
   const getStatusBadgeStyle = (status: UserStatus) => {
     switch (status) {
       case 'active':
         return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'deactivated':
-        return 'bg-slate-200 text-slate-700 border-slate-300';
       case 'inactive':
         return 'bg-slate-100 text-slate-600 border-slate-200';
       case 'suspended':
@@ -384,7 +391,7 @@ export const UserManagement: React.FC = () => {
 
                     <td className="py-3 px-3">
                       <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeStyle(user.status)}`}>
-                        {user.status}
+                        {getStatusDisplayText(user.status)}
                       </span>
                     </td>
 
