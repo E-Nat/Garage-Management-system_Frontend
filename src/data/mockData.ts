@@ -163,6 +163,15 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telegramLinked: true,
     createdAt: '2026-01-01 08:00',
   },
+  {
+    id: 'CUST-1005',
+    fullName: 'Nora Williams',
+    phone: '+1 (555) 765-4321',
+    address: '88 Mission Street, San Francisco, CA',
+    telegramHandle: '@nora_williams',
+    telegramLinked: false,
+    createdAt: '2026-08-25 09:10',
+  },
 ];
 
 export const INITIAL_VEHICLES: Vehicle[] = [
@@ -217,6 +226,19 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     mileage: 65100,
     vin: 'JTMHY7AJ3L4091823',
     createdAt: '2026-01-01 08:30',
+  },
+  {
+    id: 'VEH-2005',
+    customerId: 'CUST-1005',
+    customerName: 'Nora Williams',
+    plateNumber: '6JKL321',
+    brand: 'Volvo',
+    model: 'XC60 B5',
+    year: 2024,
+    color: 'Crystal White',
+    mileage: 8900,
+    vin: 'YV1UZK2V5R1234567',
+    createdAt: '2026-08-25 09:20',
   },
 ];
 
@@ -273,6 +295,17 @@ export const INITIAL_REPAIR_JOBS: RepairJob[] = [
         mechanicNotes: 'Installed front Brembo ceramic pads, flushed brake fluid with DOT4 HP. Torque specs verified.',
         recordedBy: 'Dave Miller',
         recordedAt: '2026-08-02 14:00',
+      },
+    ],
+    statusHistory: [
+      {
+        id: 'rsh-demo-101',
+        jobId: 'job-101',
+        fromStatus: 'waiting_approval',
+        toStatus: 'in_progress',
+        changedBy: 'Elena Rostova',
+        timestamp: '2026-08-25 09:35',
+        note: 'Customer approval received and work started.',
       },
     ],
   },
@@ -518,7 +551,7 @@ export const INITIAL_INVOICES: Invoice[] = [
     status: 'paid',
     paymentMethod: 'Credit / Debit Card',
     issuedAt: '2026-08-02 16:30',
-    paidAt: '2026-08-02 16:35',
+    paidAt: '2026-08-25 16:35',
     notes: 'Payment settled via Stripe terminal.',
   },
   {

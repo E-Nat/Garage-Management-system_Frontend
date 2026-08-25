@@ -1,4 +1,5 @@
 import { AxiosInstance } from 'axios';
+import { DashboardDateRange, DashboardOverview } from '../types';
 
 export interface LaravelCustomer {
   id: number;
@@ -212,7 +213,7 @@ export declare function sendTelegramTestAlert(customerId: number | string): Prom
 export declare function getNotificationLogs(params?: Record<string, any>): Promise<{ data: LaravelNotificationLog[]; meta?: any }>;
 
 // 7. Dashboard API (Phase 8)
-export declare function getDashboardOverview(params?: { date_preset?: string; date_from?: string; date_to?: string }): Promise<{ success: boolean; data: any }>;
+export declare function getDashboardOverview(params?: DashboardDateRange): Promise<{ success: boolean; data: DashboardOverview }>;
 export declare function getAdvisorDashboard(): Promise<{ success: boolean; data: any }>;
 export declare function getMechanicDashboard(): Promise<{ success: boolean; data: any }>;
 export declare function getPartsDashboard(): Promise<{ success: boolean; data: any }>;

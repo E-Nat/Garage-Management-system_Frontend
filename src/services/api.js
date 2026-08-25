@@ -14,6 +14,12 @@ const api = axios.create({
   timeout: 10000,
 });
 
+function isDateInRange(value, start, end) {
+  if (!value) return false;
+  const date = String(value).substring(0, 10);
+  return (!start || date >= start) && (!end || date <= end);
+}
+
 // Request interceptor to attach Bearer token if present
 api.interceptors.request.use(
   (config) => {
@@ -442,6 +448,9 @@ export async function getCustomers(params = {}) {
         (c.address && c.address.toLowerCase().includes(s))
     );
   }
+  if (params.date_from || params.date_to) {
+    results = results.filter((c) => isDateInRange(c.created_at, params.date_from, params.date_to));
+  }
   return Promise.resolve({ data: results });
 
   /*
@@ -526,6 +535,9 @@ export async function getRepairJobs(params = {}) {
   }
   if (params.vehicle_id) {
     results = results.filter((j) => j.vehicle_id === Number(params.vehicle_id));
+  }
+  if (params.date_from || params.date_to) {
+    results = results.filter((j) => isDateInRange(j.created_at || j.service_date, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
 
@@ -657,6 +669,9 @@ export async function getInvoices(params = {}) {
   let results = [...mockInvoices];
   if (params.payment_status) {
     results = results.filter((inv) => inv.payment_status === params.payment_status);
+  }
+  if (params.date_from || params.date_to) {
+    results = results.filter((inv) => isDateInRange(inv.paid_at || inv.created_at, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
 
@@ -803,6 +818,9 @@ export async function getVehicles(params = {}) {
         v.model.toLowerCase().includes(s) ||
         v.vin.toLowerCase().includes(s)
     );
+  }
+  if (params.date_from || params.date_to) {
+    results = results.filter((v) => isDateInRange(v.created_at, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
 

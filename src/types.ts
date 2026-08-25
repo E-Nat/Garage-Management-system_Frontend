@@ -1,5 +1,21 @@
 export type UserRole = 'admin' | 'advisor' | 'mechanic' | 'parts_manager' | 'customer' | 'owner' | 'staff';
 
+export type DashboardDateFilterPreset = 'today' | 'week' | 'month' | 'custom';
+
+export interface DashboardDateRange {
+  date_preset?: DashboardDateFilterPreset;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface DashboardOverview {
+  newCustomers: number;
+  newVehicles: number;
+  statusCounts: Record<string, number>;
+  revenue: number;
+  lowStockItems: Array<{ name: string; stock: number }>;
+}
+
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deactivated';
 
 export interface User {

@@ -20,14 +20,14 @@ import {
   Receipt,
 } from 'lucide-react';
 
-export type DashboardDateFilterPreset = 'all' | 'today' | 'week' | 'month' | 'custom';
+export type DashboardDateFilterPreset = 'today' | 'week' | 'month' | 'custom';
 
 export const OperationalDashboardWidgets: React.FC = () => {
   const { customers, vehicles, repairJobs, invoices, inventory } = useGarage();
   const { setActiveTab } = useAuth();
 
   // Unified Dashboard Date Filter State
-  const [dateFilter, setDateFilter] = useState<DashboardDateFilterPreset>('all');
+  const [dateFilter, setDateFilter] = useState<DashboardDateFilterPreset>('today');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
 
@@ -101,46 +101,44 @@ export const OperationalDashboardWidgets: React.FC = () => {
     return true;
   };
 
-  // 1. Filtered Customers
+  // Period widgets use creation/payment timestamps, while status widgets use transition timestamps.
   const filteredCustomers = customers.filter((c) => isDateInRange(c.createdAt));
-  const totalCustomers = filteredCustomers.length;
+  const newCustomers = filteredCustomers.length;
 
   // 2. Filtered Vehicles
   const filteredVehicles = vehicles.filter((v) => isDateInRange(v.createdAt));
-  const totalVehicles = filteredVehicles.length;
+  const newVehicles = filteredVehicles.length;
 
-  // 3. Filtered Repair Jobs across all statuses
-  const filteredRepairJobs = repairJobs.filter((j) =>
-    isDateInRange(
-      j.entryDate ||
-        j.serviceDate ||
-        j.receivedDate ||
-        (j as unknown as { createdAt?: string }).createdAt ||
-        (j as unknown as { updatedAt?: string }).updatedAt
-    )
-  );
+  const filteredRepairJobs = repairJobs.filter((j) => {
+    const history = j.statusHistory || [];
+    return history.length > 0
+      ? history.some((entry) => isDateInRange(entry.timestamp))
+      : isDateInRange(j.entryDate || j.serviceDate || j.receivedDate);
+  });
+
+  const enteredStatusCount = (statuses: string[]) =>
+    repairJobs.filter((job) => {
+      const history = job.statusHistory || [];
+      if (history.length > 0) {
+        return history.some(
+          (entry) => statuses.includes(entry.toStatus) && isDateInRange(entry.timestamp)
+        );
+      }
+      return statuses.includes(job.status) && isDateInRange(job.entryDate || job.serviceDate || job.receivedDate);
+    }).length;
 
   // Job Status breakdown for filtered jobs
-  const pendingInspectionCount = filteredRepairJobs.filter(
-    (j) =>
-      j.status === 'pending_inspection' ||
-      j.status === 'checked_in' ||
-      j.status === 'diagnosing'
-  ).length;
+  const pendingInspectionCount = enteredStatusCount(['pending_inspection', 'checked_in', 'diagnosing']);
 
-  const waitingApprovalCount = filteredRepairJobs.filter(
-    (j) => j.status === 'waiting_approval' || j.status === 'waiting_parts'
-  ).length;
+  const waitingApprovalCount = enteredStatusCount(['waiting_approval', 'waiting_parts']);
 
-  const inProgressCount = filteredRepairJobs.filter((j) => j.status === 'in_progress').length;
+  const inProgressCount = enteredStatusCount(['in_progress']);
 
-  const completedCount = filteredRepairJobs.filter(
-    (j) => j.status === 'completed' || j.status === 'ready'
-  ).length;
+  const completedCount = enteredStatusCount(['completed', 'ready']);
 
-  const deliveredCount = filteredRepairJobs.filter((j) => j.status === 'delivered').length;
+  const deliveredCount = enteredStatusCount(['delivered']);
 
-  const declinedCount = filteredRepairJobs.filter((j) => j.status === 'declined').length;
+  const declinedCount = enteredStatusCount(['declined']);
 
   // 4. Filtered Revenue (Paid Invoices)
   const paidInvoicesInRange = invoices.filter(
@@ -168,13 +166,12 @@ export const OperationalDashboardWidgets: React.FC = () => {
   };
 
   const handleResetFilter = () => {
-    setDateFilter('all');
+    setDateFilter('today');
     setCustomStartDate('');
     setCustomEndDate('');
   };
 
   const presetLabels: Record<DashboardDateFilterPreset, string> = {
-    all: 'All Time',
     today: 'Today',
     week: 'This Week',
     month: 'This Month',
@@ -206,7 +203,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
 
         {/* Filter Preset Buttons */}
         <div className="flex flex-wrap items-center gap-1.5">
-          {(['all', 'today', 'week', 'month', 'custom'] as DashboardDateFilterPreset[]).map((preset) => {
+          {(['today', 'week', 'month', 'custom'] as DashboardDateFilterPreset[]).map((preset) => {
             const isActive = dateFilter === preset;
             return (
               <button
@@ -226,12 +223,12 @@ export const OperationalDashboardWidgets: React.FC = () => {
             );
           })}
 
-          {dateFilter !== 'all' && (
+          {dateFilter !== 'today' && (
             <button
               id="date-filter-reset-btn"
               type="button"
               onClick={handleResetFilter}
-              title="Reset to All Time"
+              title="Reset to Today"
               className="p-1.5 text-xs text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200/60"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -298,7 +295,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">
-                Total Customers
+                New Customers
               </span>
               {dateFilter !== 'all' && (
                 <span className="text-[10px] font-medium text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded">
@@ -306,7 +303,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
                 </span>
               )}
             </div>
-            <div className="text-3xl font-semibold text-slate-900 mt-1">{totalCustomers}</div>
+            <div className="text-3xl font-semibold text-slate-900 mt-1">{newCustomers}</div>
             <div className="text-xs text-slate-400 mt-1 flex items-center gap-1 group-hover:text-slate-700 transition-colors">
               <span>View customer directory</span>
               <ArrowRight className="w-3 h-3" />
@@ -326,7 +323,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">
-                Total Vehicles
+                New Vehicles
               </span>
               {dateFilter !== 'all' && (
                 <span className="text-[10px] font-medium text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded">
@@ -334,7 +331,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
                 </span>
               )}
             </div>
-            <div className="text-3xl font-semibold text-slate-900 mt-1">{totalVehicles}</div>
+            <div className="text-3xl font-semibold text-slate-900 mt-1">{newVehicles}</div>
             <div className="text-xs text-slate-400 mt-1 flex items-center gap-1 group-hover:text-slate-700 transition-colors">
               <span>View registered vehicles</span>
               <ArrowRight className="w-3 h-3" />
@@ -492,7 +489,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
       {/* Low Stock Items List */}
       <div
         id="widget-low-stock-alert"
-        className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm space-y-4"
+        className="bg-amber-50/40 border border-amber-200 rounded-xl p-5 shadow-sm space-y-4"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -509,23 +506,14 @@ export const OperationalDashboardWidgets: React.FC = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => setActiveTab('stock')}
-            className="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-slate-200/60"
-          >
-            <span>Manage Inventory</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
         </div>
 
-        {/* Table showing Item Name, Item Code, and Current Stock */}
+        {/* Low stock is a live inventory snapshot and is intentionally not date-filtered. */}
         <div className="overflow-x-auto border border-slate-100 rounded-xl">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-500 font-medium uppercase text-[11px] tracking-wider">
                 <th className="py-3 px-4">Item Name</th>
-                <th className="py-3 px-4">Item Code</th>
-                <th className="py-3 px-4 text-center">Min Threshold</th>
                 <th className="py-3 px-4 text-right">Current Stock</th>
               </tr>
             </thead>
@@ -536,12 +524,6 @@ export const OperationalDashboardWidgets: React.FC = () => {
                     <td className="py-3.5 px-4 font-medium text-slate-900">
                       {item.name}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">
-                      {item.partNumber}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-600">
-                      {item.minStock}
-                    </td>
                     <td className="py-3.5 px-4 text-right font-mono">
                       <span className="font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/50">
                         {item.stock}
@@ -551,7 +533,7 @@ export const OperationalDashboardWidgets: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="py-6 text-center text-slate-400">
+                  <td colSpan={2} className="py-6 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2 text-emerald-600 font-medium">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>No low stock items. All inventory is well stocked.</span>
