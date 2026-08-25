@@ -25,7 +25,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export const UserManagement: React.FC = () => {
-  const { users, currentUser, addUser, updateUser, updateUserRole, updateUserStatus, deleteUser, adminResetUserPassword } = useAuth();
+  const { users, currentUser, addUser, updateUser, updateUserStatus, adminResetUserPassword } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -34,7 +34,6 @@ export const UserManagement: React.FC = () => {
   // Modals state
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToResetPass, setUserToResetPass] = useState<User | null>(null);
   const [userToConfirmStatus, setUserToConfirmStatus] = useState<{ user: User; targetStatus: UserStatus } | null>(null);
 
@@ -181,14 +180,6 @@ export const UserManagement: React.FC = () => {
 
     showToast(`Password for ${userToResetPass.name} reset successfully!`);
     setUserToResetPass(null);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (userToDelete) {
-      deleteUser(userToDelete.id);
-      showToast(`User account ${userToDelete.name} deleted.`);
-      setUserToDelete(null);
-    }
   };
 
   const handleConfirmStatusChange = () => {
@@ -450,25 +441,6 @@ export const UserManagement: React.FC = () => {
                           </button>
                         )}
 
-                        {/* Delete Button with Safeguards */}
-                        {isProtected ? (
-                          <button
-                            disabled
-                            className="p-1.5 text-slate-300 cursor-not-allowed rounded-lg"
-                            title="Primary Garage Owner account cannot be deleted."
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <button
-                            id={`delete-user-${user.id}`}
-                            onClick={() => setUserToDelete(user)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                            title="Delete User"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -808,38 +780,6 @@ export const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Delete User Confirmation Modal */}
-      {userToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full space-y-4 text-slate-900 shadow-xl">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-base font-bold text-slate-900">Delete User Account?</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Are you sure you want to permanently remove <strong className="text-slate-900">{userToDelete.name}</strong> ({userToDelete.email})?
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                id="cancel-delete-user-btn"
-                onClick={() => setUserToDelete(null)}
-                className="w-1/2 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                id="confirm-delete-user-btn"
-                onClick={handleDeleteConfirm}
-                className="w-1/2 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-xs"
-              >
-                Delete Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

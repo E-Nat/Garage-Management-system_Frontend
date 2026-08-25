@@ -314,7 +314,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUsers((prev) => [newUser, ...prev]);
 
     if (currentUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'CREATE_USER', `Created user account for ${newUser.name} (${newUser.role})`);
+      addAuditLog('CREATE_USER', 'User', newUser.id, `Created user account for ${newUser.name} (${newUser.role})`);
     }
 
     return { success: true };
@@ -340,19 +340,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
+      prev.map((u) => (u.id === userId ? hydrateUserPermissions({ ...u, ...updates }) : hydrateUserPermissions(u)))
     );
 
     if (currentUser && currentUser.id === userId) {
-      setCurrentUser((prev) => (prev ? { ...prev, ...updates } : null));
+      setCurrentUser((prev) => (prev ? hydrateUserPermissions({ ...prev, ...updates }) : null));
     }
 
     const updatedTarget = users.find((u) => u.id === userId);
     if (currentUser && updatedTarget) {
       addAuditLog(
-        currentUser.id,
-        currentUser.name,
         'UPDATE_USER_ACCOUNT',
+        'User',
+        updatedTarget.id,
         `Updated account profile/role for ${updatedTarget.name} without altering history.`
       );
     }
@@ -368,7 +368,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser((prev) => (prev ? hydrateUserPermissions({ ...prev, role: newRole }) : null));
     }
     if (currentUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'UPDATE_USER_ROLE', `Updated role for user ${userId} to ${newRole}`);
+      addAuditLog('UPDATE_USER_ROLE', 'User', userId, `Updated role for user ${userId} to ${newRole}`);
     }
   };
 
@@ -382,9 +382,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if ((isSelf || isPrimaryOwner) && newStatus !== 'active') {
       if (currentUser) {
         addAuditLog(
-          currentUser.id,
-          currentUser.name,
           'SECURITY_PREVENTION',
+          'User',
+          userId,
           `Blocked attempt to deactivate active administrator session for ${targetUser?.name || userId}.`
         );
       }
@@ -398,7 +398,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout();
     }
     if (currentUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'UPDATE_USER_STATUS', `Set user status for ${userId} to ${newStatus}`);
+      addAuditLog('UPDATE_USER_STATUS', 'User', userId, `Set user status for ${userId} to ${newStatus}`);
     }
   };
 
@@ -412,9 +412,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSelf || isPrimaryOwner) {
       if (currentUser) {
         addAuditLog(
-          currentUser.id,
-          currentUser.name,
           'SECURITY_PREVENTION',
+          'User',
+          userId,
           `Blocked attempt to delete primary active administrator account ${targetUser?.name || userId}.`
         );
       }
@@ -426,7 +426,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout();
     }
     if (currentUser && targetUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'DELETE_USER', `Removed user ${targetUser.name}`);
+      addAuditLog('DELETE_USER', 'User', userId, `Removed user ${targetUser.name}`);
     }
   };
 
@@ -462,7 +462,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Update password
     updateProfile(currentUser.id, { password: newPass });
-    addAuditLog(currentUser.id, currentUser.name, 'SELF_CHANGE_PASSWORD', 'Successfully changed account password.');
+    addAuditLog('SELF_CHANGE_PASSWORD', 'User', currentUser.id, 'Successfully changed account password.');
 
     return { success: true };
   };
@@ -486,9 +486,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     addAuditLog(
-      currentUser.id,
-      currentUser.name,
       'ADMIN_RESET_PASSWORD',
+      'User',
+      targetUser.id,
       `Owner reset password for user ${targetUser.name} (${targetUser.email}) without requiring current password.`
     );
 
