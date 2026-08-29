@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGarage } from '../../context/GarageContext';
 import { Wrench, LogOut, Bell, Send, CheckCircle2, Menu, X } from 'lucide-react';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { UserRole } from '../../types';
+import { getRoleDisplayName } from '../../utils/roleUtils';
 import logoImg from '../../assets/images/logo.png';
 
 interface HeaderProps {
@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }) => {
-  const { currentUser, logout, quickSwitchRole, activeTab, setActiveTab } = useAuth();
+  const { currentUser, logout, activeTab, setActiveTab } = useAuth();
   const { systemSettings } = useGarage();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showNotificationToast, setShowNotificationToast] = useState(false);
@@ -67,34 +67,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
             </div>
           </div>
 
-          {/* Middle: Quick Role Switcher (Desktop >= 1200px) */}
-          <div className="hidden min-[1200px]:flex items-center gap-1 bg-slate-50/80 p-1 rounded-lg border border-slate-100">
-            {(['admin', 'advisor', 'mechanic', 'parts_manager', 'customer'] as UserRole[]).map((roleKey) => {
-              const isCurrent = currentUser.role === roleKey;
-              return (
-                <button
-                  key={roleKey}
-                  id={`quick-role-${roleKey}`}
-                  onClick={() => quickSwitchRole(roleKey)}
-                  className={`px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer ${
-                    isCurrent
-                      ? 'bg-[#FFF1E8] text-[#FF6B00] font-semibold shadow-xs border border-[#FF6B00]/30'
-                      : 'text-slate-500 hover:text-slate-900 font-medium'
-                  }`}
-                  title={`Switch role to ${roleKey.replace('_', ' ')}`}
-                >
-                  {roleKey === 'parts_manager' ? 'Parts' : roleKey}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right: Actions & User Profile */}
+          {/* Right: Notifications, User Name, Role & Logout */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Notification Bell */}
             <button
               id="notifications-bell-btn"
-              onClick={() => setActiveTab('settings')}
+              onClick={() => {
+                if (currentUser.role === 'admin' || currentUser.role === 'owner' || currentUser.role === 'advisor') {
+                  setActiveTab('settings');
+                }
+              }}
               className="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors border border-slate-100 cursor-pointer"
               title="Notifications"
             >
@@ -102,22 +84,23 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#FF6B00]" />
             </button>
 
-            {/* User Profile Pill */}
+            {/* Logged-in User Profile Information */}
             <div className="flex items-center gap-1 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-100">
               <button
                 id="user-profile-pill-btn"
                 onClick={() => setIsProfileOpen(true)}
-                className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-slate-50 transition-colors text-left cursor-pointer"
+                title="View Profile Details"
               >
-                <div className="w-7 h-7 rounded-md bg-[#FF6B00] text-white font-semibold flex items-center justify-center text-xs shrink-0">
-                  {currentUser.name.charAt(0)}
+                <div className="w-8 h-8 rounded-lg bg-[#FF6B00] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                  {currentUser.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-xs font-medium text-slate-900 leading-tight max-w-[100px] md:max-w-[140px] truncate">
+                  <div className="text-xs font-bold text-slate-900 leading-tight max-w-[130px] md:max-w-[180px] truncate">
                     {currentUser.name}
                   </div>
-                  <div className="text-[10px] text-slate-400 font-medium capitalize">
-                    {currentUser.role.replace('_', ' ')}
+                  <div className="text-[11px] text-[#FF6B00] font-semibold tracking-tight">
+                    {getRoleDisplayName(currentUser.role)}
                   </div>
                 </div>
               </button>
@@ -126,8 +109,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
               <button
                 id="logout-btn"
                 onClick={logout}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer ml-1"
                 title="Sign Out"
+                aria-label="Logout"
               >
                 <LogOut className="w-4 h-4" />
               </button>
