@@ -28,6 +28,7 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
+import { validateAndNormalizePhone, validatePersonName } from '../../utils/phone';
 
 export const CustomerManagement: React.FC = () => {
   const { customers, vehicles, addCustomer, updateCustomer, addVehicle, updateVehicle } = useGarage();
@@ -200,8 +201,19 @@ export const CustomerManagement: React.FC = () => {
     const errors: Record<string, string> = {};
 
     if (!selectedExistingCustomer) {
-      if (!regFullName.trim()) errors.fullName = 'Full name is required.';
-      if (!regPhone.trim()) errors.phone = 'Phone number is required.';
+      const nameCheck = validatePersonName(regFullName);
+      if (!nameCheck.isValid) {
+        errors.fullName = nameCheck.error || 'Full name must be a valid person\'s name, not an email.';
+      }
+
+      if (!regPhone.trim()) {
+        errors.phone = 'Phone number is required.';
+      } else {
+        const phoneCheck = validateAndNormalizePhone(regPhone);
+        if (!phoneCheck.isValid) {
+          errors.phone = phoneCheck.error || 'Please enter a valid Cambodian or international phone number.';
+        }
+      }
     }
 
     if (!regPlate.trim()) errors.plateNumber = 'Plate number is required.';
@@ -243,9 +255,10 @@ export const CustomerManagement: React.FC = () => {
       }
     } else {
       // Register New Customer & Vehicle
+      const phoneCheck = validateAndNormalizePhone(regPhone);
       const resCust = addCustomer({
         fullName: regFullName.trim(),
-        phone: regPhone.trim(),
+        phone: phoneCheck.isValid && phoneCheck.normalized ? phoneCheck.normalized : regPhone.trim(),
         address: regAddress.trim(),
       });
 

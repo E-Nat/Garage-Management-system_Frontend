@@ -4,7 +4,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-1',
     name: 'Marcus Vance',
-    email: 'apexgarage.owner@gmail.com',
+    email: 'owner@gmail.com',
     password: 'admin123',
     role: 'admin',
     phone: '+1 (555) 234-5678',
@@ -17,7 +17,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-2',
     name: 'Elena Rostova',
-    email: 'apexgarage.advisor@gmail.com',
+    email: 'advisor@gmail.com',
     password: 'advisor123',
     role: 'advisor',
     phone: '+1 (555) 876-5432',
@@ -30,7 +30,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-3',
     name: 'Dave Miller',
-    email: 'apexgarage.mechanic@gmail.com',
+    email: 'mechanic@gmail.com',
     password: 'mechanic123',
     role: 'mechanic',
     phone: '+1 (555) 345-6789',
@@ -43,7 +43,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-4',
     name: 'Sarah Jenkins',
-    email: 'apexgarage.parts@gmail.com',
+    email: 'parts@gmail.com',
     password: 'parts123',
     role: 'parts_manager',
     phone: '+1 (555) 456-7890',
@@ -56,7 +56,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-5',
     name: 'Alex Sterling',
-    email: 'apexgarage.customer@gmail.com',
+    email: 'customer@gmail.com',
     password: 'customer123',
     role: 'customer',
     phone: '+1 (555) 987-6543',

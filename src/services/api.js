@@ -1042,6 +1042,21 @@ export async function getRoles() {
   return response.data;
 }
 
+/* ==========================================================================
+   12. INVOICE & SIMULATED PAYMENT API (LARAVEL MYSQL BACKEND)
+   ========================================================================== */
+
+export async function simulateInvoicePayment(invoiceId) {
+  const numericId = typeof invoiceId === 'string' ? parseInt(invoiceId.replace(/\D/g, ''), 10) || invoiceId : invoiceId;
+  const response = await api.post(`/api/invoices/${numericId}/simulate-payment`);
+  return response.data;
+}
+
+export async function downloadInvoicePdf(invoiceId) {
+  const numericId = typeof invoiceId === 'string' ? parseInt(invoiceId.replace(/\D/g, ''), 10) || invoiceId : invoiceId;
+  return `${api.defaults.baseURL || ''}/api/invoices/${numericId}/pdf`;
+}
+
 // Export the base axios instance for custom requests
 export default api;
 

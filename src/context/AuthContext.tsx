@@ -150,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     return loadedUsers.map((u) => {
-      if (u.id === 'usr-1' || u.email.toLowerCase() === 'apexgarage.owner@gmail.com') {
+      if (u.id === 'usr-1' || u.email.toLowerCase() === 'owner@gmail.com' || u.email.toLowerCase() === 'apexgarage.owner@gmail.com') {
         return hydrateUserPermissions({ ...u, status: 'active', role: 'admin' });
       }
       return hydrateUserPermissions(u);
@@ -163,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedUser) {
       try {
         const parsed: User = JSON.parse(savedUser);
-        if (parsed.id === 'usr-1' || parsed.email?.toLowerCase() === 'apexgarage.owner@gmail.com') {
+        if (parsed.id === 'usr-1' || parsed.email?.toLowerCase() === 'owner@gmail.com' || parsed.email?.toLowerCase() === 'apexgarage.owner@gmail.com') {
           return hydrateUserPermissions({ ...parsed, status: 'active', role: 'admin' });
         }
         if (parsed && parsed.status === 'active') {
@@ -592,7 +592,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Safeguard: Prevent self-deactivation or deactivation of primary Garage Owner
     const isSelf = currentUser?.id === userId;
-    const isPrimaryOwner = userId === 'usr-1' || targetUser?.email.toLowerCase() === 'apexgarage.owner@gmail.com';
+    const isPrimaryOwner = userId === 'usr-1' || targetUser?.email.toLowerCase() === 'owner@gmail.com' || targetUser?.email.toLowerCase() === 'apexgarage.owner@gmail.com';
 
     if ((isSelf || isPrimaryOwner) && newStatus !== 'active') {
       if (currentUser) {
