@@ -10,57 +10,51 @@ export interface PhoneValidationResult {
   error?: string;
 }
 
+/**
+ * Sanitizes input to accept digits only with maximum length limit.
+ * Blocks letters, special characters, spaces, and hyphens.
+ */
+export function sanitizePhoneDigits(input: string, maxDigits: number = 10): string {
+  if (!input) return '';
+  return input.replace(/\D/g, '').slice(0, maxDigits);
+}
+
 export function validateAndNormalizePhone(phoneInput: string): PhoneValidationResult {
   const trimmed = (phoneInput || '').trim();
   if (!trimmed) {
     return { isValid: true, normalized: '' };
   }
 
-  // Check valid characters: digits, plus, spaces, dashes, dots, parentheses
-  if (!/^[+0-9\s\-().]{7,25}$/.test(trimmed)) {
-    return {
-      isValid: false,
-      normalized: '',
-      error: 'Phone number contains invalid characters.',
-    };
-  }
-
+  // Extract digits
   const digits = trimmed.replace(/\D/g, '');
-  if (digits.length < 7 || digits.length > 15) {
-    return {
-      isValid: false,
-      normalized: '',
-      error: 'Phone number must have between 7 and 15 digits.',
-    };
-  }
 
-  // Cambodian phone numbers: starts with country code 855 or domestic prefix 0
+  // 1. Cambodian numbers starting with +855 or 855
   if (digits.startsWith('855')) {
     const national = digits.substring(3).replace(/^0+/, '');
     if (national.length >= 7 && national.length <= 9) {
-      return { isValid: true, normalized: `0${national}` };
+      return { isValid: true, normalized: `+855${national}` };
     }
-  } else if (digits.startsWith('0')) {
+  }
+
+  // 2. Local Cambodian numbers starting with 0 (e.g. 086401600, 0123456789, 0971234567)
+  if (digits.startsWith('0')) {
     const national = digits.replace(/^0+/, '');
-    if (national.length >= 7 && national.length <= 9) {
-      return { isValid: true, normalized: `0${national}` };
+    if (national.length >= 7 && national.length <= 9 && digits.length <= 10) {
+      return { isValid: true, normalized: `+855${national}` };
     }
-  } else if (digits.length >= 7 && digits.length <= 9 && !digits.startsWith('1')) {
-    // Domestic Cambodian without leading 0
-    return { isValid: true, normalized: `0${digits}` };
   }
 
-  // North American numbers
-  if (digits.startsWith('1') && digits.length === 11) {
-    return { isValid: true, normalized: `+1${digits.substring(1)}` };
+  // 3. 8-9 digits without leading 0
+  if (digits.length >= 7 && digits.length <= 9 && !digits.startsWith('1')) {
+    return { isValid: true, normalized: `+855${digits}` };
   }
 
-  // International format with leading +
-  if (trimmed.startsWith('+')) {
-    return { isValid: true, normalized: `+${digits}` };
-  }
-
-  return { isValid: true, normalized: trimmed };
+  // If input does not match valid Cambodian formats
+  return {
+    isValid: false,
+    normalized: '',
+    error: 'Please enter a valid Cambodian phone number.',
+  };
 }
 
 /**

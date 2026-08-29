@@ -25,51 +25,12 @@ import {
   EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-// Cambodian and International Phone Validator & Normalizer
-export function validateAndNormalizePhone(phoneInput: string): { isValid: boolean; normalized: string; error?: string } {
-  const trimmed = phoneInput.trim();
-  if (!trimmed) {
-    return { isValid: true, normalized: '' };
-  }
-
-  // Check valid characters
-  if (!/^[+0-9\s\-().]{7,20}$/.test(trimmed)) {
-    return { isValid: false, normalized: '', error: 'Phone number contains invalid characters.' };
-  }
-
-  const digits = trimmed.replace(/\D/g, '');
-  if (digits.length < 7 || digits.length > 15) {
-    return { isValid: false, normalized: '', error: 'Phone number must have between 7 and 15 digits.' };
-  }
-
-  // Cambodian phone numbers: starts with 855 or domestic 0
-  if (digits.startsWith('855')) {
-    const national = digits.substring(3).replace(/^0+/, '');
-    if (national.length >= 7 && national.length <= 9) {
-      return { isValid: true, normalized: `0${national}` };
-    }
-  } else if (digits.startsWith('0')) {
-    const national = digits.replace(/^0+/, '');
-    if (national.length >= 7 && national.length <= 9) {
-      return { isValid: true, normalized: `0${national}` };
-    }
-  } else if (digits.length >= 7 && digits.length <= 9 && !digits.startsWith('1')) {
-    return { isValid: true, normalized: `0${digits}` };
-  }
-
-  // North American numbers
-  if (digits.startsWith('1') && digits.length === 11) {
-    return { isValid: true, normalized: `+1${digits.substring(1)}` };
-  }
-
-  // International format with leading +
-  if (trimmed.startsWith('+')) {
-    return { isValid: true, normalized: `+${digits}` };
-  }
-
-  return { isValid: true, normalized: trimmed };
-}
+import {
+  validateAndNormalizePhone,
+  sanitizePhoneDigits,
+  validatePersonName,
+  validateEmail,
+} from '../../utils/phone';
 
 export const UserManagement: React.FC = () => {
   const { users, currentUser, addUser, updateUser, updateUserRole, updateUserStatus, deleteUser, adminResetUserPassword } = useAuth();
@@ -135,18 +96,55 @@ export const UserManagement: React.FC = () => {
   const handleOpenEditModal = (user: User) => {
     setEditingUser(user);
     setShowInitialPassword(false);
+    let initialPhone = user.phone || '';
+    if (initialPhone.startsWith('+855')) {
+      initialPhone = '0' + initialPhone.substring(4);
+    } else if (initialPhone.startsWith('855')) {
+      initialPhone = '0' + initialPhone.substring(3);
+    }
+    initialPhone = sanitizePhoneDigits(initialPhone, 10);
+
     setFormData({
       name: user.name,
       email: user.email,
       password: '',
       role: user.role,
-      phone: user.phone,
+      phone: initialPhone,
       telegramHandle: user.telegramHandle || '',
       department: user.department || 'Staff',
       status: user.status,
     });
     setFormError('');
     setIsAddUserModalOpen(true);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = sanitizePhoneDigits(e.target.value, 10);
+    setFormData({ ...formData, phone: digits });
+  };
+
+  const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text') || '';
+    let digits = text.replace(/\D/g, '');
+    if (digits.startsWith('855')) {
+      digits = '0' + digits.substring(3);
+    }
+    digits = sanitizePhoneDigits(digits, 10);
+    setFormData({ ...formData, phone: digits });
+  };
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (
+      ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter'].includes(e.key) ||
+      e.ctrlKey ||
+      e.metaKey
+    ) {
+      return;
+    }
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+    }
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -194,7 +192,7 @@ export const UserManagement: React.FC = () => {
     if (normalizedPhone) {
       const phoneCheck = validateAndNormalizePhone(normalizedPhone);
       if (!phoneCheck.isValid) {
-        setFormError(phoneCheck.error || 'Please enter a valid phone number (e.g. 086401600, 0971234567, or +85586401600).');
+        setFormError('Please enter a valid Cambodian phone number.');
         return;
       }
       normalizedPhone = phoneCheck.normalized;
@@ -755,14 +753,19 @@ export const UserManagement: React.FC = () => {
                   </label>
                   <input
                     id="user-modal-phone-input"
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="e.g. 086401600 or +85586401600"
+                    onChange={handlePhoneChange}
+                    onPaste={handlePhonePaste}
+                    onKeyDown={handlePhoneKeyDown}
+                    placeholder="e.g. 086401600 or 0123456789"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Supports 086401600, 0123456789, +855...
+                    Digits only (max 10). E.g. 086401600, 0123456789, 0971234567
                   </span>
                 </div>
 
