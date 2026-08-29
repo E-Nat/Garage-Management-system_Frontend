@@ -275,7 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const verifySession = async () => {
       const token = localStorage.getItem('auth_token');
-      if (token && currentUser) {
+      if (token) {
         try {
           const res = await api.get('/api/auth/me');
           if (res.data && res.data.success && res.data.data) {
@@ -291,10 +291,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (err: any) {
           // If token was revoked/expired on backend (401), clear and redirect to login
-          if (err.response && err.response.status === 401) {
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
             localStorage.removeItem('auth_token');
             localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
             setCurrentUser(null);
+            setLoginError('Your session has expired. Please sign in again.');
             navigate('/login', true);
           }
         }
@@ -303,6 +304,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     verifySession();
   }, [fetchUsers, navigate]);
+
+  // Global handler for token expiration dispatched from axios interceptors
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setCurrentUser(null);
+      setLoginError('Your session has expired. Please sign in again.');
+      navigate('/login', true);
+    };
+
+    window.addEventListener('garage-session-expired', handleSessionExpired);
+    return () => window.removeEventListener('garage-session-expired', handleSessionExpired);
+  }, [navigate]);
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_USERS_LIST_KEY, JSON.stringify(users));
@@ -377,8 +390,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoginError(null);
     const cleanEmail = emailInput.trim().toLowerCase();
 
-    if (!cleanEmail || !pass) {
-      const err = 'Please enter both email and password.';
+    if (!cleanEmail) {
+      const err = 'Please enter your email address.';
+      setLoginError(err);
+      return { success: false, error: err };
+    }
+
+    if (!pass) {
+      const err = 'Please enter your password.';
       setLoginError(err);
       return { success: false, error: err };
     }
@@ -396,7 +415,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('auth_token', token);
         }
 
-        const backendUser = response.data.data;
+        const backendUser = response.data.data || response.data.user;
         const mappedUser = mapBackendUserToUser(backendUser);
 
         setCurrentUser(mappedUser);
@@ -426,18 +445,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const finalMsg = errorMessage || 'Invalid email address or password.';
+        if (apiError.response.status === 422 || apiError.response.status === 401) {
+          const finalMsg = errorMessage || 'Invalid email or password.';
+          setLoginError(finalMsg);
+          return { success: false, error: finalMsg };
+        }
+
+        if (apiError.response.status === 403) {
+          const finalMsg = errorMessage || 'This account is currently inactive. Please contact the administrator.';
+          setLoginError(finalMsg);
+          return { success: false, error: finalMsg };
+        }
+
+        const finalMsg = errorMessage || 'Invalid email or password.';
         setLoginError(finalMsg);
         return { success: false, error: finalMsg };
       }
 
       // If backend network error / unavailable:
-      const networkMsg = 'Unable to connect to garage authentication server. Please check that backend server is running.';
+      const networkMsg = 'Unable to connect to the server. Please try again.';
       setLoginError(networkMsg);
       return { success: false, error: networkMsg };
     }
 
-    const genericErr = 'Invalid email address or password. Please check your credentials.';
+    const genericErr = 'Invalid email or password.';
     setLoginError(genericErr);
     return { success: false, error: genericErr };
   };

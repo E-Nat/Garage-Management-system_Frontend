@@ -37,8 +37,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Handle unauthorized session / token expiration
-      console.warn('Unauthorized API request - session may have expired.');
+      // If unauthorized on any non-login endpoint, session has expired
+      const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+      if (!isLoginRequest) {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('apex_garage_user');
+          window.dispatchEvent(new CustomEvent('garage-session-expired'));
+        }
+      }
     }
     return Promise.reject(error);
   }

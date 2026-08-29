@@ -26,10 +26,14 @@ export const LoginForm: React.FC = () => {
   const prefersReducedMotion = useReducedMotion();
 
   // Form State
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    return localStorage.getItem('apex_garage_remember_email') || '';
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(() => {
+    return Boolean(localStorage.getItem('apex_garage_remember_email'));
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [activeField, setActiveField] = useState<'email' | 'password' | null>(null);
@@ -59,13 +63,13 @@ export const LoginForm: React.FC = () => {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
-      errors.email = 'Work email is required.';
+      errors.email = 'Please enter your email address.';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      errors.email = 'Please enter a valid work email address.';
+      errors.email = 'Please enter a valid email address.';
     }
 
     if (!password) {
-      errors.password = 'Password is required.';
+      errors.password = 'Please enter your password.';
     } else if (password.length < 6) {
       errors.password = 'Password must be at least 6 characters.';
     }
@@ -79,6 +83,13 @@ export const LoginForm: React.FC = () => {
     clearLoginError();
 
     if (!validate()) return;
+
+    // Handle Remember Me persistence
+    if (rememberMe) {
+      localStorage.setItem('apex_garage_remember_email', email.trim());
+    } else {
+      localStorage.removeItem('apex_garage_remember_email');
+    }
 
     setIsLoading(true);
 
