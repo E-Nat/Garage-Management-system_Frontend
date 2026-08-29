@@ -41,6 +41,7 @@ export const CustomerManagement: React.FC = () => {
 
   // Unified Search State
   const [searchTerm, setSearchTerm] = useState('');
+  const [telegramFilter, setTelegramFilter] = useState<'all' | 'connected' | 'not_connected'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
 
@@ -142,9 +143,17 @@ export const CustomerManagement: React.FC = () => {
   }, [vehicles, cleanSearch]);
 
   const filteredCustomers = useMemo(() => {
-    if (!cleanSearch) return customers;
+    let list = customers;
 
-    return customers.filter((c) => {
+    if (telegramFilter === 'connected') {
+      list = list.filter((c) => Boolean(c.telegramLinked));
+    } else if (telegramFilter === 'not_connected') {
+      list = list.filter((c) => !c.telegramLinked);
+    }
+
+    if (!cleanSearch) return list;
+
+    return list.filter((c) => {
       const nameMatch = c.fullName.toLowerCase().includes(cleanSearch);
       const phoneMatch = c.phone.toLowerCase().includes(cleanSearch);
       const addressMatch = Boolean(c.address && c.address.toLowerCase().includes(cleanSearch));
@@ -160,7 +169,7 @@ export const CustomerManagement: React.FC = () => {
 
       return nameMatch || phoneMatch || addressMatch || ownsMatchingVehicle;
     });
-  }, [customers, vehicles, cleanSearch]);
+  }, [customers, vehicles, cleanSearch, telegramFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
@@ -500,6 +509,60 @@ export const CustomerManagement: React.FC = () => {
                   <X className="w-4 h-4" />
                 </button>
               )}
+            </div>
+
+            {/* Telegram Status Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Telegram Status:</span>
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
+                  <button
+                    id="filter-telegram-all-btn"
+                    type="button"
+                    onClick={() => {
+                      setTelegramFilter('all');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      telegramFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All ({customers.length})
+                  </button>
+                  <button
+                    id="filter-telegram-connected-btn"
+                    type="button"
+                    onClick={() => {
+                      setTelegramFilter('connected');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      telegramFilter === 'connected'
+                        ? 'bg-white text-emerald-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Connected ({customers.filter((c) => c.telegramLinked).length})
+                  </button>
+                  <button
+                    id="filter-telegram-unconnected-btn"
+                    type="button"
+                    onClick={() => {
+                      setTelegramFilter('not_connected');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      telegramFilter === 'not_connected'
+                        ? 'bg-white text-slate-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Not Connected ({customers.filter((c) => !c.telegramLinked).length})
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Vehicle Search Matching Results Card (if searching by plate/brand) */}

@@ -90,7 +90,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                         setEmail(e.target.value);
                         if (error) setError('');
                       }}
-                      placeholder="name@apexgarage.com"
+                      placeholder="user@gmail.com"
                       className="w-full pl-10 pr-4 py-3 text-sm bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#FF6B00] focus:ring-2 focus:ring-[#FF6B00]/15 transition-all"
                       required
                     />

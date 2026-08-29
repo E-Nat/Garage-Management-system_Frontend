@@ -905,6 +905,11 @@ export async function getDashboardOverview(params = {}) {
   return response.data;
 }
 
+export async function getTelegramStats() {
+  const response = await api.get('/api/dashboard/telegram-stats');
+  return response.data;
+}
+
 export async function getAdvisorDashboard() {
   const response = await api.get('/api/dashboard/advisor');
   return response.data;
@@ -987,6 +992,53 @@ export async function updateRolePermissions(role, permissions) {
 
 export async function saveRolePermissions(payload = {}) {
   const response = await api.put('/api/permissions/roles', payload);
+  return response.data;
+}
+
+/* ==========================================================================
+   11. USER MANAGEMENT & ROLES API (LARAVEL MYSQL BACKEND)
+   ========================================================================== */
+
+export async function getUsers(params = {}) {
+  const response = await api.get('/api/users', { params });
+  return response.data;
+}
+
+export async function getUser(id) {
+  const response = await api.get(`/api/users/${id}`);
+  return response.data;
+}
+
+export async function createUser(userData) {
+  const response = await api.post('/api/users', userData);
+  return response.data;
+}
+
+export async function updateUser(id, updates) {
+  const response = await api.put(`/api/users/${id}`, updates);
+  return response.data;
+}
+
+export async function updateUserStatus(id, status) {
+  const response = await api.patch(`/api/users/${id}/status`, { status });
+  return response.data;
+}
+
+export async function resetUserPassword(id, password, passwordConfirmation) {
+  const response = await api.patch(`/api/users/${id}/password`, {
+    password,
+    password_confirmation: passwordConfirmation,
+  });
+  return response.data;
+}
+
+export async function deleteUser(id) {
+  const response = await api.delete(`/api/users/${id}`);
+  return response.data;
+}
+
+export async function getRoles() {
+  const response = await api.get('/api/roles');
   return response.data;
 }
 

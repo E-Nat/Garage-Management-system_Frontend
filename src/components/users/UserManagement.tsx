@@ -98,13 +98,15 @@ export const UserManagement: React.FC = () => {
     setIsAddUserModalOpen(true);
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleOpenResetPassModal = (user: User) => {
     setUserToResetPass(user);
     setResetPassData({ newPassword: '', confirmPassword: '' });
     setResetPassError('');
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
@@ -113,12 +115,15 @@ export const UserManagement: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     if (!editingUser) {
       if (!formData.password.trim()) {
         setFormError('Initial password is required for new accounts.');
+        setIsSubmitting(false);
         return;
       }
-      const res = addUser({
+      const res = await addUser({
         name: formData.name.trim(),
         email: formData.email.trim(),
         password: formData.password.trim(),
@@ -129,11 +134,13 @@ export const UserManagement: React.FC = () => {
         status: formData.status,
       });
 
+      setIsSubmitting(false);
+
       if (!res.success) {
         setFormError(res.error || 'Failed to create user account.');
         return;
       }
-      showToast(`User account for ${formData.name} created successfully!`);
+      showToast(`User account for ${formData.name} created successfully in database!`);
     } else {
       const updates: Partial<User> = {
         name: formData.name.trim(),
@@ -145,7 +152,9 @@ export const UserManagement: React.FC = () => {
         status: formData.status,
       };
 
-      const res = updateUser(editingUser.id, updates);
+      const res = await updateUser(editingUser.id, updates);
+      setIsSubmitting(false);
+
       if (!res.success) {
         setFormError(res.error || 'Failed to update user account.');
         return;
@@ -156,15 +165,15 @@ export const UserManagement: React.FC = () => {
     setIsAddUserModalOpen(false);
   };
 
-  const handleAdminResetPasswordSubmit = (e: React.FormEvent) => {
+  const handleAdminResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetPassError('');
 
     if (!userToResetPass) return;
 
     const { newPassword } = resetPassData;
-    if (!newPassword || newPassword.length < 6 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-      setResetPassError('New password must be at least 6 characters and include both letters and numbers.');
+    if (!newPassword || newPassword.length < 6) {
+      setResetPassError('New password must be at least 6 characters.');
       return;
     }
 
@@ -173,7 +182,10 @@ export const UserManagement: React.FC = () => {
       return;
     }
 
-    const res = adminResetUserPassword(userToResetPass.id, newPassword);
+    setIsSubmitting(true);
+    const res = await adminResetUserPassword(userToResetPass.id, newPassword);
+    setIsSubmitting(false);
+
     if (!res.success) {
       setResetPassError(res.error || 'Failed to reset password.');
       return;
@@ -183,22 +195,34 @@ export const UserManagement: React.FC = () => {
     setUserToResetPass(null);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (userToDelete) {
-      deleteUser(userToDelete.id);
-      showToast(`User account ${userToDelete.name} deleted.`);
+      setIsSubmitting(true);
+      const res = await deleteUser(userToDelete.id);
+      setIsSubmitting(false);
+      if (res && res.error) {
+        showToast(res.error);
+      } else {
+        showToast(`User account ${userToDelete.name} deleted.`);
+      }
       setUserToDelete(null);
     }
   };
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = async () => {
     if (userToConfirmStatus) {
-      updateUserStatus(userToConfirmStatus.user.id, userToConfirmStatus.targetStatus);
-      showToast(
-        userToConfirmStatus.targetStatus === 'deactivated'
-          ? `Deactivated account for ${userToConfirmStatus.user.name}`
-          : `Reactivated account for ${userToConfirmStatus.user.name}`
-      );
+      setIsSubmitting(true);
+      const res = await updateUserStatus(userToConfirmStatus.user.id, userToConfirmStatus.targetStatus);
+      setIsSubmitting(false);
+      if (res && res.error) {
+        showToast(res.error);
+      } else {
+        showToast(
+          userToConfirmStatus.targetStatus === 'deactivated'
+            ? `Deactivated account for ${userToConfirmStatus.user.name}`
+            : `Reactivated account for ${userToConfirmStatus.user.name}`
+        );
+      }
       setUserToConfirmStatus(null);
     }
   };
@@ -349,7 +373,7 @@ export const UserManagement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredUsers.map((user) => {
-                const isProtected = user.id === 'usr-1' || user.email.toLowerCase() === 'owner@apexgarage.com' || (currentUser && currentUser.id === user.id);
+                const isProtected = user.id === 'usr-1' || user.email.toLowerCase() === 'apexgarage.owner@gmail.com' || (currentUser && currentUser.id === user.id);
 
                 return (
                   <tr key={user.id} className="hover:bg-slate-50 transition">
@@ -533,7 +557,7 @@ export const UserManagement: React.FC = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="name@apexgarage.com"
+                    placeholder="user@gmail.com"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
@@ -588,7 +612,7 @@ export const UserManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
                     Account Status
                   </label>
-                  {editingUser && (editingUser.id === 'usr-1' || editingUser.email.toLowerCase() === 'owner@apexgarage.com' || editingUser.id === currentUser?.id) ? (
+                  {editingUser && (editingUser.id === 'usr-1' || editingUser.email.toLowerCase() === 'apexgarage.owner@gmail.com' || editingUser.id === currentUser?.id) ? (
                     <div>
                       <input
                         type="text"
@@ -658,9 +682,17 @@ export const UserManagement: React.FC = () => {
                 <button
                   id="submit-user-modal-btn"
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {editingUser ? 'Save Updates' : 'Provision Account'}
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>{editingUser ? 'Saving...' : 'Provisioning...'}</span>
+                    </>
+                  ) : (
+                    <span>{editingUser ? 'Save Updates' : 'Provision Account'}</span>
+                  )}
                 </button>
               </div>
             </form>
