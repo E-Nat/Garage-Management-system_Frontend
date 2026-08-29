@@ -28,11 +28,16 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
-import { validateAndNormalizePhone, validatePersonName } from '../../utils/phone';
+import { validateAndNormalizePhone, validatePersonName, sanitizePhoneDigits } from '../../utils/phone';
 
 export const CustomerManagement: React.FC = () => {
   const { customers, vehicles, addCustomer, updateCustomer, addVehicle, updateVehicle } = useGarage();
   const { currentUser } = useAuth();
+
+  // Permissions
+  const canCreateCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
+  const canEditCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
+  const canDeleteCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   // Navigation / View State
   // 'list' | 'customer_details' | 'vehicle_details'
@@ -78,7 +83,7 @@ export const CustomerManagement: React.FC = () => {
   const [editVehicleVin, setEditVehicleVin] = useState('');
   const [editVehicleError, setEditVehicleError] = useState('');
 
-  // Register Form State (Customer + Vehicle)
+  // Register Form State (Customer + Optional Vehicle)
   const [regFullName, setRegFullName] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regAddress, setRegAddress] = useState('');
@@ -195,7 +200,7 @@ export const CustomerManagement: React.FC = () => {
     setIsRegisterModalOpen(true);
   };
 
-  // Submit Register Customer & Vehicle Form
+  // Submit Register Customer & Optional Vehicle Form
   const handleSubmitRegister = (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
@@ -211,16 +216,20 @@ export const CustomerManagement: React.FC = () => {
       } else {
         const phoneCheck = validateAndNormalizePhone(regPhone);
         if (!phoneCheck.isValid) {
-          errors.phone = phoneCheck.error || 'Please enter a valid Cambodian or international phone number.';
+          errors.phone = phoneCheck.error || 'Please enter a valid Cambodian phone number.';
         }
       }
     }
 
-    if (!regPlate.trim()) errors.plateNumber = 'Plate number is required.';
-    if (!regBrand.trim()) errors.brand = 'Brand is required.';
-    if (!regModel.trim()) errors.model = 'Model is required.';
-    if (!regYear || isNaN(Number(regYear))) errors.year = 'Valid year is required.';
-    if (!regColor.trim()) errors.color = 'Color is required.';
+    const hasVehicleInput = Boolean(regPlate.trim() || regBrand.trim() || regModel.trim());
+
+    if (hasVehicleInput) {
+      if (!regPlate.trim()) errors.plateNumber = 'Plate number is required.';
+      if (!regBrand.trim()) errors.brand = 'Brand is required.';
+      if (!regModel.trim()) errors.model = 'Model is required.';
+      if (!regYear || isNaN(Number(regYear))) errors.year = 'Valid year is required.';
+      if (!regColor.trim()) errors.color = 'Color is required.';
+    }
 
     if (Object.keys(errors).length > 0) {
       setRegErrors(errors);
@@ -228,6 +237,11 @@ export const CustomerManagement: React.FC = () => {
     }
 
     if (selectedExistingCustomer) {
+      if (!hasVehicleInput) {
+        setRegErrors({ general: 'Please specify vehicle details to add to this existing customer.' });
+        return;
+      }
+
       // Adding new vehicle to existing customer
       const resVeh = addVehicle({
         customerId: selectedExistingCustomer.id,
@@ -246,15 +260,14 @@ export const CustomerManagement: React.FC = () => {
         return;
       }
 
-      showToast('Vehicle added successfully.');
+      showToast('Vehicle added to customer successfully.');
       setIsRegisterModalOpen(false);
       
-      // If currently viewing details, refresh view
       if (selectedCustomerId === selectedExistingCustomer.id) {
         setActiveView('customer_details');
       }
     } else {
-      // Register New Customer & Vehicle
+      // Register New Customer (and optional vehicle)
       const phoneCheck = validateAndNormalizePhone(regPhone);
       const resCust = addCustomer({
         fullName: regFullName.trim(),
@@ -267,24 +280,30 @@ export const CustomerManagement: React.FC = () => {
         return;
       }
 
-      const resVeh = addVehicle({
-        customerId: resCust.customer.id,
-        customerName: resCust.customer.fullName,
-        plateNumber: regPlate.trim().toUpperCase(),
-        brand: regBrand.trim(),
-        model: regModel.trim(),
-        year: Number(regYear),
-        color: regColor.trim(),
-        mileage: regMileage ? Number(regMileage) : 0,
-        vin: regVin.trim().toUpperCase(),
-      });
+      if (hasVehicleInput) {
+        const resVeh = addVehicle({
+          customerId: resCust.customer.id,
+          customerName: resCust.customer.fullName,
+          plateNumber: regPlate.trim().toUpperCase(),
+          brand: regBrand.trim(),
+          model: regModel.trim(),
+          year: Number(regYear),
+          color: regColor.trim(),
+          mileage: regMileage ? Number(regMileage) : 0,
+          vin: regVin.trim().toUpperCase(),
+        });
 
-      if (!resVeh.success) {
-        setRegErrors({ general: `Customer created, but vehicle failed: ${resVeh.error}` });
-        return;
+        if (!resVeh.success) {
+          showToast('Customer created successfully (vehicle registration failed).');
+          setIsRegisterModalOpen(false);
+          return;
+        }
+
+        showToast('Customer and vehicle registered successfully.');
+      } else {
+        showToast('Customer registered successfully.');
       }
 
-      showToast('Customer and vehicle registered successfully.');
       setIsRegisterModalOpen(false);
     }
   };
@@ -487,15 +506,17 @@ export const CustomerManagement: React.FC = () => {
               </p>
             </div>
 
-            <button
-              id="add-customer-btn"
-              type="button"
-              onClick={handleOpenRegisterModal}
-              className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Customer</span>
-            </button>
+            {canCreateCustomer && (
+              <button
+                id="add-customer-btn"
+                type="button"
+                onClick={handleOpenRegisterModal}
+                className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Customer</span>
+              </button>
+            )}
           </div>
 
           {/* Unified Search Bar */}
@@ -640,15 +661,17 @@ export const CustomerManagement: React.FC = () => {
                     <p className="text-xs text-slate-500 mt-1">
                       Register your first customer and vehicle to get started.
                     </p>
-                    <button
-                      id="empty-add-customer-btn"
-                      type="button"
-                      onClick={handleOpenRegisterModal}
-                      className="mt-4 px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Customer</span>
-                    </button>
+                    {canCreateCustomer && (
+                      <button
+                        id="empty-add-customer-btn"
+                        type="button"
+                        onClick={handleOpenRegisterModal}
+                        className="mt-4 px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Customer</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -700,7 +723,7 @@ export const CustomerManagement: React.FC = () => {
 
                             {/* Phone Number Column */}
                             <td className="py-3.5 px-4 text-slate-700 font-medium">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 font-mono">
                                 <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 <span>{cust.phone}</span>
                               </div>
@@ -718,12 +741,13 @@ export const CustomerManagement: React.FC = () => {
                             <td className="py-3.5 px-4">
                               {cust.telegramLinked ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <Send className="w-3 h-3 text-emerald-600" />
-                                  <span>Linked</span>
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                  <span>Connected</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                  <span>Not Linked</span>
+                                  <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                                  <span>Not Connected</span>
                                 </span>
                               )}
                             </td>
@@ -734,7 +758,8 @@ export const CustomerManagement: React.FC = () => {
                                 <button
                                   id={`view-customer-btn-${cust.id}`}
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedCustomerId(cust.id);
                                     setActiveView('customer_details');
                                   }}
@@ -742,14 +767,19 @@ export const CustomerManagement: React.FC = () => {
                                 >
                                   View
                                 </button>
-                                <button
-                                  id={`edit-customer-btn-${cust.id}`}
-                                  type="button"
-                                  onClick={() => handleOpenEditCustomerModal(cust)}
-                                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors"
-                                >
-                                  Edit
-                                </button>
+                                {canEditCustomer && (
+                                  <button
+                                    id={`edit-customer-btn-${cust.id}`}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditCustomerModal(cust);
+                                    }}
+                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -895,8 +925,8 @@ export const CustomerManagement: React.FC = () => {
                   {activeCustomer.telegramLinked ? (
                     <div>
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Linked</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span>Connected</span>
                       </span>
                       {activeCustomer.telegramHandle && (
                         <p className="text-xs font-mono font-semibold text-slate-700 mt-2">
@@ -910,8 +940,8 @@ export const CustomerManagement: React.FC = () => {
                   ) : (
                     <div>
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                        <AlertCircle className="w-4 h-4 text-slate-500" />
-                        <span>Not Linked</span>
+                        <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                        <span>Not Connected</span>
                       </span>
                       <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
                         Customer has not linked their Telegram bot yet.
@@ -1338,11 +1368,13 @@ export const CustomerManagement: React.FC = () => {
                       </label>
                       <input
                         id="reg-phone"
-                        type="text"
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
                         value={regPhone}
-                        onChange={(e) => setRegPhone(e.target.value)}
-                        placeholder="e.g. 012 345 678"
-                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                        onChange={(e) => setRegPhone(sanitizePhoneDigits(e.target.value, 10))}
+                        placeholder="e.g. 086401600"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none font-mono"
                       />
                       {regErrors.phone && <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>}
                     </div>
@@ -1701,10 +1733,13 @@ export const CustomerManagement: React.FC = () => {
                 </label>
                 <input
                   id="edit-cust-phone"
-                  type="text"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={editCustomerPhone}
-                  onChange={(e) => setEditCustomerPhone(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
+                  onChange={(e) => setEditCustomerPhone(sanitizePhoneDigits(e.target.value, 10))}
+                  placeholder="e.g. 086401600"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none font-mono"
                   required
                 />
               </div>

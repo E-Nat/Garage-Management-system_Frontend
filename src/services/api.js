@@ -445,7 +445,15 @@ let mockInvoices = [
  * @returns {Promise<{ data: Array }>}
  */
 export async function getCustomers(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.get('/api/customers', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getCustomers failed or unauthenticated, using local state:', err);
+  }
+
   let results = [...mockCustomers];
   if (params.search) {
     const s = params.search.toLowerCase();
@@ -460,12 +468,6 @@ export async function getCustomers(params = {}) {
     results = results.filter((c) => isDateInRange(c.created_at, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/customers', { params });
-  // return response.data;
-  */
 }
 
 /**
@@ -476,10 +478,20 @@ export async function getCustomers(params = {}) {
  * @param {string} [customerData.address]
  * @param {string} [customerData.telegram_chat_id]
  * @param {boolean} [customerData.telegram_linked]
+ * @param {Object} [customerData.vehicle]
  * @returns {Promise<{ data: Object }>}
  */
 export async function createCustomer(customerData) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.post('/api/customers', customerData);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API createCustomer failed or unauthenticated, saving locally:', err);
+    throw err;
+  }
+
   const newCustomer = {
     id: mockCustomers.length > 0 ? Math.max(...mockCustomers.map((c) => c.id)) + 1 : 1,
     full_name: customerData.full_name || '',
@@ -491,12 +503,45 @@ export async function createCustomer(customerData) {
   };
   mockCustomers.unshift(newCustomer);
   return Promise.resolve({ data: newCustomer });
+}
 
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.post('/api/customers', customerData);
-  // return response.data;
-  */
+/**
+ * Update an existing customer
+ * @param {number|string} id
+ * @param {Object} updates
+ */
+export async function updateCustomer(id, updates) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.put(`/api/customers/${numericId}`, updates);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API updateCustomer failed or unauthenticated:', err);
+  }
+
+  const idx = mockCustomers.findIndex((c) => c.id === Number(id));
+  if (idx !== -1) {
+    mockCustomers[idx] = { ...mockCustomers[idx], ...updates };
+    return Promise.resolve({ data: mockCustomers[idx] });
+  }
+  return Promise.resolve({ success: true });
+}
+
+/**
+ * Delete a customer
+ * @param {number|string} id
+ */
+export async function deleteCustomer(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.delete(`/api/customers/${numericId}`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API deleteCustomer failed or unauthenticated:', err);
+  }
+
+  mockCustomers = mockCustomers.filter((c) => c.id !== Number(id));
+  return Promise.resolve({ success: true });
 }
 
 /**
@@ -504,16 +549,17 @@ export async function createCustomer(customerData) {
  * @param {number|string} id
  */
 export async function getCustomer(id) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.get(`/api/customers/${numericId}`);
+    if (response.data && response.data.data) return response.data;
+  } catch (err) {
+    console.warn('API getCustomer failed or unauthenticated:', err);
+  }
+
   const customer = mockCustomers.find((c) => c.id === Number(id));
   if (!customer) return Promise.reject(new Error(`Customer #${id} not found`));
   return Promise.resolve({ data: customer });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get(`/api/customers/${id}`);
-  // return response.data;
-  */
 }
 
 /**
