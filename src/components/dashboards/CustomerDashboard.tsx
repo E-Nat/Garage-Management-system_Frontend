@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGarage } from '../../context/GarageContext';
 import { INITIAL_REPAIR_JOBS } from '../../data/mockData';
-import { CheckCircle2, Send, Car, ShieldCheck, Wrench, Calendar, Hash } from 'lucide-react';
+import { Invoice } from '../../types';
+import { StatusBadge } from '../common/StatusBadge';
+import { CheckCircle2, Send, Car, ShieldCheck, Wrench, Calendar, Hash, Receipt, Download, X } from 'lucide-react';
 
 export const CustomerDashboard: React.FC = () => {
   const { currentUser } = useAuth();
-  const { customers, vehicles, repairJobs } = useGarage();
+  const { customers, vehicles, repairJobs, invoices } = useGarage();
+  const [selectedInvoiceForModal, setSelectedInvoiceForModal] = useState<Invoice | null>(null);
 
   // Resolve matching Customer Profile
   const customerProfile = customers.find(
@@ -20,6 +23,13 @@ export const CustomerDashboard: React.FC = () => {
     (v) =>
       (customerProfile && v.customerId === customerProfile.id) ||
       v.customerName.toLowerCase() === currentUser?.name?.toLowerCase()
+  );
+
+  // Filter invoices strictly belonging to this customer
+  const myInvoices = invoices.filter(
+    (inv) =>
+      (customerProfile && (inv.customerId === customerProfile.id || inv.customerName.toLowerCase() === customerProfile.fullName.toLowerCase())) ||
+      inv.customerName.toLowerCase() === currentUser?.name?.toLowerCase()
   );
 
   // Find job associated with customer or fallback to active demo job
@@ -218,6 +228,157 @@ export const CustomerDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* My Invoices Section (Step 7) */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-[#FF6B00]" />
+              <span>My Invoices ({myInvoices.length})</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Official electronic billing receipts and payment statements for your account
+            </p>
+          </div>
+        </div>
+
+        {myInvoices.length === 0 ? (
+          <div className="py-8 text-center border border-dashed border-slate-200 rounded-lg bg-slate-50 space-y-2">
+            <Receipt className="w-8 h-8 text-slate-400 mx-auto" />
+            <p className="text-xs text-slate-500">No invoices issued for your account yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Invoice #</th>
+                  <th className="py-3 px-4">Vehicle</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {myInvoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                      {inv.id}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-800 font-medium">
+                      {inv.vehicleInfo || 'Customer Vehicle'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600">
+                      {inv.issuedAt ? inv.issuedAt.substring(0, 10) : '—'}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <StatusBadge status={inv.status} size="sm" />
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                      ${(inv.totalAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInvoiceForModal(inv)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                      >
+                        View Invoice
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Customer Invoice Detail Modal */}
+      {selectedInvoiceForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full my-8 overflow-hidden text-slate-900 space-y-6 p-6">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-xs font-mono font-bold text-slate-500 uppercase">
+                  Official Electronic Invoice
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+                  {selectedInvoiceForModal.id}
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  Issued: {selectedInvoiceForModal.issuedAt ? selectedInvoiceForModal.issuedAt.substring(0, 10) : 'Today'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={selectedInvoiceForModal.status} />
+                <button
+                  onClick={() => setSelectedInvoiceForModal(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-400 uppercase font-bold text-[10px] block">Customer</span>
+                <span className="font-bold text-slate-900">{selectedInvoiceForModal.customerName}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 uppercase font-bold text-[10px] block">Vehicle</span>
+                <span className="font-bold text-slate-900">{selectedInvoiceForModal.vehicleInfo}</span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Subtotal:</span>
+                <span className="font-bold text-slate-900">
+                  ${(selectedInvoiceForModal.subtotal || selectedInvoiceForModal.totalAmount || 0).toFixed(2)}
+                </span>
+              </div>
+              {Boolean(selectedInvoiceForModal.itemDiscountsTotal || selectedInvoiceForModal.manualDiscountsTotal) && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Discounts Applied:</span>
+                  <span className="font-bold">
+                    -${((selectedInvoiceForModal.itemDiscountsTotal || 0) + (selectedInvoiceForModal.manualDiscountsTotal || 0)).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-extrabold text-slate-900">
+                <span>Total Amount:</span>
+                <span>${(selectedInvoiceForModal.totalAmount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-slate-600 pt-1">
+                <span>Payment Status:</span>
+                <span className="uppercase font-bold">{selectedInvoiceForModal.status}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Print / Download</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedInvoiceForModal(null)}
+                className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

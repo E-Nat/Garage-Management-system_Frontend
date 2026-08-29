@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGarage } from '../../context/GarageContext';
-import { Invoice } from '../../types';
+import { Invoice, RepairJob } from '../../types';
 import {
   Receipt,
   Search,
@@ -16,6 +16,12 @@ import {
   Download,
   CheckCircle2,
   Send,
+  Plus,
+  Wrench,
+  Car,
+  AlertCircle,
+  Eye,
+  Check,
 } from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
 import logoImg from '../../assets/images/logo.png';
@@ -23,10 +29,12 @@ import logoImg from '../../assets/images/logo.png';
 export const InvoiceManagement: React.FC = () => {
   const {
     invoices,
+    repairJobs,
     paymentRecords,
     paymentMethods,
     systemSettings,
     simulatePayment,
+    createInvoiceFromJob,
   } = useGarage();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +50,10 @@ export const InvoiceManagement: React.FC = () => {
     message: string;
     telegramConnected: boolean;
   } | null>(null);
+
+  // Create Invoice Modal State
+  const [isCreateInvoiceModalOpen, setIsCreateInvoiceModalOpen] = useState(false);
+  const [jobSearchTerm, setJobSearchTerm] = useState('');
 
   // Today's Date String YYYY-MM-DD
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -597,10 +609,24 @@ export const InvoiceManagement: React.FC = () => {
         <div className="space-y-6">
           {/* Header */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-slate-700" />
-              Invoices
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-slate-700" />
+                Invoices
+              </h1>
+              <button
+                type="button"
+                id="open-create-invoice-modal-btn"
+                onClick={() => {
+                  setJobSearchTerm('');
+                  setIsCreateInvoiceModalOpen(true);
+                }}
+                className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Invoice</span>
+              </button>
+            </div>
 
             {/* Running Total Summary Card */}
             <div className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-3 shadow-xs">
@@ -697,13 +723,14 @@ export const InvoiceManagement: React.FC = () => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
-                    <th className="py-3 px-4">Invoice Number</th>
+                    <th className="py-3 px-4">Invoice #</th>
                     <th className="py-3 px-4">Customer</th>
                     <th className="py-3 px-4">Vehicle</th>
                     <th className="py-3 px-4">Date</th>
                     <th className="py-3 px-4">Payment Method</th>
-                    <th className="py-3 px-4 text-center">Payment Status</th>
+                    <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4 text-right">Total</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -712,8 +739,7 @@ export const InvoiceManagement: React.FC = () => {
                       <tr
                         key={inv.id}
                         id={`invoice-row-${inv.id}`}
-                        onClick={() => setSelectedInvoice(inv)}
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                        className="hover:bg-slate-50/80 transition-colors group"
                       >
                         {/* Invoice Number */}
                         <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
@@ -749,11 +775,37 @@ export const InvoiceManagement: React.FC = () => {
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
                           ${(inv.totalAmount || 0).toFixed(2)}
                         </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInvoice(inv)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded transition flex items-center gap-1 cursor-pointer"
+                              title="View Invoice"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-slate-600" />
+                              <span>View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedInvoice(inv);
+                                setTimeout(() => window.print(), 100);
+                              }}
+                              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer"
+                              title="Download PDF"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
                         No invoices match your selected filters.
                       </td>
                     </tr>
@@ -762,6 +814,151 @@ export const InvoiceManagement: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Create Invoice from Repair Job Modal */}
+          {isCreateInvoiceModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-xl max-w-2xl w-full my-8 overflow-hidden text-slate-900 space-y-4 p-6">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <Receipt className="w-5 h-5 text-[#FF6B00]" />
+                      <span>Create Invoice from Repair Job</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Select a repair job to generate an electronic billing invoice
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsCreateInvoiceModalOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Job Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={jobSearchTerm}
+                    onChange={(e) => setJobSearchTerm(e.target.value)}
+                    placeholder="Search by customer, vehicle, or job # (e.g. RO-2026-0481)..."
+                    className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                  />
+                </div>
+
+                {/* Repair Jobs List */}
+                <div className="max-h-96 overflow-y-auto space-y-2.5">
+                  {repairJobs
+                    .filter((job) => {
+                      if (!jobSearchTerm.trim()) return true;
+                      const t = jobSearchTerm.toLowerCase();
+                      return (
+                        job.jobNumber.toLowerCase().includes(t) ||
+                        job.customerName.toLowerCase().includes(t) ||
+                        job.vehicleMake.toLowerCase().includes(t) ||
+                        job.vehicleModel.toLowerCase().includes(t) ||
+                        job.licensePlate.toLowerCase().includes(t)
+                      );
+                    })
+                    .map((job) => {
+                      const existingInv = invoices.find((inv) => inv.repairJobId === job.id);
+                      const isComplete = job.status === 'completed' || job.status === 'delivered';
+
+                      return (
+                        <div
+                          key={job.id}
+                          className={`p-4 rounded-xl border transition ${
+                            existingInv
+                              ? 'bg-amber-50/50 border-amber-200'
+                              : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-xs text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                                  #{job.jobNumber}
+                                </span>
+                                <span className="font-bold text-xs text-slate-900">
+                                  {job.customerName}
+                                </span>
+                                <span className="text-xs text-slate-500">•</span>
+                                <span className="text-xs text-slate-700">
+                                  {job.vehicleMake} {job.vehicleModel} ({job.licensePlate})
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                                <span>Status: <StatusBadge status={job.status} size="sm" /></span>
+                                <span>•</span>
+                                <span className="font-mono font-semibold text-slate-800">
+                                  Est. Total: ${((job.totalRepairCost || job.estimatedCost || 0)).toFixed(2)}
+                                </span>
+                              </div>
+
+                              {existingInv && (
+                                <div className="text-[11px] text-amber-800 font-semibold flex items-center gap-1 mt-1">
+                                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  <span>This repair already has an active invoice: <strong className="font-mono">{existingInv.id}</strong> ({existingInv.status.toUpperCase()})</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="shrink-0 flex items-center gap-2">
+                              {existingInv ? (
+                                <button
+                                  type="button"
+                                  id={`view-existing-inv-${job.id}`}
+                                  onClick={() => {
+                                    setIsCreateInvoiceModalOpen(false);
+                                    setSelectedInvoice(existingInv);
+                                  }}
+                                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View Invoice</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  id={`create-invoice-for-job-${job.id}`}
+                                  onClick={() => {
+                                    const result = createInvoiceFromJob(job.id);
+                                    if (result.success && result.invoice) {
+                                      setIsCreateInvoiceModalOpen(false);
+                                      setSelectedInvoice(result.invoice);
+                                    } else {
+                                      alert(result.error || 'Failed to create invoice.');
+                                    }
+                                  }}
+                                  className="px-3.5 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Create Invoice</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <div className="flex justify-end pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateInvoiceModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
