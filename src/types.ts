@@ -39,9 +39,13 @@ export interface Customer {
   fullName: string;
   phone: string;
   address?: string;
+  telegramChatId?: string;
+  telegramChatIdMasked?: string;
   telegramHandle?: string;
   telegramLinked: boolean;
+  telegramConnectedAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Vehicle {
