@@ -562,6 +562,89 @@ export async function getCustomer(id) {
   return Promise.resolve({ data: customer });
 }
 
+/* ==========================================================================
+   VEHICLES API
+   ========================================================================== */
+
+/**
+ * Fetch vehicles with optional customer_id and search filters
+ * @param {Object} [params]
+ * @returns {Promise<{ data: Array }>}
+ */
+export async function getVehicles(params = {}) {
+  try {
+    const response = await api.get('/api/vehicles', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getVehicles failed or unauthenticated:', err);
+  }
+  return Promise.resolve({ data: [] });
+}
+
+/**
+ * Get single vehicle by ID
+ * @param {number|string} id
+ */
+export async function getVehicle(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.get(`/api/vehicles/${numericId}`);
+    if (response.data && response.data.data) return response.data;
+  } catch (err) {
+    console.warn('API getVehicle failed or unauthenticated:', err);
+    throw err;
+  }
+}
+
+/**
+ * Create a new vehicle
+ * @param {Object} vehicleData
+ */
+export async function createVehicle(vehicleData) {
+  try {
+    const response = await api.post('/api/vehicles', vehicleData);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API createVehicle failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Update an existing vehicle
+ * @param {number|string} id
+ * @param {Object} updates
+ */
+export async function updateVehicleApi(id, updates) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.put(`/api/vehicles/${numericId}`, updates);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API updateVehicle failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Delete a vehicle
+ * @param {number|string} id
+ */
+export async function deleteVehicle(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.delete(`/api/vehicles/${numericId}`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API deleteVehicle failed:', err);
+    throw err;
+  }
+}
+
 /**
  * 2. REPAIR JOBS API
  * --------------------------------------------------------------------------
@@ -842,81 +925,6 @@ export async function getItem(id) {
   /*
   // --- LIVE LARAVEL AXIOS CALL ---
   // const response = await api.get(`/api/items/${id}`);
-  // return response.data;
-  */
-}
-
-/**
- * 5. VEHICLES API (Companion resource for customers & repair jobs)
- * --------------------------------------------------------------------------
- * GET  /api/vehicles
- * POST /api/vehicles
- */
-
-/**
- * Fetch all vehicles
- * @param {Object} [params] (customer_id, search)
- */
-export async function getVehicles(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
-  let results = [...mockVehicles];
-  if (params.customer_id) {
-    results = results.filter((v) => v.customer_id === Number(params.customer_id));
-  }
-  if (params.search) {
-    const s = params.search.toLowerCase();
-    results = results.filter(
-      (v) =>
-        v.plate_number.toLowerCase().includes(s) ||
-        v.brand.toLowerCase().includes(s) ||
-        v.model.toLowerCase().includes(s) ||
-        v.vin.toLowerCase().includes(s)
-    );
-  }
-  if (params.date_from || params.date_to) {
-    results = results.filter((v) => isDateInRange(v.created_at, params.date_from, params.date_to));
-  }
-  return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/vehicles', { params });
-  // return response.data;
-  */
-}
-
-/**
- * Create a new vehicle
- * @param {Object} vehicleData Payload matching 'vehicles' DB schema
- * @param {number} vehicleData.customer_id
- * @param {string} vehicleData.plate_number
- * @param {string} vehicleData.brand
- * @param {string} vehicleData.model
- * @param {number} vehicleData.year
- * @param {string} [vehicleData.color]
- * @param {number} [vehicleData.mileage]
- * @param {string} [vehicleData.vin]
- */
-export async function createVehicle(vehicleData) {
-  // --- REALISTIC MOCK RETURN ---
-  const newVehicle = {
-    id: mockVehicles.length > 0 ? Math.max(...mockVehicles.map((v) => v.id)) + 1 : 1,
-    customer_id: Number(vehicleData.customer_id),
-    plate_number: vehicleData.plate_number || '',
-    brand: vehicleData.brand || '',
-    model: vehicleData.model || '',
-    year: Number(vehicleData.year || new Date().getFullYear()),
-    color: vehicleData.color || '',
-    mileage: Number(vehicleData.mileage || 0),
-    vin: vehicleData.vin || '',
-    created_at: new Date().toISOString(),
-  };
-  mockVehicles.unshift(newVehicle);
-  return Promise.resolve({ data: newVehicle });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.post('/api/vehicles', vehicleData);
   // return response.data;
   */
 }
