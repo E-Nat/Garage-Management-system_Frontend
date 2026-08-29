@@ -131,7 +131,9 @@ export const CustomerDashboard: React.FC = () => {
 
           <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-xs">
             <span className="text-slate-500">Estimated Total:</span>
-            <span className="text-base font-semibold text-slate-900">${activeJob.estimatedCost}.00</span>
+            <span className="text-base font-semibold text-slate-900">
+              ${(Number(activeJob.totalRepairCost || activeJob.estimatedCost || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
       </div>
