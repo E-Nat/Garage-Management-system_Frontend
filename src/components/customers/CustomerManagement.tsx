@@ -526,28 +526,6 @@ export const CustomerManagement: React.FC = () => {
     setIsEditVehicleModalOpen(false);
   };
 
-  // Open Telegram Linking Modal
-  const handleOpenTelegramModal = (cust: Customer) => {
-    setTelegramCustomer(cust);
-    setTelegramSimulatedStep(1);
-    setIsTelegramModalOpen(true);
-  };
-
-  // Complete Telegram Linking
-  const handleSimulateTelegramLink = () => {
-    if (!telegramCustomer) return;
-    const cleanHandle = `@${telegramCustomer.fullName.toLowerCase().replace(/\s+/g, '_')}`;
-    const res = updateCustomer(telegramCustomer.id, {
-      telegramHandle: cleanHandle,
-      telegramLinked: true,
-    });
-
-    if (res.success) {
-      showToast('Telegram linked successfully.');
-      setIsTelegramModalOpen(false);
-    }
-  };
-
   return (
     <div className="space-y-6 text-slate-900 font-sans">
       {/* Toast Notification Banner */}
@@ -852,10 +830,22 @@ export const CustomerManagement: React.FC = () => {
                             {/* Telegram Column */}
                             <td className="py-3.5 px-4">
                               {cust.telegramLinked ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                                  <span>Connected</span>
-                                </span>
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                    <span>Connected</span>
+                                  </span>
+                                  {cust.telegramHandle && (
+                                    <span className="block text-[11px] font-mono text-slate-500">
+                                      {cust.telegramHandle}
+                                    </span>
+                                  )}
+                                  {cust.telegramConnectedAt && (
+                                    <span className="block text-[10px] text-slate-400">
+                                      Connected: {formatTimestamp(cust.telegramConnectedAt)}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                   <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
@@ -2105,7 +2095,7 @@ export const CustomerManagement: React.FC = () => {
                   <Send className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Connect Telegram Bot</h3>
+                  <h3 className="text-sm font-bold text-white">Connect Customer to Telegram</h3>
                   <p className="text-[11px] text-slate-300">
                     For {selectedTelegramCustomer.fullName} ({selectedTelegramCustomer.phone})
                   </p>
@@ -2140,7 +2130,7 @@ export const CustomerManagement: React.FC = () => {
                     Scan with Telegram
                   </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Open your camera or Telegram app and point it at the QR code to begin pairing this customer's account.
+                    Customer scans the QR code or opens the bot link on their mobile phone to connect.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <a
@@ -2169,41 +2159,49 @@ export const CustomerManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* 4-Step Instructions */}
+              {/* 5-Step Connection Flow */}
               <div className="space-y-2 text-left">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                  Step-by-Step Connection Guide
+                  Automated Connection Flow
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="p-3 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                <div className="space-y-2 text-xs">
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
                     <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
-                    <div>
-                      <span className="font-bold text-slate-800 block">Open Bot</span>
-                      <span className="text-[11px] text-slate-500">Scan QR code or open @{BOT_USERNAME}</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Customer scans the QR code</span>
+                      <span className="text-[11px] text-slate-500 block">Opens @{BOT_USERNAME} in the Telegram app</span>
                     </div>
                   </div>
 
-                  <div className="p-3 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
                     <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
-                    <div>
-                      <span className="font-bold text-slate-800 block">Tap START</span>
-                      <span className="text-[11px] text-slate-500">Telegram opens and welcomes the customer automatically</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Customer taps START</span>
+                      <span className="text-[11px] text-slate-500 block">Bot displays welcome message and requests contact sharing</span>
                     </div>
                   </div>
 
-                  <div className="p-3 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
                     <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
-                    <div>
-                      <span className="font-bold text-slate-800 block">Share Phone</span>
-                      <span className="text-[11px] text-slate-500">Tap <b>Share My Phone Number</b> in chat</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Customer shares their phone number</span>
+                      <span className="text-[11px] text-slate-500 block">Customer taps <b>Share My Phone Number</b> button</span>
                     </div>
                   </div>
 
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span>
-                    <div>
-                      <span className="font-bold text-emerald-900 block">Auto Connected</span>
-                      <span className="text-[11px] text-emerald-700">Matches {selectedTelegramCustomer.phone} automatically</span>
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Apex Garage automatically verifies the phone number</span>
+                      <span className="text-[11px] text-slate-500 block">Normalizes format and matches registered customer record</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">5</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-emerald-900">Telegram is connected automatically</span>
+                      <span className="text-[11px] text-emerald-700 block">Customer receives confirmation and future repair/invoice updates</span>
                     </div>
                   </div>
                 </div>

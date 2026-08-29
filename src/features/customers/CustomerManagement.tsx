@@ -1889,23 +1889,20 @@ export const CustomerManagement: React.FC = () => {
                 </p>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Guidance & Close */}
               <div className="pt-2 border-t border-slate-200 flex flex-col gap-2">
-                <button
-                  id="simulate-phone-match-btn"
-                  type="button"
-                  onClick={handleSimulateTelegramLink}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition shadow-2xs flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Simulate Customer Phone Match (Link Account)</span>
-                </button>
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2 text-left">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
+                  <span className="text-[11px] text-slate-600">
+                    Awaiting customer contact share... Real-time webhook automatically links the account upon phone verification.
+                  </span>
+                </div>
 
                 <button
                   id="cancel-telegram-linking-btn"
                   type="button"
                   onClick={() => setIsTelegramModalOpen(false)}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition"
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
                 >
                   Close
                 </button>
