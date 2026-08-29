@@ -54,6 +54,7 @@ export const InvoiceManagement: React.FC = () => {
   // Create Invoice Modal State
   const [isCreateInvoiceModalOpen, setIsCreateInvoiceModalOpen] = useState(false);
   const [jobSearchTerm, setJobSearchTerm] = useState('');
+  const [isConfirmDemoPaymentModalOpen, setIsConfirmDemoPaymentModalOpen] = useState(false);
 
   // Today's Date String YYYY-MM-DD
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -174,7 +175,7 @@ export const InvoiceManagement: React.FC = () => {
               {selectedInvoice.status !== 'paid' && (
                 <button
                   id="simulate-payment-top-btn"
-                  onClick={handleSimulatePayment}
+                  onClick={() => setIsConfirmDemoPaymentModalOpen(true)}
                   disabled={isSimulating}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs cursor-pointer"
                 >
@@ -446,7 +447,7 @@ export const InvoiceManagement: React.FC = () => {
                     <button
                       type="button"
                       id="simulate-payment-action-btn"
-                      onClick={handleSimulatePayment}
+                      onClick={() => setIsConfirmDemoPaymentModalOpen(true)}
                       disabled={isSimulating}
                       className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
                     >
@@ -959,6 +960,83 @@ export const InvoiceManagement: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Confirm Demo Payment Modal */}
+      {isConfirmDemoPaymentModalOpen && selectedInvoice && (
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden text-slate-900">
+            <div className="p-5 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-sm">Confirm Demo Payment?</h3>
+              </div>
+              <button
+                onClick={() => setIsConfirmDemoPaymentModalOpen(false)}
+                className="text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Invoice:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedInvoice.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Customer:</span>
+                  <span className="font-bold text-slate-900">{selectedInvoice.customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Vehicle:</span>
+                  <span className="font-bold text-slate-900">{selectedInvoice.vehicleInfo}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-2 text-sm">
+                  <span className="text-slate-700 font-bold">Amount to Pay:</span>
+                  <span className="font-mono font-bold text-emerald-600">
+                    ${(selectedInvoice.balanceRemaining ?? selectedInvoice.totalAmount ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span className="font-medium">Payment Method:</span>
+                  <span className="font-semibold text-slate-900">Demo Payment</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Notice:</strong> This is a simulated demo payment for competition & demonstration purposes. No real bank transaction or credit card charge will occur.
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmDemoPaymentModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  id="confirm-demo-payment-btn"
+                  onClick={() => {
+                    setIsConfirmDemoPaymentModalOpen(false);
+                    handleSimulatePayment();
+                  }}
+                  disabled={isSimulating}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{isSimulating ? 'Processing...' : 'Confirm Demo Payment'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

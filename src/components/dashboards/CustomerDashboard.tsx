@@ -4,12 +4,19 @@ import { useGarage } from '../../context/GarageContext';
 import { INITIAL_REPAIR_JOBS } from '../../data/mockData';
 import { Invoice } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
-import { CheckCircle2, Send, Car, ShieldCheck, Wrench, Calendar, Hash, Receipt, Download, X } from 'lucide-react';
+import { CheckCircle2, Send, Car, ShieldCheck, Wrench, Calendar, Hash, Receipt, Download, X, CreditCard, AlertCircle } from 'lucide-react';
 
 export const CustomerDashboard: React.FC = () => {
   const { currentUser } = useAuth();
-  const { customers, vehicles, repairJobs, invoices } = useGarage();
+  const { customers, vehicles, repairJobs, invoices, simulatePayment } = useGarage();
   const [selectedInvoiceForModal, setSelectedInvoiceForModal] = useState<Invoice | null>(null);
+  const [isConfirmDemoPaymentOpen, setIsConfirmDemoPaymentOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<{
+    success: boolean;
+    message: string;
+    telegramConnected: boolean;
+  } | null>(null);
 
   // Resolve matching Customer Profile
   const customerProfile = customers.find(
@@ -359,22 +366,168 @@ export const CustomerDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            {/* Payment Feedback Banner */}
+            {simulationResult && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs text-emerald-900">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Payment successful. Your official e-Invoice has been generated.</span>
+                </div>
+                {simulationResult.telegramConnected ? (
+                  <p className="text-[11px] text-emerald-700 font-medium pl-5.5 flex items-center gap-1.5">
+                    <span>📱 Payment confirmation and official PDF e-Invoice sent to Telegram.</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-600 font-medium pl-5.5">
+                    Telegram is not connected. You can download your official PDF e-Invoice below.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-slate-100">
+              {selectedInvoiceForModal.status !== 'paid' ? (
+                <button
+                  type="button"
+                  id="customer-simulate-payment-btn"
+                  onClick={() => setIsConfirmDemoPaymentOpen(true)}
+                  disabled={isSimulating}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{isSimulating ? 'Processing...' : 'Simulate Payment'}</span>
+                </button>
+              ) : (
+                <div className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Paid on {selectedInvoiceForModal.paidAt ? selectedInvoiceForModal.paidAt.substring(0, 10) : 'Today'} (Demo Payment)</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Print / Download</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedInvoiceForModal(null);
+                    setSimulationResult(null);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Demo Payment Modal */}
+      {isConfirmDemoPaymentOpen && selectedInvoiceForModal && (
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden text-slate-900">
+            <div className="p-5 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-sm">Confirm Demo Payment?</h3>
+              </div>
               <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setIsConfirmDemoPaymentOpen(false)}
+                className="text-slate-400 hover:text-white transition cursor-pointer"
               >
-                <Download className="w-4 h-4" />
-                <span>Print / Download</span>
+                <X className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                onClick={() => setSelectedInvoiceForModal(null)}
-                className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white text-xs font-bold rounded-lg transition cursor-pointer"
-              >
-                Close
-              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Invoice:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedInvoiceForModal.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Customer:</span>
+                  <span className="font-bold text-slate-900">{selectedInvoiceForModal.customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Vehicle:</span>
+                  <span className="font-bold text-slate-900">{selectedInvoiceForModal.vehicleInfo}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-2 text-sm">
+                  <span className="text-slate-700 font-bold">Amount to Pay:</span>
+                  <span className="font-mono font-bold text-emerald-600">
+                    ${(selectedInvoiceForModal.balanceRemaining ?? selectedInvoiceForModal.totalAmount ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span className="font-medium">Payment Method:</span>
+                  <span className="font-semibold text-slate-900">Demo Payment</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Notice:</strong> This is a simulated demo payment for competition & demonstration purposes. No real bank transaction or credit card charge will occur.
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmDemoPaymentOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  id="confirm-customer-demo-payment-btn"
+                  onClick={async () => {
+                    setIsConfirmDemoPaymentOpen(false);
+                    setIsSimulating(true);
+                    setSimulationResult(null);
+                    try {
+                      const res = await simulatePayment(selectedInvoiceForModal.id);
+                      if (res.success) {
+                        setSimulationResult({
+                          success: true,
+                          message: res.message || 'Payment successful.',
+                          telegramConnected: Boolean(res.telegramConnected),
+                        });
+                        setSelectedInvoiceForModal((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                status: 'paid',
+                                paymentMethod: 'Demo Payment',
+                                totalPaid: prev.totalAmount,
+                                balanceRemaining: 0,
+                                paidAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                              }
+                            : null
+                        );
+                      } else {
+                        alert(res.error || 'Failed to simulate payment');
+                      }
+                    } finally {
+                      setIsSimulating(false);
+                    }
+                  }}
+                  disabled={isSimulating}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{isSimulating ? 'Processing...' : 'Confirm Demo Payment'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
