@@ -427,6 +427,27 @@ export const InvoiceManagement: React.FC = () => {
                       Paid At: <span className="font-mono text-slate-700">{selectedInvoice.paidAt}</span>
                     </p>
                   )}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-slate-600">E-Invoice:</span>
+                    <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px] flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Available</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">Telegram:</span>
+                    {customer?.telegramLinked ? (
+                      <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px] flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Sent</span>
+                      </span>
+                    ) : (
+                      <span className="font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px] flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                        <span>Not Connected</span>
+                      </span>
+                    )}
+                  </div>
                   {selectedInvoice.notes && (
                     <p className="text-slate-500 text-[11px] pt-0.5">Notes: {selectedInvoice.notes}</p>
                   )}
@@ -462,15 +483,15 @@ export const InvoiceManagement: React.FC = () => {
                   <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs text-emerald-900 print:hidden">
                     <div className="font-bold flex items-center gap-1.5 text-emerald-800">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Payment successful. Your e-Invoice has been generated.</span>
+                      <span>Payment successful. Your official e-Invoice has been generated.</span>
                     </div>
                     {simulationResult.telegramConnected ? (
                       <p className="text-[11px] text-emerald-700 font-medium pl-5.5 flex items-center gap-1.5">
-                        <span>📱 Invoice sent to Telegram.</span>
+                        <span>📱 Payment confirmation and official PDF e-Invoice sent to Telegram.</span>
                       </p>
                     ) : (
                       <p className="text-[11px] text-slate-600 font-medium pl-5.5">
-                        Telegram is not connected. You can still download the invoice.
+                        Telegram is not connected. You can still download the official PDF e-Invoice below.
                       </p>
                     )}
                   </div>
