@@ -51,6 +51,7 @@ import {
   INITIAL_SYSTEM_SETTINGS,
   INITIAL_ESTIMATE_REVISIONS,
   INITIAL_NOTIFICATION_LOGS,
+  INITIAL_REPAIR_STATUS_HISTORY,
 } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
@@ -59,6 +60,7 @@ interface GarageContextType {
   vehicles: Vehicle[];
   vehicleChangeLogs: VehicleChangeLog[];
   repairJobs: RepairJob[];
+  repairStatusHistory: RepairStatusHistory[];
   invoices: Invoice[];
   inventory: InventoryItem[];
   stockTransactions: StockTransaction[];
@@ -298,6 +300,7 @@ const KEYS = {
   VEHICLES: 'apex_garage_vehicles',
   CHANGE_LOGS: 'apex_garage_vehicle_change_logs',
   REPAIR_JOBS: 'apex_garage_repair_jobs',
+  REPAIR_STATUS_HISTORY: 'apex_garage_repair_status_history',
   INVOICES: 'apex_garage_invoices',
   INVENTORY: 'apex_garage_inventory',
   STOCK_TX: 'apex_garage_stock_transactions',
@@ -335,6 +338,11 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [repairJobs, setRepairJobs] = useState<RepairJob[]>(() => {
     const saved = localStorage.getItem(KEYS.REPAIR_JOBS);
     return saved ? JSON.parse(saved) : INITIAL_REPAIR_JOBS;
+  });
+
+  const [repairStatusHistory, setRepairStatusHistory] = useState<RepairStatusHistory[]>(() => {
+    const saved = localStorage.getItem(KEYS.REPAIR_STATUS_HISTORY);
+    return saved ? JSON.parse(saved) : INITIAL_REPAIR_STATUS_HISTORY;
   });
 
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
@@ -453,6 +461,10 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     localStorage.setItem(KEYS.REPAIR_JOBS, JSON.stringify(repairJobs));
   }, [repairJobs]);
+
+  useEffect(() => {
+    localStorage.setItem(KEYS.REPAIR_STATUS_HISTORY, JSON.stringify(repairStatusHistory));
+  }, [repairStatusHistory]);
 
   useEffect(() => {
     localStorage.setItem(KEYS.INVOICES, JSON.stringify(invoices));
@@ -728,66 +740,93 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     customerName: string;
     customerPhone: string;
     vehicleId: string;
-    vehicleMake: string;
-    vehicleModel: string;
-    licensePlate: string;
-    receivedDate?: string;
-    serviceDate?: string;
-    customerComplaint?: string;
-    inspectionFee?: number;
-    manualMechanicId?: string;
-    manualMechanicName?: string;
-    createdByName?: string;
-    estimatedCost?: number;
-    servicesPerformed?: PerformedService[];
-    linkedRepairJobId?: string;
-  }) => {
-    const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    const nextNum = 485 + repairJobs.length;
-    const jobId = `job-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const jobNumber = `RO-2026-0${nextNum}`;
-    const jobType = params.jobType || 'repair';
-    const sDate = params.serviceDate || params.receivedDate || nowStamp.substring(0, 10);
+vehicleMake: string;
+vehicleModel: string;
+licensePlate: string;
+receivedDate?: string;
+serviceDate?: string;
+customerComplaint?: string;
+inspectionFee?: number;
+manualMechanicId?: string;
+manualMechanicName?: string;
+createdByName?: string;
+estimatedCost?: number;
+servicesPerformed?: PerformedService[];
+linkedRepairJobId?: string;
+}) => {
+  const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+  const nextNum = 485 + repairJobs.length;
+  const jobId = `job-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const jobNumber = `RO-2026-0${nextNum}`;
+  const jobType = params.jobType || 'repair';
+  const sDate =
+    params.serviceDate ||
+    params.receivedDate ||
+    nowStamp.substring(0, 10);
 
-    let assignedMechId = params.manualMechanicId;
-    let assignedMechName = params.manualMechanicName;
+  let assignedMechId: string = params.manualMechanicId || '';
+  let assignedMechName: string = params.manualMechanicName || '';
 
-    const isAutoAssign = !assignedMechId || assignedMechId === 'auto';
-    if (isAutoAssign) {
-      const autoMech = getLeastLoadedMechanic();
-      assignedMechId = autoMech?.id || 'usr-3';
-      assignedMechName = autoMech?.name || 'Dave Miller';
-    }
+  const isAutoAssign =
+    !assignedMechId || assignedMechId === 'auto';
 
-    const initialStatus = jobType === 'service' ? 'in_progress' : 'pending_inspection';
-    const createdBy = params.createdByName || currentUser?.name || 'Staff User';
+  if (isAutoAssign) {
+    const autoMech = getLeastLoadedMechanic();
 
-    const initialAssignmentHistory: MechanicAssignmentHistory = {
-      id: `mah-${Date.now()}`,
-      jobId,
-      newMechanicId: assignedMechId,
-      newMechanicName: assignedMechName || 'Mechanic',
-      changedBy: createdBy,
-      reason: isAutoAssign
-        ? 'System Auto-Assign'
-        : 'Manual Staff Override at intake',
-      timestamp: nowStamp,
-    };
+    // Always make sure these are strings
+    assignedMechId = autoMech?.id || 'usr-3';
+    assignedMechName = autoMech?.name || 'Dave Miller';
+  }
 
-    const initialServices = params.servicesPerformed || [];
-    const servicesTotal = initialServices.reduce((sum, s) => sum + (s.totalPrice || s.unitPrice * s.quantity), 0);
+  const initialStatus =
+    jobType === 'service'
+      ? 'in_progress'
+      : 'pending_inspection';
 
-    const initialStatusHistory: RepairStatusHistory = {
-      id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      jobId,
-      fromStatus: 'Customer Intake',
-      toStatus: initialStatus,
-      changedBy: createdBy,
-      timestamp: nowStamp,
-      note: jobType === 'service'
+  const createdBy =
+    params.createdByName ||
+    currentUser?.name ||
+    'Staff User';
+
+  const initialAssignmentHistory: MechanicAssignmentHistory = {
+    id: `mah-${Date.now()}`,
+    jobId,
+    newMechanicId: assignedMechId,
+    newMechanicName: assignedMechName || 'Mechanic',
+    changedBy: createdBy,
+    reason: isAutoAssign
+      ? 'System Auto-Assign'
+      : 'Manual Staff Override at intake',
+    timestamp: nowStamp,
+  };
+
+  const initialServices =
+    params.servicesPerformed || [];
+
+  const servicesTotal = initialServices.reduce(
+    (sum, s) =>
+      sum +
+      (s.totalPrice ||
+        s.unitPrice * s.quantity),
+    0
+  );
+
+  const initialStatusHistory: RepairStatusHistory = {
+    id: `rsh-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 7)}`,
+    jobId,
+    fromStatus: 'Customer Intake',
+    toStatus: initialStatus,
+    changedBy: createdBy,
+    timestamp: nowStamp,
+    note:
+      jobType === 'service'
         ? `Service Job created with ${initialServices.length} requested service(s).`
-        : `Repair Job created with complaint: "${params.customerComplaint || ''}"`,
-    };
+        : `Repair Job created with complaint: "${
+            params.customerComplaint || ''
+          }"`,
+  };
 
     const newJob: RepairJob = {
       id: jobId,
@@ -822,6 +861,7 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setRepairJobs((prev) => [newJob, ...prev]);
+    setRepairStatusHistory((prev) => [initialStatusHistory, ...prev]);
     addAuditLog(
       jobType === 'service' ? 'Service Job Created' : 'Repair Job Created',
       'Repair Job',
@@ -941,6 +981,20 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const staffName = changedBy || currentUser?.name || 'Staff User';
 
+    const fromStatus = repairJobs.find((j) => j.id === jobId)?.status ?? 'pending_inspection';
+
+    const statusHistoryEntry: RepairStatusHistory = {
+      id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      jobId,
+      fromStatus,
+      toStatus: status,
+      changedBy: staffName,
+      timestamp: nowStamp,
+      note: note || `Status transitioned from ${fromStatus.replace('_', ' ')} to ${status.replace('_', ' ')}`,
+    };
+
+    setRepairStatusHistory((prev) => [statusHistoryEntry, ...prev]);
+
     setRepairJobs((prev) =>
       prev.map((j) => {
         if (j.id === jobId) {
@@ -987,22 +1041,12 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             createInvoiceFromJob(j.id);
           }
 
-          const statusHistoryEntry: RepairStatusHistory = {
-            id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            jobId,
-            fromStatus: j.status,
-            toStatus: status,
-            changedBy: staffName,
-            timestamp: nowStamp,
-            note: note || `Status transitioned from ${j.status.replace('_', ' ')} to ${status.replace('_', ' ')}`,
-          };
-
           addAuditLog(
             'Status Changed',
             'Repair Job',
             j.jobNumber,
             note ? `Status updated to ${status.replace('_', ' ')}. Note: ${note}` : `Status updated to ${status.replace('_', ' ')}`,
-            j.status,
+            fromStatus,
             status,
             staffName
           );
@@ -1065,21 +1109,25 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
 
+    const staffName = record.recordedBy || currentUser?.name || 'Mechanic Technician';
+    const fromStatus = repairJobs.find((j) => j.id === jobId)?.status ?? 'pending_inspection';
+
+    const statusHistoryEntry: RepairStatusHistory = {
+      id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      jobId,
+      fromStatus,
+      toStatus: 'waiting_approval',
+      changedBy: staffName,
+      timestamp: nowStamp,
+      note: `Inspection findings & recommendations recorded: "${record.inspectionResult || record.diagnosticNotes}". Status moved to Waiting Approval.`,
+    };
+
+    setRepairStatusHistory((prev) => [statusHistoryEntry, ...prev]);
+
     setRepairJobs((prev) =>
       prev.map((j) => {
         if (j.id === jobId) {
           const records = j.inspectionRecords || [];
-          const staffName = record.recordedBy || currentUser?.name || 'Mechanic Technician';
-
-          const statusHistoryEntry: RepairStatusHistory = {
-            id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            jobId,
-            fromStatus: j.status,
-            toStatus: 'waiting_approval',
-            changedBy: staffName,
-            timestamp: nowStamp,
-            note: `Inspection findings & recommendations recorded: "${record.inspectionResult || record.diagnosticNotes}". Status moved to Waiting Approval.`,
-          };
 
           const existingPartsUsed = j.partsUsed || [];
           const formattedNewParts: UsedPart[] = record.partsUsed.map((p) => ({
@@ -2137,6 +2185,7 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         vehicles,
         vehicleChangeLogs,
         repairJobs,
+        repairStatusHistory,
         invoices,
         inventory,
         stockTransactions,

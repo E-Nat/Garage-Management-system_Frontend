@@ -1,4 +1,4 @@
-import { RepairJob, InventoryItem, AuditLog, Customer, Vehicle, VehicleChangeLog, Invoice, Warranty, RolePermissionsMap, PaymentMethodConfig, DiscountReason, ItemServiceDiscount, DiscountCampaign, PaymentRecord, SystemSettings, EstimateRevisionHistory, NotificationLog, GarageService } from '../types';
+import { RepairJob, InventoryItem, AuditLog, Customer, Vehicle, VehicleChangeLog, Invoice, Warranty, RolePermissionsMap, PaymentMethodConfig, DiscountReason, ItemServiceDiscount, DiscountCampaign, PaymentRecord, SystemSettings, EstimateRevisionHistory, NotificationLog, GarageService, RepairStatusHistory } from '../types';
 
 export const INITIAL_SERVICES: GarageService[] = [
   { id: 'srv-1', name: 'Oil Change', category: 'Oil & Filter Maintenance', basePrice: 20.00 },
@@ -123,6 +123,119 @@ export const INITIAL_NOTIFICATION_LOGS: NotificationLog[] = [
     messageSnippet: 'Diagnostic inspection uploaded for Audi A4. Parts awaiting delivery.',
     timestamp: '2026-08-02 11:30',
     deliveryStatus: 'Sent',
+  },
+];
+
+export const INITIAL_REPAIR_STATUS_HISTORY: RepairStatusHistory[] = [
+  // Job-101: Porsche 911 (Brake Service) - in_progress
+  {
+    id: 'rsh-101-001',
+    jobId: 'job-101',
+    fromStatus: 'pending_inspection',
+    toStatus: 'waiting_approval',
+    changedBy: 'Elena Rostova',
+    timestamp: '2026-08-02 11:20',
+    note: 'Initial inspection completed. Cost estimate prepared ($1,450) and sent to customer.',
+  },
+  {
+    id: 'rsh-101-002',
+    jobId: 'job-101',
+    fromStatus: 'waiting_approval',
+    toStatus: 'in_progress',
+    changedBy: 'Elena Rostova',
+    timestamp: '2026-08-25 09:35',
+    note: 'Customer approval received and work started. Brembo brake pads ordered.',
+  },
+
+  // Job-102: BMW M3 (Check Engine Light) - pending_inspection
+  {
+    id: 'rsh-102-001',
+    jobId: 'job-102',
+    fromStatus: 'pending_inspection',
+    toStatus: 'pending_inspection',
+    changedBy: 'Robert Tanaka',
+    timestamp: '2026-08-04 08:30',
+    note: 'Vehicle received. Pending diagnostic scan.',
+  },
+
+  // Job-103: Audi RS6 (Air Suspension) - waiting_approval
+  {
+    id: 'rsh-103-001',
+    jobId: 'job-103',
+    fromStatus: 'pending_inspection',
+    toStatus: 'waiting_approval',
+    changedBy: 'Dave Miller',
+    timestamp: '2026-08-01 14:00',
+    note: 'Air suspension compressor diagnosed as faulty. Replacement estimate prepared ($2,300).',
+  },
+
+  // Job-104: Toyota Land Cruiser (Oil Change) - completed
+  {
+    id: 'rsh-104-001',
+    jobId: 'job-104',
+    fromStatus: 'pending_inspection',
+    toStatus: 'in_progress',
+    changedBy: 'Robert Tanaka',
+    timestamp: '2026-08-02 14:15',
+    note: 'Routine oil change and inspection started.',
+  },
+  {
+    id: 'rsh-104-002',
+    jobId: 'job-104',
+    fromStatus: 'in_progress',
+    toStatus: 'completed',
+    changedBy: 'Robert Tanaka',
+    timestamp: '2026-08-03 09:45',
+    note: 'All services completed. 40-point inspection passed. Vehicle ready for pickup.',
+  },
+
+  // Job-105: Mercedes-Benz AMG GT (Transmission Service) - delivered
+  {
+    id: 'rsh-105-001',
+    jobId: 'job-105',
+    fromStatus: 'pending_inspection',
+    toStatus: 'in_progress',
+    changedBy: 'Dave Miller',
+    timestamp: '2026-08-03 10:30',
+    note: 'Transmission fluid service commenced.',
+  },
+  {
+    id: 'rsh-105-002',
+    jobId: 'job-105',
+    fromStatus: 'in_progress',
+    toStatus: 'completed',
+    changedBy: 'Dave Miller',
+    timestamp: '2026-08-04 10:00',
+    note: 'Transmission fluid replaced, rear differential serviced. Quality check: OK.',
+  },
+  {
+    id: 'rsh-105-003',
+    jobId: 'job-105',
+    fromStatus: 'completed',
+    toStatus: 'delivered',
+    changedBy: 'Elena Rostova',
+    timestamp: '2026-08-04 11:30',
+    note: 'Customer collected vehicle. Payment received in full ($1,850 via Acleda Bank).',
+  },
+
+  // Job-106: BMW X5 (Engine Overhaul) - declined
+  {
+    id: 'rsh-106-001',
+    jobId: 'job-106',
+    fromStatus: 'pending_inspection',
+    toStatus: 'waiting_approval',
+    changedBy: 'Robert Tanaka',
+    timestamp: '2026-08-03 15:45',
+    note: 'Engine diagnostics revealed significant wear. Full overhaul quote ($3,100) generated.',
+  },
+  {
+    id: 'rsh-106-002',
+    jobId: 'job-106',
+    fromStatus: 'waiting_approval',
+    toStatus: 'declined',
+    changedBy: 'Jonathan Davis',
+    timestamp: '2026-08-03 16:30',
+    note: 'Customer declined due to high cost. Vehicle released without repairs.',
   },
 ];
 

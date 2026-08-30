@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import logoImg from '../../assets/images/logo.png';
 import { UserManagement } from '../users/UserManagement';
+import { StatusHistoryActivityLog } from './StatusHistoryActivityLog';
 
 const ALL_ROLES: Array<{ role: UserRole; label: string; badge: string }> = [
   {
@@ -1652,51 +1653,9 @@ export const SettingsView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 8: ACTIVITY LOG (OWNER/ADMIN) */}
+      {/* TAB 8: ACTIVITY LOG (OWNER/ADMIN) - REPAIR STATUS HISTORY */}
       {activeTab === 'activity' && isOwnerOrAdmin && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-slate-900">Activity Log</h2>
-
-            <div className="w-64">
-              <input
-                type="text"
-                placeholder="Search audit records..."
-                value={activitySearchQuery}
-                onChange={(e) => setActivitySearchQuery(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
-              />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto border border-slate-200 rounded-lg">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px]">
-                  <th className="py-2.5 px-4">Event</th>
-                  <th className="py-2.5 px-4">Actor</th>
-                  <th className="py-2.5 px-4">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {repairJobs.slice(0, 10).map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-4 font-medium text-slate-900">
-                      Job #{job.jobNumber}: Status updated to{' '}
-                      <span className="font-bold">{job.status}</span>
-                    </td>
-                    <td className="py-2.5 px-4 text-slate-600">
-                      {job.assignedMechanicId || 'System'}
-                    </td>
-                    <td className="py-2.5 px-4 font-mono text-slate-500">
-                      {job.entryDate || 'Today'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <StatusHistoryActivityLog />
       )}
 
       {/* CREATE / EDIT PROMOTION MODAL */}
