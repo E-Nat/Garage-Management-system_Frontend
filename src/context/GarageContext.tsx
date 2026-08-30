@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   Customer,
   Vehicle,
@@ -54,6 +54,32 @@ import {
   INITIAL_REPAIR_STATUS_HISTORY,
 } from '../data/mockData';
 import { useAuth } from './AuthContext';
+import {
+  getCustomers,
+  createCustomer as createCustomerApi,
+  updateCustomer as updateCustomerApi,
+  deleteCustomer as deleteCustomerApi,
+  restoreCustomer as restoreCustomerApi,
+} from '../services/api';
+
+function mapBackendCustomerToCustomer(c: any): Customer {
+  return {
+    id: c.id ? (typeof c.id === 'number' ? `CUST-${c.id}` : String(c.id)) : `CUST-${Date.now()}`,
+    fullName: c.full_name || c.fullName || '',
+    phone: c.phone_number || c.phone || '',
+    address: c.address || '',
+    telegramChatId: c.telegram_chat_id || c.telegramChatId || undefined,
+    telegramChatIdMasked: c.telegram_chat_id_masked || c.telegramChatIdMasked || undefined,
+    telegramHandle: c.telegram_handle || c.telegramHandle || undefined,
+    telegramLinked: Boolean(c.telegram_linked ?? c.telegramLinked),
+    telegramConnectedAt: c.telegram_connected_at || c.telegramConnectedAt || undefined,
+    isDeactivated: Boolean(c.is_deactivated ?? (c.deleted_at != null) ?? (c.status === 'deactivated')),
+    status: (c.is_deactivated || c.deleted_at != null || c.status === 'deactivated') ? 'deactivated' : 'active',
+    deletedAt: c.deleted_at || c.deletedAt || null,
+    createdAt: c.created_at || c.createdAt || new Date().toISOString(),
+    updatedAt: c.updated_at || c.updatedAt || undefined,
+  };
+}
 
 interface GarageContextType {
   customers: Customer[];
@@ -102,6 +128,7 @@ interface GarageContextType {
   logNotification: (logData: Omit<NotificationLog, 'id' | 'timestamp'>) => void;
 
   // Customer Actions
+  fetchCustomers: () => Promise<void>;
   addCustomer: (data: Omit<Customer, 'id' | 'createdAt' | 'telegramLinked'>) => {
     success: boolean;
     customer?: Customer;
@@ -111,6 +138,8 @@ interface GarageContextType {
     id: string,
     updates: Partial<Omit<Customer, 'id' | 'createdAt'>>
   ) => { success: boolean; error?: string };
+  deactivateCustomer: (id: string, actorName?: string) => Promise<{ success: boolean; error?: string }>;
+  restoreCustomer: (id: string, actorName?: string) => Promise<{ success: boolean; error?: string }>;
 
   // Vehicle Actions
   addVehicle: (data: Omit<Vehicle, 'id' | 'createdAt'>) => {
@@ -524,7 +553,103 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem(KEYS.NOTIFICATION_LOGS, JSON.stringify(notificationLogs));
   }, [notificationLogs]);
 
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const res = await getCustomers({ status: 'all' });
+      if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map(mapBackendCustomerToCustomer);
+        setCustomers((prev) => {
+          const idMap = new Map<string, Customer>();
+          mapped.forEach((c) => idMap.set(c.id, c));
+          prev.forEach((c) => {
+            if (!idMap.has(c.id)) {
+              idMap.set(c.id, c);
+            }
+          });
+          return Array.from(idMap.values());
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch customers from API:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
   // Customer Management logic
+  const deactivateCustomer = async (id: string, actorName?: string): Promise<{ success: boolean; error?: string }> => {
+    const customer = customers.find((c) => c.id === id);
+    if (!customer) return { success: false, error: 'Customer not found.' };
+
+    try {
+      const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+      await deleteCustomerApi(numericId);
+    } catch (err: any) {
+      console.warn('API customer deactivation failed:', err);
+    }
+
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              isDeactivated: true,
+              status: 'deactivated',
+              deletedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Customer Deactivated',
+      'Customer',
+      id,
+      `Customer '${customer.fullName}' deactivated by ${actorName || currentUser?.name || 'Owner'}.`,
+      'Active',
+      'Deactivated'
+    );
+
+    return { success: true };
+  };
+
+  const restoreCustomer = async (id: string, actorName?: string): Promise<{ success: boolean; error?: string }> => {
+    const customer = customers.find((c) => c.id === id);
+    if (!customer) return { success: false, error: 'Customer not found.' };
+
+    try {
+      const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+      await restoreCustomerApi(numericId);
+    } catch (err: any) {
+      console.warn('API customer restore failed:', err);
+    }
+
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              isDeactivated: false,
+              status: 'active',
+              deletedAt: null,
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Customer Restored',
+      'Customer',
+      id,
+      `Customer '${customer.fullName}' restored by ${actorName || currentUser?.name || 'Owner'}.`,
+      'Deactivated',
+      'Active'
+    );
+
+    return { success: true };
+  };
   const addCustomer = (data: Omit<Customer, 'id' | 'createdAt' | 'telegramLinked'>) => {
     const cleanPhone = data.phone.trim();
     if (!cleanPhone) {
@@ -980,10 +1105,36 @@ linkedRepairJobId?: string;
     changedBy?: string,
     note?: string
   ) => {
+    const targetJob = repairJobs.find((j) => j.id === jobId);
+    if (!targetJob) return;
+
+    const fromStatus = targetJob.status;
+
+    // Requirement 5: Prevent duplicate history when status is unchanged
+    if (fromStatus === status) {
+      return;
+    }
+
+    // Requirement 4: Status Transition Validation
+    const validTransitions: Record<string, string[]> = {
+      pending_inspection: targetJob.jobType === 'service'
+        ? ['pending_inspection', 'in_progress', 'waiting_approval', 'declined', 'cancelled']
+        : ['pending_inspection', 'waiting_approval', 'declined', 'cancelled'],
+      waiting_approval: ['waiting_approval', 'in_progress', 'declined', 'cancelled', 'pending_inspection'],
+      in_progress: ['in_progress', 'completed', 'waiting_approval', 'declined', 'cancelled'],
+      completed: ['completed', 'delivered', 'in_progress'],
+      delivered: ['delivered'],
+      declined: ['declined', 'pending_inspection'],
+      cancelled: ['cancelled'],
+    };
+
+    if (validTransitions[fromStatus] && !validTransitions[fromStatus].includes(status)) {
+      console.warn(`[GarageContext] Invalid status transition rejected: cannot transition from ${fromStatus} to ${status}`);
+      return;
+    }
+
     const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const staffName = changedBy || currentUser?.name || 'Staff User';
-
-    const fromStatus = repairJobs.find((j) => j.id === jobId)?.status ?? 'pending_inspection';
 
     const statusHistoryEntry: RepairStatusHistory = {
       id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -1112,19 +1263,24 @@ linkedRepairJobId?: string;
     });
 
     const staffName = record.recordedBy || currentUser?.name || 'Mechanic Technician';
-    const fromStatus = repairJobs.find((j) => j.id === jobId)?.status ?? 'pending_inspection';
+    const targetJob = repairJobs.find((j) => j.id === jobId);
+    const fromStatus = targetJob?.status ?? 'pending_inspection';
+    const isStatusChanging = fromStatus !== 'waiting_approval';
 
-    const statusHistoryEntry: RepairStatusHistory = {
-      id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      jobId,
-      fromStatus,
-      toStatus: 'waiting_approval',
-      changedBy: staffName,
-      timestamp: nowStamp,
-      note: `Inspection findings & recommendations recorded: "${record.inspectionResult || record.diagnosticNotes}". Status moved to Waiting Approval.`,
-    };
+    let statusHistoryEntry: RepairStatusHistory | null = null;
+    if (isStatusChanging) {
+      statusHistoryEntry = {
+        id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        jobId,
+        fromStatus,
+        toStatus: 'waiting_approval',
+        changedBy: staffName,
+        timestamp: nowStamp,
+        note: `Inspection findings & recommendations recorded: "${record.inspectionResult || record.diagnosticNotes}". Status moved to Waiting Approval.`,
+      };
 
-    setRepairStatusHistory((prev) => [statusHistoryEntry, ...prev]);
+      setRepairStatusHistory((prev) => [statusHistoryEntry!, ...prev]);
+    }
 
     setRepairJobs((prev) =>
       prev.map((j) => {
@@ -1148,19 +1304,23 @@ linkedRepairJobId?: string;
             0
           );
           const laborTotal = record.laborCost || record.laborHours * 90;
-          const totalCost = (j.inspectionFee ?? 50) + partsTotal + laborTotal;
+          const updatedEstimatedCost = j.inspectionFee + partsTotal + laborTotal;
 
-          return {
+          const updatedJob: RepairJob = {
             ...j,
             status: 'waiting_approval',
-            inspectionResult: record.inspectionResult || record.diagnosticNotes,
-            repairDetails: record.recommendedRepairs || record.mechanicNotes || j.repairDetails,
-            estimatedCost: totalCost,
-            totalRepairCost: totalCost,
-            partsUsed: [...existingPartsUsed, ...formattedNewParts],
+            inspectionResult: record.inspectionResult || j.inspectionResult,
+            diagnosticNotes: record.diagnosticNotes || j.diagnosticNotes,
+            recommendedRepairs: record.recommendedRepairs || j.recommendedRepairs,
+            inspectionNotes: record.mechanicNotes || j.inspectionNotes,
             inspectionRecords: [newRecord, ...records],
-            statusHistory: [statusHistoryEntry, ...(j.statusHistory || [])],
+            partsUsed: [...existingPartsUsed, ...formattedNewParts],
+            estimatedCost: updatedEstimatedCost,
+            totalRepairCost: updatedEstimatedCost,
+            statusHistory: statusHistoryEntry ? [statusHistoryEntry, ...(j.statusHistory || [])] : (j.statusHistory || []),
           };
+
+          return updatedJob;
         }
         return j;
       })
@@ -2293,8 +2453,11 @@ linkedRepairJobId?: string;
         removeWarrantyPeriodOption,
         reviseEstimate,
         logNotification,
+        fetchCustomers,
         addCustomer,
         updateCustomer,
+        deactivateCustomer,
+        restoreCustomer,
         addVehicle,
         updateVehicle,
         addRepairJob,

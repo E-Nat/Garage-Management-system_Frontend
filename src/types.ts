@@ -44,6 +44,9 @@ export interface Customer {
   telegramHandle?: string;
   telegramLinked: boolean;
   telegramConnectedAt?: string;
+  isDeactivated?: boolean;
+  status?: 'active' | 'deactivated';
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

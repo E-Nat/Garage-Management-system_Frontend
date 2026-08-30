@@ -9,7 +9,12 @@ export interface LaravelCustomer {
   telegram_chat_id?: string | null;
   telegram_handle?: string | null;
   telegram_linked: boolean;
+  telegram_connected_at?: string | null;
+  is_deactivated?: boolean;
+  status?: string;
+  deleted_at?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface LaravelVehicle {
@@ -176,6 +181,9 @@ export declare function getCustomers(params?: Record<string, any>): Promise<{ da
 export declare function createCustomer(data: Partial<LaravelCustomer>): Promise<{ data: LaravelCustomer }>;
 export declare function getCustomer(id: number | string): Promise<{ data: LaravelCustomer }>;
 export declare function updateCustomer(id: number | string, data: Partial<LaravelCustomer>): Promise<{ data: LaravelCustomer }>;
+export declare function deleteCustomer(id: number | string): Promise<{ success: boolean; data?: LaravelCustomer }>;
+export declare const deactivateCustomerApi: typeof deleteCustomer;
+export declare function restoreCustomer(id: number | string): Promise<{ success: boolean; data?: LaravelCustomer }>;
 
 // 2. Vehicles API
 export declare function getVehicles(params?: Record<string, any>): Promise<{ data: LaravelVehicle[] }>;
@@ -189,6 +197,7 @@ export declare function createRepairJob(data: Partial<LaravelRepairJob>): Promis
 export declare function updateRepairJob(id: number | string, data: Partial<LaravelRepairJob>): Promise<{ data: LaravelRepairJob }>;
 export declare function getRepairJob(id: number | string): Promise<{ data: LaravelRepairJob }>;
 export declare function addRepairJobPart(jobId: number | string, data: Record<string, any>): Promise<{ data: any }>;
+export declare function getRepairStatusHistories(params?: Record<string, any>): Promise<{ success: boolean; data: any[]; meta?: any }>;
 
 // 4. Invoices & Payments API
 export declare function getInvoices(params?: Record<string, any>): Promise<{ data: LaravelInvoice[] }>;

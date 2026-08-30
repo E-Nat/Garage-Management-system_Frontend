@@ -1,12 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGarage } from '../../context/GarageContext';
 import { RepairStatusHistory } from '../../types';
+import { INITIAL_USERS } from '../../data/mockUsers';
+import { getRepairStatusHistories } from '../../services/api';
 import {
   ChevronLeft,
   ChevronRight,
   Calendar,
   Filter,
   ArrowUpDown,
+  Search,
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
@@ -16,9 +19,14 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; badge: string }>
   completed: { bg: 'bg-emerald-50', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
   delivered: { bg: 'bg-teal-50', text: 'text-teal-700', badge: 'bg-teal-100 text-teal-800 border-teal-200' },
   declined: { bg: 'bg-rose-50', text: 'text-rose-700', badge: 'bg-rose-100 text-rose-800 border-rose-200' },
+  cancelled: { bg: 'bg-slate-100', text: 'text-slate-700', badge: 'bg-slate-100 text-slate-800 border-slate-200' },
+  'Customer Intake': { bg: 'bg-indigo-50', text: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+  intake: { bg: 'bg-indigo-50', text: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
 };
 
-const getStatusLabel = (status: string): string => {
+const getStatusLabel = (status?: string | null): string => {
+  if (!status) return '—';
+  if (status.toLowerCase().includes('intake')) return 'Customer Intake';
   return status
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -28,7 +36,11 @@ const getStatusLabel = (status: string): string => {
 export const StatusHistoryActivityLog: React.FC = () => {
   const { repairStatusHistory, repairJobs } = useGarage();
 
+  // Remote Backend History state (if available)
+  const [remoteHistory, setRemoteHistory] = useState<RepairStatusHistory[]>([]);
+
   // Filter & Pagination State
+  const [searchQuery, setSearchQuery] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState<string>('all');
@@ -38,47 +50,86 @@ export const StatusHistoryActivityLog: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Get unique staff members from history
+  // Attempt to load authoritative backend status history on mount
+  useEffect(() => {
+    let isMounted = true;
+    getRepairStatusHistories({ per_page: 'all' })
+      .then((res) => {
+        if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped: RepairStatusHistory[] = res.data.map((item: any) => ({
+            id: String(item.id),
+            jobId: item.repair_job_id ? String(item.repair_job_id) : '',
+            fromStatus: item.from_status || 'Customer Intake',
+            toStatus: item.to_status,
+            changedBy: item.changed_by_user_name || 'Staff User',
+            timestamp: item.created_at ? item.created_at.substring(0, 16).replace('T', ' ') : '',
+            note: item.note || '',
+          }));
+          setRemoteHistory(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('API getRepairStatusHistories failed, using local context state:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Get unique staff members from real users + history
   const staffMembers = useMemo(() => {
     const members = new Set<string>();
-    repairStatusHistory.forEach((h) => members.add(h.changedBy));
+    INITIAL_USERS.forEach((u) => {
+      if (u.role !== 'customer') members.add(u.name);
+    });
+    repairStatusHistory.forEach((h) => {
+      if (h.changedBy && h.changedBy.trim()) members.add(h.changedBy.trim());
+    });
+    remoteHistory.forEach((h) => {
+      if (h.changedBy && h.changedBy.trim()) members.add(h.changedBy.trim());
+    });
     return Array.from(members).sort();
-  }, [repairStatusHistory]);
+  }, [repairStatusHistory, remoteHistory]);
 
   // Get unique statuses
   const uniqueStatuses = useMemo(() => {
-    const statuses = new Set<string>();
+    const statuses = new Set<string>([
+      'pending_inspection',
+      'waiting_approval',
+      'in_progress',
+      'completed',
+      'delivered',
+      'declined',
+    ]);
     repairStatusHistory.forEach((h) => {
-      statuses.add(h.fromStatus);
-      statuses.add(h.toStatus);
+      if (h.fromStatus && h.fromStatus !== 'Customer Intake') statuses.add(h.fromStatus);
+      if (h.toStatus) statuses.add(h.toStatus);
     });
     return Array.from(statuses).sort();
   }, [repairStatusHistory]);
 
   // Get job type filter options from jobs
   const jobTypes = useMemo(() => {
-    const types = new Set<string>();
-    repairJobs.forEach((job) => {
-      // Infer job type from description or use default
-      if (job.description.toLowerCase().includes('oil change') || job.description.toLowerCase().includes('service')) {
-        types.add('Service');
-      } else if (job.description.toLowerCase().includes('inspection')) {
-        types.add('Inspection');
-      } else {
-        types.add('Repair');
-      }
-    });
-    return Array.from(types).sort();
-  }, [repairJobs]);
+    return ['Repair', 'Service', 'Inspection'];
+  }, []);
 
   // Build enriched history with job details
-  // Merge the global status history log with every job's own statusHistory
-  // (deduplicated by entry id so entries written to both sources appear once).
+  // Deduplicate by entry ID to prevent duplicate items
   const enrichedHistory = useMemo(() => {
     const combined = new Map<string, RepairStatusHistory>();
+
+    // 1. Authoritative Remote backend history (if loaded)
+    remoteHistory.forEach((h) => {
+      if (!combined.has(h.id)) combined.set(h.id, h);
+    });
+
+    // 2. Context status history log
     repairStatusHistory.forEach((h) => {
       if (!combined.has(h.id)) combined.set(h.id, h);
     });
+
+    // 3. Job embedded status history
     repairJobs.forEach((job) => {
       (job.statusHistory || []).forEach((h) => {
         if (!combined.has(h.id)) combined.set(h.id, h);
@@ -86,35 +137,43 @@ export const StatusHistoryActivityLog: React.FC = () => {
     });
 
     return Array.from(combined.values()).map((history) => {
-      const job = repairJobs.find((j) => j.id === history.jobId);
+      const job = repairJobs.find((j) => String(j.id) === String(history.jobId));
       let jobType = 'Repair';
-      if (job?.description.toLowerCase().includes('oil change') || job?.description.toLowerCase().includes('service')) {
+      if (job?.jobType) {
+        jobType = job.jobType.charAt(0).toUpperCase() + job.jobType.slice(1);
+      } else if (job?.description?.toLowerCase().includes('oil change') || job?.description?.toLowerCase().includes('service')) {
         jobType = 'Service';
-      } else if (job?.description.toLowerCase().includes('inspection')) {
+      } else if (job?.description?.toLowerCase().includes('inspection')) {
         jobType = 'Inspection';
       }
 
       return {
         ...history,
         jobType,
-        jobNumber: job?.jobNumber || 'N/A',
-        customerName: job?.customerName || 'Unknown',
-        vehicleInfo: job ? `${job.vehicleMake} ${job.vehicleModel} (${job.licensePlate})` : 'Unknown',
+        jobNumber: job?.jobNumber || (history.jobId ? `#${history.jobId}` : 'N/A'),
+        customerName: job?.customerName || 'Customer',
+        vehicleInfo: job ? `${job.vehicleMake} ${job.vehicleModel} (${job.licensePlate})` : 'Vehicle',
       };
     });
-  }, [repairStatusHistory, repairJobs]);
+  }, [remoteHistory, repairStatusHistory, repairJobs]);
 
   // Apply filters
   const filteredHistory = useMemo(() => {
+    const fromCompare = dateFromFilter ? `${dateFromFilter} 00:00:00` : '';
+    const toCompare = dateToFilter ? `${dateToFilter} 23:59:59` : '';
+    const searchLower = searchQuery.toLowerCase().trim();
+
     return enrichedHistory.filter((history) => {
+      const histDate = history.timestamp ? history.timestamp.replace('T', ' ') : '';
+
       // Date range filter
-      if (dateFromFilter && history.timestamp < dateFromFilter) return false;
-      if (dateToFilter && history.timestamp > dateToFilter) return false;
+      if (fromCompare && histDate < fromCompare) return false;
+      if (toCompare && histDate > toCompare) return false;
 
       // Job type filter
-      if (jobTypeFilter !== 'all' && history.jobType !== jobTypeFilter) return false;
+      if (jobTypeFilter !== 'all' && history.jobType.toLowerCase() !== jobTypeFilter.toLowerCase()) return false;
 
-      // Status filter (both from and to)
+      // Status filter (matches either from or to)
       if (statusFilter !== 'all') {
         if (history.fromStatus !== statusFilter && history.toStatus !== statusFilter) return false;
       }
@@ -122,9 +181,22 @@ export const StatusHistoryActivityLog: React.FC = () => {
       // Changed by filter
       if (changedByFilter !== 'all' && history.changedBy !== changedByFilter) return false;
 
+      // Search keyword filter
+      if (searchLower) {
+        const matchesJobNumber = history.jobNumber?.toLowerCase().includes(searchLower);
+        const matchesCustomer = history.customerName?.toLowerCase().includes(searchLower);
+        const matchesVehicle = history.vehicleInfo?.toLowerCase().includes(searchLower);
+        const matchesNote = history.note?.toLowerCase().includes(searchLower);
+        const matchesStaff = history.changedBy?.toLowerCase().includes(searchLower);
+
+        if (!matchesJobNumber && !matchesCustomer && !matchesVehicle && !matchesNote && !matchesStaff) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [enrichedHistory, dateFromFilter, dateToFilter, jobTypeFilter, statusFilter, changedByFilter]);
+  }, [enrichedHistory, dateFromFilter, dateToFilter, jobTypeFilter, statusFilter, changedByFilter, searchQuery]);
 
   // Sort history
   const sortedHistory = useMemo(() => {
@@ -138,13 +210,14 @@ export const StatusHistoryActivityLog: React.FC = () => {
   }, [filteredHistory, sortOrder]);
 
   // Paginate
-  const totalPages = Math.ceil(sortedHistory.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(sortedHistory.length / itemsPerPage));
   const paginatedHistory = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return sortedHistory.slice(start, start + itemsPerPage);
   }, [sortedHistory, currentPage]);
 
   const handleReset = () => {
+    setSearchQuery('');
     setDateFromFilter('');
     setDateToFilter('');
     setJobTypeFilter('all');
@@ -153,7 +226,14 @@ export const StatusHistoryActivityLog: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = dateFromFilter || dateToFilter || jobTypeFilter !== 'all' || statusFilter !== 'all' || changedByFilter !== 'all';
+  const hasActiveFilters = Boolean(
+    searchQuery ||
+    dateFromFilter ||
+    dateToFilter ||
+    jobTypeFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    changedByFilter !== 'all'
+  );
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-xs space-y-5">
@@ -166,12 +246,30 @@ export const StatusHistoryActivityLog: React.FC = () => {
           </div>
           {hasActiveFilters && (
             <button
+              type="button"
               onClick={handleReset}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition border border-slate-200"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition border border-slate-200 cursor-pointer"
             >
               Clear Filters
             </button>
           )}
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by RO Job #, Customer, Vehicle, Staff, or Notes..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
+            />
+          </div>
         </div>
 
         {/* Filters */}
@@ -283,8 +381,9 @@ export const StatusHistoryActivityLog: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-600 font-semibold">Sort:</span>
             <button
+              type="button"
               onClick={() => setSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition flex items-center gap-1.5 cursor-pointer ${
                 sortOrder === 'newest'
                   ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -402,9 +501,10 @@ export const StatusHistoryActivityLog: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition border border-slate-200"
+                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition border border-slate-200 cursor-pointer"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -426,8 +526,9 @@ export const StatusHistoryActivityLog: React.FC = () => {
                         return (
                           <button
                             key={page}
+                            type="button"
                             onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
                               page === currentPage
                                 ? 'bg-[#FF6B00] text-white border-[#FF6B00]'
                                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -440,9 +541,10 @@ export const StatusHistoryActivityLog: React.FC = () => {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition border border-slate-200"
+                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition border border-slate-200 cursor-pointer"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>

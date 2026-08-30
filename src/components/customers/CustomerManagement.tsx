@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGarage } from '../../context/GarageContext';
 import { useAuth } from '../../context/AuthContext';
 import { Customer, Vehicle } from '../../types';
@@ -33,23 +33,55 @@ import {
   AlertTriangle,
   Smartphone,
   XCircle,
+  MoreVertical,
+  RotateCcw,
+  UserX,
+  Eye,
+  Trash2,
 } from 'lucide-react';
 import { validateAndNormalizePhone, validatePersonName, sanitizePhoneDigits } from '../../utils/phone';
 
 export const CustomerManagement: React.FC = () => {
-  const { customers, vehicles, addCustomer, updateCustomer, addVehicle, updateVehicle } = useGarage();
+  const {
+    customers,
+    vehicles,
+    addCustomer,
+    updateCustomer,
+    deactivateCustomer,
+    restoreCustomer,
+    fetchCustomers,
+    addVehicle,
+    updateVehicle,
+  } = useGarage();
   const { currentUser } = useAuth();
 
   // Permissions
   const canCreateCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
   const canEditCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
   const canDeleteCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const canDeactivateCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   // Navigation / View State
   // 'list' | 'customer_details' | 'vehicle_details'
   const [activeView, setActiveView] = useState<'list' | 'customer_details' | 'vehicle_details'>('list');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+
+  // Status Filter State (Active by default, All, Deactivated)
+  const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'deactivated'>('active');
+
+  // Row Dropdown State
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+
+  // Deactivate Modal State
+  const [customerToDeactivate, setCustomerToDeactivate] = useState<Customer | null>(null);
+  const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+
+  // Restore Modal State
+  const [customerToRestore, setCustomerToRestore] = useState<Customer | null>(null);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   // Unified Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -145,10 +177,20 @@ export const CustomerManagement: React.FC = () => {
     }
   };
 
-  const handleRefreshTelegramStatus = () => {
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.customer-dropdown-container')) {
+        setActiveDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleRefreshTelegramStatus = async () => {
     setIsCheckingConnection(true);
-    setTimeout(() => {
-      setIsCheckingConnection(false);
+    try {
+      await fetchCustomers();
       if (selectedTelegramCustomer) {
         const fresh = customers.find((c) => c.id === selectedTelegramCustomer.id);
         if (fresh && fresh.telegramLinked) {
@@ -158,7 +200,9 @@ export const CustomerManagement: React.FC = () => {
           showToast('Customer has not completed phone sharing yet.');
         }
       }
-    }, 600);
+    } finally {
+      setIsCheckingConnection(false);
+    }
   };
 
   const handleConfirmDisconnectTelegram = () => {
@@ -215,6 +259,12 @@ export const CustomerManagement: React.FC = () => {
   const filteredCustomers = useMemo(() => {
     let list = customers;
 
+    if (statusFilter === 'active') {
+      list = list.filter((c) => !c.isDeactivated);
+    } else if (statusFilter === 'deactivated') {
+      list = list.filter((c) => Boolean(c.isDeactivated));
+    }
+
     if (telegramFilter === 'connected') {
       list = list.filter((c) => Boolean(c.telegramLinked));
     } else if (telegramFilter === 'not_connected') {
@@ -239,7 +289,7 @@ export const CustomerManagement: React.FC = () => {
 
       return nameMatch || phoneMatch || addressMatch || ownsMatchingVehicle;
     });
-  }, [customers, vehicles, cleanSearch, telegramFilter]);
+  }, [customers, vehicles, cleanSearch, statusFilter, telegramFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
@@ -568,8 +618,15 @@ export const CustomerManagement: React.FC = () => {
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Total Customers</span>
-                <span className="text-xl font-bold text-slate-900">{customers.length}</span>
+                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Active Customers</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold text-slate-900">{customers.filter((c) => !c.isDeactivated).length}</span>
+                  {customers.some((c) => c.isDeactivated) && (
+                    <span className="text-xs font-medium text-slate-500">
+                      ({customers.filter((c) => c.isDeactivated).length} deactivated)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -581,10 +638,10 @@ export const CustomerManagement: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Telegram Connected</span>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    {customers.length > 0 ? Math.round((customers.filter((c) => c.telegramLinked).length / customers.length) * 100) : 0}%
+                    {customers.filter((c) => !c.isDeactivated).length > 0 ? Math.round((customers.filter((c) => !c.isDeactivated && c.telegramLinked).length / customers.filter((c) => !c.isDeactivated).length) * 100) : 0}%
                   </span>
                 </div>
-                <span className="text-xl font-bold text-emerald-700">{customers.filter((c) => c.telegramLinked).length}</span>
+                <span className="text-xl font-bold text-emerald-700">{customers.filter((c) => !c.isDeactivated && c.telegramLinked).length}</span>
               </div>
             </div>
 
@@ -594,7 +651,7 @@ export const CustomerManagement: React.FC = () => {
               </div>
               <div>
                 <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Not Connected</span>
-                <span className="text-xl font-bold text-slate-700">{customers.filter((c) => !c.telegramLinked).length}</span>
+                <span className="text-xl font-bold text-slate-700">{customers.filter((c) => !c.isDeactivated && !c.telegramLinked).length}</span>
               </div>
             </div>
 
@@ -609,7 +666,7 @@ export const CustomerManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Unified Search Bar */}
+          {/* Unified Search & Filters Bar */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -635,8 +692,61 @@ export const CustomerManagement: React.FC = () => {
               )}
             </div>
 
-            {/* Telegram Status Filter */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            {/* Filter Tabs Bar (Status & Telegram) */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-1 border-t border-slate-100">
+              {/* Customer Status Filter */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Customer Status:</span>
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
+                  <button
+                    id="filter-status-all-btn"
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('all');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All ({customers.length})
+                  </button>
+                  <button
+                    id="filter-status-active-btn"
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('active');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'active'
+                        ? 'bg-white text-emerald-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Active ({customers.filter((c) => !c.isDeactivated).length})
+                  </button>
+                  <button
+                    id="filter-status-deactivated-btn"
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('deactivated');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'deactivated'
+                        ? 'bg-white text-rose-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Deactivated ({customers.filter((c) => Boolean(c.isDeactivated)).length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Telegram Status Filter */}
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500 font-medium">Telegram Status:</span>
                 <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
@@ -747,11 +857,17 @@ export const CustomerManagement: React.FC = () => {
                   </div>
                 ) : (
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">No customers registered yet</h3>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {statusFilter === 'deactivated'
+                        ? 'No deactivated customers found'
+                        : 'No active customers registered yet'}
+                    </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Register your first customer and vehicle to get started.
+                      {statusFilter === 'deactivated'
+                        ? 'Deactivated customer records will appear here when archived.'
+                        : 'Register your first customer and vehicle to get started.'}
                     </p>
-                    {canCreateCustomer && (
+                    {statusFilter !== 'deactivated' && canCreateCustomer && (
                       <button
                         id="empty-add-customer-btn"
                         type="button"
@@ -772,6 +888,7 @@ export const CustomerManagement: React.FC = () => {
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
                         <th className="py-3 px-4">Customer</th>
+                        <th className="py-3 px-4 text-center">Status</th>
                         <th className="py-3 px-4">Phone Number</th>
                         <th className="py-3 px-4 text-right">Vehicles</th>
                         <th className="py-3 px-4">Telegram</th>
@@ -794,7 +911,11 @@ export const CustomerManagement: React.FC = () => {
                               setSelectedCustomerId(cust.id);
                               setActiveView('customer_details');
                             }}
-                            className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                            className={`transition-colors cursor-pointer ${
+                              cust.isDeactivated
+                                ? 'bg-slate-50/70 hover:bg-slate-100/70 opacity-90'
+                                : 'hover:bg-slate-50/80'
+                            }`}
                           >
                             {/* Customer Column */}
                             <td className="py-3.5 px-4 font-bold text-slate-900">
@@ -805,10 +926,25 @@ export const CustomerManagement: React.FC = () => {
                                   setSelectedCustomerId(cust.id);
                                   setActiveView('customer_details');
                                 }}
-                                className="hover:underline text-left text-slate-900 font-bold"
+                                className="hover:underline text-left text-slate-900 font-bold cursor-pointer"
                               >
                                 {cust.fullName}
                               </button>
+                            </td>
+
+                            {/* Status Column */}
+                            <td className="py-3.5 px-4 text-center">
+                              {cust.isDeactivated ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                  <span>Deactivated</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                  <span>Active</span>
+                                </span>
+                              )}
                             </td>
 
                             {/* Phone Number Column */}
@@ -855,8 +991,8 @@ export const CustomerManagement: React.FC = () => {
                             </td>
 
                             {/* Actions Column */}
-                            <td className="py-3.5 px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
+                            <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   id={`view-customer-btn-${cust.id}`}
                                   type="button"
@@ -865,11 +1001,11 @@ export const CustomerManagement: React.FC = () => {
                                     setSelectedCustomerId(cust.id);
                                     setActiveView('customer_details');
                                   }}
-                                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md transition-colors"
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md transition-colors cursor-pointer"
                                 >
                                   View
                                 </button>
-                                {canEditCustomer && (
+                                {!cust.isDeactivated && canEditCustomer && (
                                   <button
                                     id={`edit-customer-btn-${cust.id}`}
                                     type="button"
@@ -877,11 +1013,94 @@ export const CustomerManagement: React.FC = () => {
                                       e.stopPropagation();
                                       handleOpenEditCustomerModal(cust);
                                     }}
-                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors"
+                                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer"
                                   >
                                     Edit
                                   </button>
                                 )}
+
+                                {/* More / ⋮ Dropdown Menu */}
+                                <div className="relative inline-block text-left customer-dropdown-container">
+                                  <button
+                                    id={`customer-more-btn-${cust.id}`}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveDropdownId(activeDropdownId === cust.id ? null : cust.id);
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+
+                                  {activeDropdownId === cust.id && (
+                                    <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveDropdownId(null);
+                                          setSelectedCustomerId(cust.id);
+                                          setActiveView('customer_details');
+                                        }}
+                                        className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                        <span>View Customer</span>
+                                      </button>
+
+                                      {!cust.isDeactivated && canEditCustomer && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            handleOpenEditCustomerModal(cust);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                                          <span>Edit Customer</span>
+                                        </button>
+                                      )}
+
+                                      {!cust.isDeactivated && canDeactivateCustomer && (
+                                        <button
+                                          id={`dropdown-deactivate-btn-${cust.id}`}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            setCustomerToDeactivate(cust);
+                                            setIsDeactivateModalOpen(true);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 border-t border-slate-100 cursor-pointer"
+                                        >
+                                          <UserX className="w-3.5 h-3.5 text-rose-500" />
+                                          <span>Deactivate Customer</span>
+                                        </button>
+                                      )}
+
+                                      {cust.isDeactivated && canDeactivateCustomer && (
+                                        <button
+                                          id={`dropdown-restore-btn-${cust.id}`}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            setCustomerToRestore(cust);
+                                            setIsRestoreModalOpen(true);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 border-t border-slate-100 cursor-pointer"
+                                        >
+                                          <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                                          <span>Restore Customer</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -952,22 +1171,69 @@ export const CustomerManagement: React.FC = () => {
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Customer Details</h1>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-xl font-bold text-slate-900">{activeCustomer.fullName}</h1>
+                  {activeCustomer.isDeactivated ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                      Deactivated
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Active
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Detailed profile for <span className="font-semibold text-slate-800">{activeCustomer.fullName}</span>
+                  ID: <span className="font-mono text-slate-700">{activeCustomer.id}</span> • Phone: <span className="font-mono text-slate-700">{activeCustomer.phone}</span>
                 </p>
               </div>
             </div>
 
-            <button
-              id="edit-customer-details-btn"
-              type="button"
-              onClick={() => handleOpenEditCustomerModal(activeCustomer)}
-              className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2"
-            >
-              <Edit2 className="w-3.5 h-3.5 text-slate-600" />
-              <span>Edit Customer</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {!activeCustomer.isDeactivated && canEditCustomer && (
+                <button
+                  id="edit-customer-details-btn"
+                  type="button"
+                  onClick={() => handleOpenEditCustomerModal(activeCustomer)}
+                  className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Edit Customer</span>
+                </button>
+              )}
+
+              {!activeCustomer.isDeactivated && canDeactivateCustomer && (
+                <button
+                  id="deactivate-customer-details-btn"
+                  type="button"
+                  onClick={() => {
+                    setCustomerToDeactivate(activeCustomer);
+                    setIsDeactivateModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <UserX className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Deactivate Customer</span>
+                </button>
+              )}
+
+              {activeCustomer.isDeactivated && canDeactivateCustomer && (
+                <button
+                  id="restore-customer-details-btn"
+                  type="button"
+                  onClick={() => {
+                    setCustomerToRestore(activeCustomer);
+                    setIsRestoreModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-white" />
+                  <span>Restore Customer</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Customer Information Card & Telegram Status */}
@@ -978,15 +1244,17 @@ export const CustomerManagement: React.FC = () => {
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Customer Information
                 </h2>
-                <button
-                  id="edit-customer-card-btn"
-                  type="button"
-                  onClick={() => handleOpenEditCustomerModal(activeCustomer)}
-                  className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-md transition shadow-2xs flex items-center gap-1.5"
-                >
-                  <Edit2 className="w-3 h-3 text-slate-500" />
-                  <span>Edit Customer</span>
-                </button>
+                {!activeCustomer.isDeactivated && canEditCustomer && (
+                  <button
+                    id="edit-customer-card-btn"
+                    type="button"
+                    onClick={() => handleOpenEditCustomerModal(activeCustomer)}
+                    className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-md transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit2 className="w-3 h-3 text-slate-500" />
+                    <span>Edit Customer</span>
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -2378,6 +2646,183 @@ export const CustomerManagement: React.FC = () => {
                   className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isDisconnecting ? 'Disconnecting...' : 'Disconnect Telegram'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: DEACTIVATE CUSTOMER CONFIRMATION MODAL */}
+      {isDeactivateModalOpen && customerToDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-rose-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-white" />
+                <h3 className="text-sm font-bold text-white">Deactivate Customer</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeactivateModalOpen(false);
+                  setCustomerToDeactivate(null);
+                }}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-800 text-xs leading-relaxed">
+                Are you sure you want to deactivate <span className="font-bold text-slate-900">"{customerToDeactivate.fullName}"</span>?
+              </p>
+
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] leading-relaxed space-y-1.5">
+                <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-amber-700" />
+                  Preservation & Access Notice:
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-amber-900">
+                  <li>The customer's vehicles, repair jobs, invoices, payments, and history will be <strong>preserved intact</strong>.</li>
+                  <li>The customer will <strong>no longer be able to log in</strong> to the customer portal.</li>
+                  <li>The customer will <strong>not receive new customer notifications</strong> while deactivated.</li>
+                  <li>All Telegram details and connection history are kept safe and can be reactivated anytime.</li>
+                </ul>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isDeactivating}
+                  onClick={() => {
+                    setIsDeactivateModalOpen(false);
+                    setCustomerToDeactivate(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  id="confirm-deactivate-customer-btn"
+                  type="button"
+                  disabled={isDeactivating}
+                  onClick={async () => {
+                    if (!customerToDeactivate) return;
+                    setIsDeactivating(true);
+                    const res = await deactivateCustomer(customerToDeactivate.id);
+                    setIsDeactivating(false);
+                    if (res.success) {
+                      showToast(`Customer "${customerToDeactivate.fullName}" deactivated successfully.`);
+                      setIsDeactivateModalOpen(false);
+                      setCustomerToDeactivate(null);
+                    } else {
+                      showToast(res.error || 'Failed to deactivate customer.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeactivating ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deactivating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="w-3.5 h-3.5" />
+                      <span>Deactivate Customer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: RESTORE CUSTOMER CONFIRMATION MODAL */}
+      {isRestoreModalOpen && customerToRestore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-emerald-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-white" />
+                <h3 className="text-sm font-bold text-white">Restore Customer</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreModalOpen(false);
+                  setCustomerToRestore(null);
+                }}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-800 text-xs leading-relaxed">
+                Restore <span className="font-bold text-slate-900">"{customerToRestore.fullName}"</span>?
+              </p>
+
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-[11px] leading-relaxed space-y-1">
+                <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  Account Restoration Notice:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5 text-emerald-800">
+                  <li>This will restore the customer to <strong>Active</strong> status.</li>
+                  <li>Allows the customer to <strong>access the customer portal again</strong>.</li>
+                  <li>Resumes eligible notifications and active garage workflow.</li>
+                </ul>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isRestoring}
+                  onClick={() => {
+                    setIsRestoreModalOpen(false);
+                    setCustomerToRestore(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  id="confirm-restore-customer-btn"
+                  type="button"
+                  disabled={isRestoring}
+                  onClick={async () => {
+                    if (!customerToRestore) return;
+                    setIsRestoring(true);
+                    const res = await restoreCustomer(customerToRestore.id);
+                    setIsRestoring(false);
+                    if (res.success) {
+                      showToast(`Customer "${customerToRestore.fullName}" restored successfully.`);
+                      setIsRestoreModalOpen(false);
+                      setCustomerToRestore(null);
+                    } else {
+                      showToast(res.error || 'Failed to restore customer.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isRestoring ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Restoring...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restore Customer</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

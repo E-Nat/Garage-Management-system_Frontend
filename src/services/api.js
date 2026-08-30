@@ -455,6 +455,11 @@ export async function getCustomers(params = {}) {
   }
 
   let results = [...mockCustomers];
+  if (params.status === 'active') {
+    results = results.filter((c) => !c.deleted_at && !c.is_deactivated);
+  } else if (params.status === 'deactivated') {
+    results = results.filter((c) => c.deleted_at || c.is_deactivated);
+  }
   if (params.search) {
     const s = params.search.toLowerCase();
     results = results.filter(
@@ -528,7 +533,7 @@ export async function updateCustomer(id, updates) {
 }
 
 /**
- * Delete a customer
+ * Deactivate / Soft-delete a customer
  * @param {number|string} id
  */
 export async function deleteCustomer(id) {
@@ -540,7 +545,36 @@ export async function deleteCustomer(id) {
     console.warn('API deleteCustomer failed or unauthenticated:', err);
   }
 
-  mockCustomers = mockCustomers.filter((c) => c.id !== Number(id));
+  const idx = mockCustomers.findIndex((c) => c.id === Number(id));
+  if (idx !== -1) {
+    mockCustomers[idx].deleted_at = new Date().toISOString();
+    mockCustomers[idx].is_deactivated = true;
+    return Promise.resolve({ success: true, data: mockCustomers[idx] });
+  }
+  return Promise.resolve({ success: true });
+}
+
+export const deactivateCustomerApi = deleteCustomer;
+
+/**
+ * Restore a soft-deleted / deactivated customer
+ * @param {number|string} id
+ */
+export async function restoreCustomer(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.post(`/api/customers/${numericId}/restore`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API restoreCustomer failed or unauthenticated:', err);
+  }
+
+  const idx = mockCustomers.findIndex((c) => c.id === Number(id));
+  if (idx !== -1) {
+    mockCustomers[idx].deleted_at = null;
+    mockCustomers[idx].is_deactivated = false;
+    return Promise.resolve({ success: true, data: mockCustomers[idx] });
+  }
   return Promise.resolve({ success: true });
 }
 
@@ -659,12 +693,21 @@ export async function deleteVehicle(id) {
  * @returns {Promise<{ data: Array }>}
  */
 export async function getRepairJobs(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.get('/api/repair-jobs', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getRepairJobs failed or unauthenticated:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   let results = [...mockRepairJobs];
-  if (params.job_status) {
+  if (params.job_status && params.job_status !== 'all') {
     results = results.filter((j) => j.job_status === params.job_status);
   }
-  if (params.job_type) {
+  if (params.job_type && params.job_type !== 'all') {
     results = results.filter((j) => j.job_type === params.job_type);
   }
   if (params.customer_id) {
@@ -677,41 +720,24 @@ export async function getRepairJobs(params = {}) {
     results = results.filter((j) => isDateInRange(j.created_at || j.service_date, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/repair-jobs', { params });
-  // return response.data;
-  */
 }
 
 /**
  * Create a new repair job
  * @param {Object} jobData Payload matching 'repair_jobs' DB schema
- * @param {('repair'|'service'|'inspection')} jobData.job_type
- * @param {number} jobData.customer_id
- * @param {number} jobData.vehicle_id
- * @param {number} [jobData.assigned_mechanic_id]
- * @param {string} jobData.service_date (YYYY-MM-DD)
- * @param {number} [jobData.linked_from_job_id]
- * @param {string} [jobData.customer_complaint]
- * @param {string} [jobData.inspection_result]
- * @param {string} [jobData.recommended_repair]
- * @param {number} [jobData.estimated_cost]
- * @param {string} [jobData.mechanic_notes]
- * @param {string} [jobData.repair_details]
- * @param {number} [jobData.total_cost]
- * @param {number} [jobData.inspection_fee]
- * @param {string} [jobData.job_status] ('pending_inspection'|'waiting_approval'|'in_progress'|'completed'|'delivered'|'declined')
- * @param {string} [jobData.approval_status] ('pending'|'approved'|'declined')
- * @param {string} [jobData.approval_date]
- * @param {number} [jobData.approved_by]
- * @param {string} [jobData.approval_note]
- * @param {string} [jobData.completion_date]
  * @returns {Promise<{ data: Object }>}
  */
 export async function createRepairJob(jobData) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.post('/api/repair-jobs', jobData);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API createRepairJob failed:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   const newJob = {
     id: mockRepairJobs.length > 0 ? Math.max(...mockRepairJobs.map((j) => j.id)) + 1 : 1,
     job_type: jobData.job_type || 'repair',
@@ -738,12 +764,6 @@ export async function createRepairJob(jobData) {
   };
   mockRepairJobs.unshift(newJob);
   return Promise.resolve({ data: newJob });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.post('/api/repair-jobs', jobData);
-  // return response.data;
-  */
 }
 
 /**
@@ -753,23 +773,27 @@ export async function createRepairJob(jobData) {
  * @returns {Promise<{ data: Object }>}
  */
 export async function updateRepairJob(id, updates) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.put(`/api/repair-jobs/${numericId}`, updates);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API updateRepairJob failed:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   const index = mockRepairJobs.findIndex((j) => j.id === Number(id));
   if (index === -1) return Promise.reject(new Error(`Repair Job #${id} not found`));
 
   const updatedJob = {
     ...mockRepairJobs[index],
     ...updates,
-    id: Number(id), // ensure ID is preserved
+    id: Number(id),
   };
   mockRepairJobs[index] = updatedJob;
   return Promise.resolve({ data: updatedJob });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.put(`/api/repair-jobs/${id}`, updates);
-  // return response.data;
-  */
 }
 
 /**
@@ -777,16 +801,47 @@ export async function updateRepairJob(id, updates) {
  * @param {number|string} id
  */
 export async function getRepairJob(id) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.get(`/api/repair-jobs/${numericId}`);
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getRepairJob failed:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   const job = mockRepairJobs.find((j) => j.id === Number(id));
   if (!job) return Promise.reject(new Error(`Repair Job #${id} not found`));
   return Promise.resolve({ data: job });
+}
 
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get(`/api/repair-jobs/${id}`);
-  // return response.data;
-  */
+/**
+ * Fetch repair status history activity logs (authenticated & paginated)
+ * @param {Object} [params] Query filters (job_type, status, from_status, to_status, changed_by_user_id, date_from, date_to, search, sort_order, per_page)
+ * @returns {Promise<{ success: boolean, data: Array, meta?: Object }>}
+ */
+export async function getRepairStatusHistories(params = {}) {
+  try {
+    const response = await api.get('/api/repair-status-histories', { params });
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getRepairStatusHistories failed or unauthenticated:', err);
+  }
+
+  return Promise.resolve({
+    success: true,
+    data: [],
+    meta: {
+      current_page: 1,
+      last_page: 1,
+      per_page: 10,
+      total: 0,
+    },
+  });
 }
 
 /**
