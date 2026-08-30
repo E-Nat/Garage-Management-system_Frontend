@@ -99,7 +99,12 @@ export const CustomerManagement: React.FC = () => {
   const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [isSendingInstructions, setIsSendingInstructions] = useState(false);
-  const [resetInstructionsSent, setResetInstructionsSent] = useState<{ customerName: string; customerEmail: string } | null>(null);
+  const [resetInstructionsSent, setResetInstructionsSent] = useState<{
+    customerName: string;
+    channelsSent: string[];
+    customerEmail?: string | null;
+    telegramHandle?: string | null;
+  } | null>(null);
 
   // Unified Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -140,6 +145,7 @@ export const CustomerManagement: React.FC = () => {
   // Register Form State (Customer + Optional Vehicle)
   const [regFullName, setRegFullName] = useState('');
   const [regPhone, setRegPhone] = useState('');
+  const [regEmail, setRegEmail] = useState('');
   const [regAddress, setRegAddress] = useState('');
   
   const [regPlate, setRegPlate] = useState('');
@@ -319,6 +325,7 @@ export const CustomerManagement: React.FC = () => {
   const handleOpenRegisterModal = () => {
     setRegFullName('');
     setRegPhone('');
+    setRegEmail('');
     setRegAddress('');
     setRegPlate('');
     setRegBrand('');
@@ -349,6 +356,13 @@ export const CustomerManagement: React.FC = () => {
         const phoneCheck = validateAndNormalizePhone(regPhone);
         if (!phoneCheck.isValid) {
           errors.phone = phoneCheck.error || 'Please enter a valid Cambodian phone number.';
+        }
+      }
+
+      if (regEmail.trim()) {
+        const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim());
+        if (!isEmailValid) {
+          errors.email = 'Please enter a valid email address.';
         }
       }
     }
@@ -404,6 +418,7 @@ export const CustomerManagement: React.FC = () => {
       const resCust = addCustomer({
         fullName: regFullName.trim(),
         phone: phoneCheck.isValid && phoneCheck.normalized ? phoneCheck.normalized : regPhone.trim(),
+        email: regEmail.trim() || null,
         address: regAddress.trim(),
       });
 
@@ -1476,10 +1491,47 @@ export const CustomerManagement: React.FC = () => {
 
                 <div className="space-y-3 text-xs">
                   <div>
-                    <span className="text-slate-500 font-medium block">Email</span>
-                    <span className="font-bold text-slate-900 text-sm mt-0.5 block truncate">
-                      {activeCustomer.userAccount?.email || `${activeCustomer.phone.replace(/\D/g, '')}@apexgarage.com`}
-                    </span>
+                    <span className="text-slate-500 font-medium block">Email Address</span>
+                    {activeCustomer.email || (activeCustomer.userAccount?.email && !activeCustomer.userAccount.email.endsWith('@portal.apexgarage.local')) ? (
+                      <div className="mt-0.5">
+                        <span className="font-bold text-slate-900 text-sm block truncate">
+                          {activeCustomer.email || activeCustomer.userAccount?.email}
+                        </span>
+                        <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500 inline" /> Registered email
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mt-0.5">
+                        <span className="font-medium text-slate-500 italic text-sm block">
+                          Not provided
+                        </span>
+                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                          Optional — no email on file
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 font-medium block">Recovery Channel</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {(activeCustomer.email || (activeCustomer.userAccount?.email && !activeCustomer.userAccount.email.endsWith('@portal.apexgarage.local'))) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[11px] font-medium">
+                          📧 Email
+                        </span>
+                      )}
+                      {activeCustomer.telegramLinked && activeCustomer.telegramChatId ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[11px] font-medium">
+                          💬 Telegram Connected
+                        </span>
+                      ) : null}
+                      {!(activeCustomer.email || (activeCustomer.userAccount?.email && !activeCustomer.userAccount.email.endsWith('@portal.apexgarage.local'))) && !(activeCustomer.telegramLinked && activeCustomer.telegramChatId) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[11px] font-medium">
+                          ⚠ No online recovery
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -1936,6 +1988,24 @@ export const CustomerManagement: React.FC = () => {
                         className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none font-mono"
                       />
                       {regErrors.phone && <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="reg-email" className="block text-xs font-semibold text-slate-700 mb-1">
+                        Email Address <span className="text-slate-400 font-normal">(Optional)</span>
+                      </label>
+                      <input
+                        id="reg-email"
+                        type="email"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        placeholder="e.g. customer@gmail.com"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Optional — used for account recovery and notifications.
+                      </p>
+                      {regErrors.email && <p className="text-[11px] text-rose-600 mt-1">{regErrors.email}</p>}
                     </div>
 
                     <div className="sm:col-span-2">
@@ -2963,258 +3033,345 @@ export const CustomerManagement: React.FC = () => {
       )}
 
       {/* MODAL 10: CUSTOMER PASSWORD RESET MODAL */}
-      {isResetPasswordModalOpen && customerToResetPassword && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-bold text-white">Reset Customer Password</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsResetPasswordModalOpen(false);
-                  setCustomerToResetPassword(null);
-                  setResetInstructionsSent(null);
-                }}
-                className="text-white/80 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {isResetPasswordModalOpen && customerToResetPassword && (() => {
+        const hasRealEmail = Boolean(
+          customerToResetPassword.email ||
+          (customerToResetPassword.userAccount?.email && !customerToResetPassword.userAccount.email.endsWith('@portal.apexgarage.local'))
+        );
+        const hasTg = Boolean(customerToResetPassword.telegramLinked && customerToResetPassword.telegramChatId);
+        const emailAddress = customerToResetPassword.email || customerToResetPassword.userAccount?.email;
 
-            <div className="p-6 space-y-4 text-xs">
-              {resetInstructionsSent ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <span>✓ Reset instructions sent</span>
-                    </div>
-                    <div className="text-xs text-slate-700 space-y-1 pl-7">
-                      <div><span className="text-slate-500">Customer:</span> <strong className="text-slate-900">{resetInstructionsSent.customerName}</strong></div>
-                      <div><span className="text-slate-500">Email:</span> <strong className="text-slate-900">{resetInstructionsSent.customerEmail}</strong></div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    The customer must use the reset link to create a new password. Existing and newly generated passwords are encrypted and never visible to garage staff.
-                  </p>
-                  <div className="pt-3 border-t border-slate-200 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsResetPasswordModalOpen(false);
-                        setCustomerToResetPassword(null);
-                        setResetInstructionsSent(null);
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Done
-                    </button>
-                  </div>
+        const handleSendInstructions = async (channel: 'email' | 'telegram' | 'both') => {
+          setIsSendingInstructions(true);
+          setResetPasswordError(null);
+          try {
+            const res = await requestCustomerPasswordResetApi(customerToResetPassword.id, channel);
+            setIsSendingInstructions(false);
+            if (res.success) {
+              addAuditLog(
+                'Customer Password Reset Requested',
+                'Customer',
+                customerToResetPassword.id,
+                `Owner ${currentUser?.name || 'Owner'} initiated password reset instructions via ${channel} for customer '${customerToResetPassword.fullName}'`
+              );
+              setResetInstructionsSent({
+                customerName: res.customer_name || customerToResetPassword.fullName,
+                channelsSent: res.dispatched_channels || (channel === 'both' ? ['telegram', 'email'] : [channel]),
+                customerEmail: hasRealEmail ? emailAddress : null,
+                telegramHandle: customerToResetPassword.telegramHandle,
+              });
+            } else {
+              setResetPasswordError(res.message || 'Failed to send reset instructions.');
+            }
+          } catch (err: any) {
+            setIsSendingInstructions(false);
+            setResetPasswordError(err.response?.data?.message || 'Failed to send reset instructions.');
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Key className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white">Reset Customer Password</h3>
                 </div>
-              ) : (
-                <>
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                    <div className="font-bold text-slate-900">{customerToResetPassword.fullName}</div>
-                    <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      <span>{customerToResetPassword.phone}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetPasswordModalOpen(false);
+                    setCustomerToResetPassword(null);
+                    setResetInstructionsSent(null);
+                  }}
+                  className="text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 text-xs">
+                {resetInstructionsSent ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2.5">
+                      <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span>✓ Reset instructions dispatched</span>
+                      </div>
+                      <div className="text-xs text-slate-700 space-y-1 pl-7">
+                        <div><span className="text-slate-500">Customer:</span> <strong className="text-slate-900">{resetInstructionsSent.customerName}</strong></div>
+                        <div>
+                          <span className="text-slate-500">Channels Sent:</span>{' '}
+                          <strong className="text-slate-900">
+                            {resetInstructionsSent.channelsSent.map((ch) => ch === 'telegram' ? '💬 Telegram Bot' : '📧 Registered Email').join(' + ')}
+                          </strong>
+                        </div>
+                        {resetInstructionsSent.customerEmail && (
+                          <div><span className="text-slate-500">Email:</span> <span className="font-mono text-slate-800">{resetInstructionsSent.customerEmail}</span></div>
+                        )}
+                        {resetInstructionsSent.telegramHandle && (
+                          <div><span className="text-slate-500">Telegram:</span> <span className="font-mono text-slate-800">{resetInstructionsSent.telegramHandle}</span></div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      The customer will receive a secure 30-minute link to create their new password. For security, passwords are encrypted and never visible to garage staff.
+                    </p>
+                    <div className="pt-3 border-t border-slate-200 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsResetPasswordModalOpen(false);
+                          setCustomerToResetPassword(null);
+                          setResetInstructionsSent(null);
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Done
+                      </button>
                     </div>
                   </div>
-
-                  {resetPasswordError && (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                      <span>{resetPasswordError}</span>
-                    </div>
-                  )}
-
-                  {/* Send Reset Instructions via Email / Link */}
-                  <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Send Reset Instructions</span>
+                ) : (
+                  <>
+                    {/* Customer Summary Card */}
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <div className="font-bold text-slate-900">{customerToResetPassword.fullName}</div>
+                        <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{customerToResetPassword.phone}</span>
+                        </span>
                       </div>
-                      <div className="text-[11px] text-indigo-700 leading-tight">
-                        Dispatches a single-use secure reset link directly to the customer.
+                      
+                      {/* Available Recovery Methods Checklist */}
+                      <div className="pt-1.5 border-t border-slate-200/80 flex flex-col gap-1 text-[11px]">
+                        <div className={`flex items-center gap-1.5 ${hasRealEmail ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
+                          {hasRealEmail ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <X className="w-3.5 h-3.5 text-slate-400" />}
+                          <span>{hasRealEmail ? `Registered email: ${emailAddress}` : 'Email not provided'}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${hasTg ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
+                          {hasTg ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <X className="w-3.5 h-3.5 text-slate-400" />}
+                          <span>{hasTg ? `Telegram connected (${customerToResetPassword.telegramHandle || 'Chat ID: ' + customerToResetPassword.telegramChatIdMasked})` : 'Telegram not connected'}</span>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      id="send-customer-reset-instructions-btn"
-                      type="button"
-                      disabled={isSendingInstructions}
-                      onClick={async () => {
-                        setIsSendingInstructions(true);
-                        setResetPasswordError(null);
-                        try {
-                          const res = await requestCustomerPasswordResetApi(customerToResetPassword.id);
-                          setIsSendingInstructions(false);
-                          if (res.success) {
-                            addAuditLog(
-                              'Customer Password Reset Requested',
-                              'Customer',
-                              customerToResetPassword.id,
-                              `Owner ${currentUser?.name || 'Owner'} initiated password reset instructions for customer '${customerToResetPassword.fullName}'`
-                            );
-                            setResetInstructionsSent({
-                              customerName: res.customer_name || customerToResetPassword.fullName,
-                              customerEmail: res.customer_email || 'Linked portal account',
-                            });
-                          } else {
-                            setResetPasswordError(res.message || 'Failed to send reset instructions.');
-                          }
-                        } catch (err: any) {
-                          setIsSendingInstructions(false);
-                          setResetPasswordError(err.response?.data?.message || 'Failed to send reset instructions.');
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-lg transition shrink-0 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isSendingInstructions ? (
-                        <>
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                          <span>Sending...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3 h-3" />
-                          <span>Send Link</span>
-                        </>
+
+                    {resetPasswordError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span>{resetPasswordError}</span>
+                      </div>
+                    )}
+
+                    {/* Dispatch Options Based on Available Channels */}
+                    <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-2.5">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                          <Send className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Send Password Reset Instructions</span>
+                        </div>
+                        <div className="text-[11px] text-indigo-800 leading-tight">
+                          Dispatches a single-use 30-minute secure reset link to the customer.
+                        </div>
+                      </div>
+
+                      {hasRealEmail && hasTg && (
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <button
+                            type="button"
+                            disabled={isSendingInstructions}
+                            onClick={() => handleSendInstructions('email')}
+                            className="px-2.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[11px] rounded-lg transition text-center cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            Send via Email
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSendingInstructions}
+                            onClick={() => handleSendInstructions('telegram')}
+                            className="px-2.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-[11px] rounded-lg transition text-center cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            Send via Telegram
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSendingInstructions}
+                            onClick={() => handleSendInstructions('both')}
+                            className="px-2.5 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-[11px] rounded-lg transition text-center cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            Send via Both
+                          </button>
+                        </div>
                       )}
-                    </button>
-                  </div>
 
-                  <div className="relative flex py-1 items-center">
-                    <div className="flex-grow border-t border-slate-200"></div>
-                    <span className="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Or Set New Password Directly</span>
-                    <div className="flex-grow border-t border-slate-200"></div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        New Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="customer-new-password-input"
-                          type={showResetNewPassword ? 'text' : 'password'}
-                          value={resetPasswordVal}
-                          onChange={(e) => setResetPasswordVal(e.target.value)}
-                          placeholder="Minimum 6 characters"
-                          className="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#FF6B00] outline-none"
-                        />
+                      {hasRealEmail && !hasTg && (
                         <button
                           type="button"
-                          onClick={() => setShowResetNewPassword(!showResetNewPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
-                          title={showResetNewPassword ? 'Hide password' : 'Show password'}
-                          aria-label={showResetNewPassword ? 'Hide password' : 'Show password'}
+                          disabled={isSendingInstructions}
+                          onClick={() => handleSendInstructions('email')}
+                          className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
                         >
-                          {showResetNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Send Email Reset Link</span>
                         </button>
-                      </div>
-                    </div>
+                      )}
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Confirm New Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="customer-confirm-password-input"
-                          type={showResetConfirmPassword ? 'text' : 'password'}
-                          value={resetPasswordConfirmVal}
-                          onChange={(e) => setResetPasswordConfirmVal(e.target.value)}
-                          placeholder="Re-enter new password"
-                          className="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#FF6B00] outline-none"
-                        />
+                      {!hasRealEmail && hasTg && (
                         <button
                           type="button"
-                          onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
-                          title={showResetConfirmPassword ? 'Hide password' : 'Show password'}
-                          aria-label={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                          disabled={isSendingInstructions}
+                          onClick={() => handleSendInstructions('telegram')}
+                          className="w-full px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
                         >
-                          {showResetConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Send Telegram Reset Link</span>
                         </button>
+                      )}
+
+                      {!hasRealEmail && !hasTg && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] space-y-1">
+                          <div className="font-semibold flex items-center gap-1 text-amber-950">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>No online recovery method available</span>
+                          </div>
+                          <p className="text-amber-800 leading-snug">
+                            Please verify the customer's identity manually in person or via telephone (+855 23 999 888 / 086 401 600) before setting a password below.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative flex py-1 items-center">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <span className="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Or Set New Password Directly
+                      </span>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          New Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="customer-new-password-input"
+                            type={showResetNewPassword ? 'text' : 'password'}
+                            value={resetPasswordVal}
+                            onChange={(e) => setResetPasswordVal(e.target.value)}
+                            placeholder="Minimum 6 characters"
+                            className="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#FF6B00] outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowResetNewPassword(!showResetNewPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                            title={showResetNewPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showResetNewPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showResetNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Confirm New Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="customer-confirm-password-input"
+                            type={showResetConfirmPassword ? 'text' : 'password'}
+                            value={resetPasswordConfirmVal}
+                            onChange={(e) => setResetPasswordConfirmVal(e.target.value)}
+                            placeholder="Re-enter new password"
+                            className="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#FF6B00] outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                            title={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showResetConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      disabled={isResettingPassword}
-                      onClick={() => {
-                        setIsResetPasswordModalOpen(false);
-                        setCustomerToResetPassword(null);
-                      }}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Cancel
-                    </button>
+                    <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={isResettingPassword}
+                        onClick={() => {
+                          setIsResetPasswordModalOpen(false);
+                          setCustomerToResetPassword(null);
+                        }}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
 
-                    <button
-                      id="confirm-customer-reset-password-btn"
-                      type="button"
-                      disabled={isResettingPassword}
-                      onClick={async () => {
-                        if (!resetPasswordVal || resetPasswordVal.length < 6) {
-                          setResetPasswordError('Password must be at least 6 characters.');
-                          return;
-                        }
-                        if (resetPasswordVal !== resetPasswordConfirmVal) {
-                          setResetPasswordError('Passwords do not match.');
-                          return;
-                        }
-                        setIsResettingPassword(true);
-                        setResetPasswordError(null);
-                        try {
-                          const res = await resetCustomerPasswordApi(customerToResetPassword.id, resetPasswordVal);
-                          setIsResettingPassword(false);
-                          if (res.success) {
-                            addAuditLog(
-                              'Customer Password Reset',
-                              'Customer',
-                              customerToResetPassword.id,
-                              `Password for customer '${customerToResetPassword.fullName}' was reset by ${currentUser?.name || 'Owner'}`
-                            );
-                            showToast(`Password for "${customerToResetPassword.fullName}" reset successfully.`);
-                            setIsResetPasswordModalOpen(false);
-                            setCustomerToResetPassword(null);
-                          } else {
-                            setResetPasswordError(res.message || 'Failed to reset password.');
+                      <button
+                        id="confirm-customer-reset-password-btn"
+                        type="button"
+                        disabled={isResettingPassword}
+                        onClick={async () => {
+                          if (!resetPasswordVal || resetPasswordVal.length < 6) {
+                            setResetPasswordError('Password must be at least 6 characters.');
+                            return;
                           }
-                        } catch (err: any) {
-                          setIsResettingPassword(false);
-                          setResetPasswordError(err.response?.data?.message || 'Failed to reset customer password.');
-                        }
-                      }}
-                      className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isResettingPassword ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Resetting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Key className="w-3.5 h-3.5" />
-                          <span>Save Password</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </>
-              )}
+                          if (resetPasswordVal !== resetPasswordConfirmVal) {
+                            setResetPasswordError('Passwords do not match.');
+                            return;
+                          }
+                          setIsResettingPassword(true);
+                          setResetPasswordError(null);
+                          try {
+                            const res = await resetCustomerPasswordApi(customerToResetPassword.id, resetPasswordVal);
+                            setIsResettingPassword(false);
+                            if (res.success) {
+                              addAuditLog(
+                                'Customer Password Reset',
+                                'Customer',
+                                customerToResetPassword.id,
+                                `Password for customer '${customerToResetPassword.fullName}' was reset by ${currentUser?.name || 'Owner'}`
+                              );
+                              showToast(`Password for "${customerToResetPassword.fullName}" reset successfully.`);
+                              setIsResetPasswordModalOpen(false);
+                              setCustomerToResetPassword(null);
+                            } else {
+                              setResetPasswordError(res.message || 'Failed to reset password.');
+                            }
+                          } catch (err: any) {
+                            setIsResettingPassword(false);
+                            setResetPasswordError(err.response?.data?.message || 'Failed to reset customer password.');
+                          }
+                        }}
+                        className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isResettingPassword ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Resetting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Key className="w-3.5 h-3.5" />
+                            <span>Save Password</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

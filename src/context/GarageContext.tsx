@@ -63,18 +63,33 @@ import {
 } from '../services/api';
 
 function mapBackendCustomerToCustomer(c: any): Customer {
+  const rawEmail = c.email || c.user_account?.email || null;
+  const isRealEmail = Boolean(rawEmail && !String(rawEmail).endsWith('@portal.apexgarage.local') && !String(rawEmail).includes('@apexgarage.com'));
+  const hasTg = Boolean(c.telegram_linked ?? c.telegramLinked);
+
   return {
     id: c.id ? (typeof c.id === 'number' ? `CUST-${c.id}` : String(c.id)) : `CUST-${Date.now()}`,
     fullName: c.full_name || c.fullName || '',
     phone: c.phone_number || c.phone || '',
+    email: isRealEmail ? rawEmail : null,
+    has_email: isRealEmail,
+    has_telegram: hasTg,
+    recovery_methods: c.recovery_methods || (isRealEmail && hasTg ? ['email', 'telegram'] : isRealEmail ? ['email'] : hasTg ? ['telegram'] : []),
     address: c.address || '',
     telegramChatId: c.telegram_chat_id || c.telegramChatId || undefined,
     telegramChatIdMasked: c.telegram_chat_id_masked || c.telegramChatIdMasked || undefined,
     telegramHandle: c.telegram_handle || c.telegramHandle || undefined,
-    telegramLinked: Boolean(c.telegram_linked ?? c.telegramLinked),
+    telegramLinked: hasTg,
     telegramConnectedAt: c.telegram_connected_at || c.telegramConnectedAt || undefined,
     isDeactivated: Boolean(c.is_deactivated ?? (c.deleted_at != null) ?? (c.status === 'deactivated')),
     status: (c.is_deactivated || c.deleted_at != null || c.status === 'deactivated') ? 'deactivated' : 'active',
+    userAccount: c.user_account ? {
+      id: c.user_account.id,
+      email: isRealEmail ? rawEmail : null,
+      name: c.user_account.name,
+      status: c.user_account.status,
+      is_password_protected: true,
+    } : null,
     deletedAt: c.deleted_at || c.deletedAt || null,
     createdAt: c.created_at || c.createdAt || new Date().toISOString(),
     updatedAt: c.updated_at || c.updatedAt || undefined,
@@ -668,10 +683,15 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const nextIdNumber = 1001 + customers.length;
+    const cleanEmail = data.email?.trim() || null;
     const newCustomer: Customer = {
       id: `CUST-${nextIdNumber}`,
       fullName: data.fullName.trim(),
       phone: cleanPhone,
+      email: cleanEmail,
+      has_email: Boolean(cleanEmail),
+      has_telegram: Boolean(data.telegramHandle?.trim()),
+      recovery_methods: cleanEmail ? ['email'] : [],
       address: data.address?.trim() || '',
       telegramHandle: data.telegramHandle?.trim() || '',
       telegramLinked: Boolean(data.telegramHandle?.trim()),

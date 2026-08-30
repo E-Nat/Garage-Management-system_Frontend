@@ -36,6 +36,8 @@ export const LoginForm: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [resetTokenFromUrl, setResetTokenFromUrl] = useState('');
+  const [identifierFromUrl, setIdentifierFromUrl] = useState('');
   const [activeField, setActiveField] = useState<'email' | 'password' | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -46,9 +48,26 @@ export const LoginForm: React.FC = () => {
   const emailErrorId = useId();
   const passwordErrorId = useId();
 
-  // Ensure login screen is ALWAYS pure clean white light mode
+  // Ensure login screen is ALWAYS pure clean white light mode & detect reset tokens in URL
   useEffect(() => {
     document.documentElement.classList.remove('dark');
+
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const fullUrl = hash.includes('?') ? hash : search;
+
+    if (fullUrl.includes('token=')) {
+      const queryPart = fullUrl.includes('?') ? fullUrl.split('?')[1] : fullUrl;
+      const params = new URLSearchParams(queryPart);
+      const token = params.get('token');
+      const ident = params.get('identifier') || params.get('phone') || params.get('email') || '';
+
+      if (token) {
+        setResetTokenFromUrl(token);
+        setIdentifierFromUrl(ident);
+        setIsForgotModalOpen(true);
+      }
+    }
   }, []);
 
   // Single Authentic Apex Garage Logo from project assets
@@ -718,7 +737,13 @@ export const LoginForm: React.FC = () => {
       {/* Forgot Password Recovery Modal */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
-        onClose={() => setIsForgotModalOpen(false)}
+        onClose={() => {
+          setIsForgotModalOpen(false);
+          setResetTokenFromUrl('');
+          setIdentifierFromUrl('');
+        }}
+        initialToken={resetTokenFromUrl}
+        initialIdentifier={identifierFromUrl}
       />
     </div>
   );

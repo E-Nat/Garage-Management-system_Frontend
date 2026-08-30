@@ -61,6 +61,7 @@ let mockCustomers = [
     id: 1,
     full_name: 'Sokha Chan',
     phone_number: '012-345-678',
+    email: 'sokha.chan@gmail.com',
     address: 'Street 271, Sangkat Phsar Doeum Thkov, Phnom Penh',
     telegram_chat_id: '987654321',
     telegram_linked: true,
@@ -70,6 +71,7 @@ let mockCustomers = [
     id: 2,
     full_name: 'Rithy Kem',
     phone_number: '098-765-432',
+    email: null,
     address: 'Russian Blvd, Tuol Kouk, Phnom Penh',
     telegram_chat_id: '876543210',
     telegram_linked: true,
@@ -79,6 +81,7 @@ let mockCustomers = [
     id: 3,
     full_name: 'Bopha Vong',
     phone_number: '017-889-900',
+    email: 'bopha.vong@gmail.com',
     address: 'National Road 1, Chbar Ampov, Phnom Penh',
     telegram_chat_id: null,
     telegram_linked: false,
@@ -88,6 +91,7 @@ let mockCustomers = [
     id: 4,
     full_name: 'Chanthou Sam',
     phone_number: '015-443-221',
+    email: null,
     address: 'Norodom Blvd, Boeung Keng Kang 1, Phnom Penh',
     telegram_chat_id: '765432109',
     telegram_linked: true,
@@ -97,6 +101,7 @@ let mockCustomers = [
     id: 5,
     full_name: 'Vanna Heng',
     phone_number: '077-123-999',
+    email: null,
     address: 'Monivong Blvd, Prampi Makara, Phnom Penh',
     telegram_chat_id: null,
     telegram_linked: false,
@@ -501,6 +506,7 @@ export async function createCustomer(customerData) {
     id: mockCustomers.length > 0 ? Math.max(...mockCustomers.map((c) => c.id)) + 1 : 1,
     full_name: customerData.full_name || '',
     phone_number: customerData.phone_number || '',
+    email: customerData.email ? customerData.email.trim() : null,
     address: customerData.address || '',
     telegram_chat_id: customerData.telegram_chat_id || null,
     telegram_linked: Boolean(customerData.telegram_linked),
@@ -600,11 +606,14 @@ export async function resetCustomerPasswordApi(customerId, newPassword) {
 /**
  * Owner/Admin requests password reset instructions for customer
  * @param {number|string} customerId
+ * @param {'email'|'telegram'|'both'|'auto'} [channel]
  */
-export async function requestCustomerPasswordResetApi(customerId) {
+export async function requestCustomerPasswordResetApi(customerId, channel = 'auto') {
   try {
     const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
-    const response = await api.post(`/api/customers/${numericId}/request-password-reset`);
+    const response = await api.post(`/api/customers/${numericId}/request-password-reset`, {
+      channel,
+    });
     if (response.data) return response.data;
   } catch (err) {
     console.warn('API requestCustomerPasswordResetApi failed:', err);
@@ -614,7 +623,102 @@ export async function requestCustomerPasswordResetApi(customerId) {
     success: true,
     message: 'Reset instructions sent.',
     customer_name: 'Customer',
-    customer_email: 'customer@apexgarage.com',
+    customer_email: null,
+    dispatched_channels: [channel === 'telegram' ? 'telegram' : 'email'],
+  });
+}
+
+/**
+ * Check available password recovery methods for an identifier (Email or Phone)
+ * @param {string} identifier
+ */
+export async function checkRecoveryOptionsApi(identifier) {
+  try {
+    const response = await api.post('/api/auth/recovery-methods', {
+      identifier,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API checkRecoveryOptionsApi failed:', err);
+    throw err;
+  }
+
+  // Fallback mock check
+  const isEmail = identifier.includes('@');
+  const matched = isEmail
+    ? mockCustomers.find((c) => c.email && c.email.toLowerCase() === identifier.toLowerCase())
+    : mockCustomers.find((c) => c.phone_number.replace(/\D/g, '') === identifier.replace(/\D/g, ''));
+
+  return Promise.resolve({
+    success: true,
+    data: {
+      has_account: Boolean(matched),
+      has_email: Boolean(matched?.email),
+      email: matched?.email || null,
+      masked_email: matched?.email ? matched.email.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '•••') : null,
+      has_telegram: Boolean(matched?.telegram_linked && matched?.telegram_chat_id),
+      telegram_handle: matched?.telegram_handle || null,
+      customer_name: matched?.full_name || 'Customer',
+      garage_phones: ['+855 23 999 888', '086 401 600'],
+    },
+  });
+}
+
+/**
+ * Dispatch password recovery request via chosen channel (Email or Telegram)
+ * @param {string} identifier Email or Phone
+ * @param {'email'|'telegram'|'auto'} [channel]
+ */
+export async function forgotPasswordApi(identifier, channel = 'auto') {
+  try {
+    const response = await api.post('/api/auth/forgot-password', {
+      identifier,
+      email: identifier.includes('@') ? identifier : undefined,
+      phone: !identifier.includes('@') ? identifier : undefined,
+      channel,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API forgotPasswordApi failed:', err);
+    throw err;
+  }
+
+  return Promise.resolve({
+    success: true,
+    channel,
+    message: channel === 'telegram'
+      ? 'A password reset link has been sent to your connected Telegram.'
+      : 'Reset instructions have been sent.',
+  });
+}
+
+/**
+ * Complete public password reset using secure token
+ * @param {Object} payload
+ * @param {string} payload.token
+ * @param {string} payload.password
+ * @param {string} payload.passwordConfirmation
+ * @param {string} [payload.identifier]
+ */
+export async function resetPasswordApi(payload) {
+  try {
+    const response = await api.post('/api/auth/reset-password', {
+      token: payload.token,
+      password: payload.password,
+      password_confirmation: payload.passwordConfirmation || payload.password,
+      identifier: payload.identifier,
+      email: payload.identifier?.includes('@') ? payload.identifier : payload.email,
+      phone: !payload.identifier?.includes('@') ? payload.identifier : payload.phone,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API resetPasswordApi failed:', err);
+    throw err;
+  }
+
+  return Promise.resolve({
+    success: true,
+    message: 'Password has been reset successfully. You can now log in.',
   });
 }
 

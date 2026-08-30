@@ -38,6 +38,10 @@ export interface Customer {
   id: string; // e.g. CUST-1001
   fullName: string;
   phone: string;
+  email?: string | null;
+  has_email?: boolean;
+  has_telegram?: boolean;
+  recovery_methods?: string[];
   address?: string;
   telegramChatId?: string;
   telegramChatIdMasked?: string;
@@ -48,7 +52,7 @@ export interface Customer {
   status?: 'active' | 'deactivated';
   userAccount?: {
     id: number | string;
-    email: string;
+    email?: string | null;
     name: string;
     status: 'active' | 'inactive' | 'suspended' | 'deactivated';
     is_password_protected?: boolean;
