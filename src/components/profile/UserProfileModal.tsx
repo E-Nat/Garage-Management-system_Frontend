@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { X, User as UserIcon, Shield, Phone, MessageSquare, Key, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { X, User as UserIcon, Shield, Phone, MessageSquare, Key, CheckCircle2, AlertCircle, Lock, Eye, EyeOff } from 'lucide-react';
 import { getRoleDisplayName } from '../../utils/roleUtils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -22,6 +22,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -260,13 +263,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       id="current-password-input"
-                      type="password"
+                      type={showCurrentPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder="Enter your current password"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
+                      className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                      title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -278,13 +290,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       id="new-password-input"
-                      type="password"
+                      type={showNewPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="At least 6 characters with letters & numbers"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
+                      className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                      title={showNewPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -296,13 +317,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       id="confirm-password-input"
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Re-enter new password"
-                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
+                      className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                      title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 

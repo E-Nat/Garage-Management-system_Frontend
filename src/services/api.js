@@ -598,6 +598,27 @@ export async function resetCustomerPasswordApi(customerId, newPassword) {
 }
 
 /**
+ * Owner/Admin requests password reset instructions for customer
+ * @param {number|string} customerId
+ */
+export async function requestCustomerPasswordResetApi(customerId) {
+  try {
+    const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+    const response = await api.post(`/api/customers/${numericId}/request-password-reset`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API requestCustomerPasswordResetApi failed:', err);
+    throw err;
+  }
+  return Promise.resolve({
+    success: true,
+    message: 'Reset instructions sent.',
+    customer_name: 'Customer',
+    customer_email: 'customer@apexgarage.com',
+  });
+}
+
+/**
  * Get a single customer by ID
  * @param {number|string} id
  */
