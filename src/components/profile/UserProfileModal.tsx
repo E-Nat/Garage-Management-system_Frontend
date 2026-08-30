@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { X, User as UserIcon, Shield, Phone, MessageSquare, Key, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { getRoleDisplayName } from '../../utils/roleUtils';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface UserProfileModalProps {
@@ -78,7 +79,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
               <div>
                 <h3 className="font-bold text-base text-white">{currentUser.name}</h3>
                 <span className="text-xs text-slate-300 uppercase tracking-wider font-semibold">
-                  {currentUser.role.replace('_', ' ')} • {currentUser.department || 'Staff'}
+                  {getRoleDisplayName(currentUser.role)} • {currentUser.department || 'Staff'}
                 </span>
               </div>
             </div>

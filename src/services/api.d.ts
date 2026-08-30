@@ -212,8 +212,16 @@ export declare function unlinkTelegramCustomer(customerId: number | string): Pro
 export declare function sendTelegramTestAlert(customerId: number | string): Promise<{ success: boolean; data: LaravelNotificationLog }>;
 export declare function getNotificationLogs(params?: Record<string, any>): Promise<{ data: LaravelNotificationLog[]; meta?: any }>;
 
+export interface TelegramCustomerStats {
+  total_customers: number;
+  telegram_connected: number;
+  telegram_not_connected: number;
+  connection_rate: number;
+}
+
 // 7. Dashboard API (Phase 8)
 export declare function getDashboardOverview(params?: DashboardDateRange): Promise<{ success: boolean; data: DashboardOverview }>;
+export declare function getTelegramStats(): Promise<{ success: boolean; data: TelegramCustomerStats }>;
 export declare function getAdvisorDashboard(): Promise<{ success: boolean; data: any }>;
 export declare function getMechanicDashboard(): Promise<{ success: boolean; data: any }>;
 export declare function getPartsDashboard(): Promise<{ success: boolean; data: any }>;
@@ -234,6 +242,42 @@ export declare function updateSystemSettings(group: 'garage' | 'invoice' | 'tele
 export declare function getRolePermissions(): Promise<{ success: boolean; data: RolePermissionMap }>;
 export declare function updateRolePermissions(role: 'advisor' | 'mechanic' | 'admin' | 'owner' | 'parts_manager' | 'customer', permissions: ModulePermissionName[]): Promise<{ success: boolean; message: string; data: RolePermissionMap }>;
 export declare function saveRolePermissions(payload: Partial<RolePermissionMap>): Promise<{ success: boolean; message: string; data: RolePermissionMap }>;
+
+// 11. User Management & Roles API
+export interface LaravelRole {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  permissions?: any[];
+}
+
+export interface LaravelUser {
+  id: number;
+  name: string;
+  email: string;
+  role_id: number;
+  role: string;
+  role_name?: string;
+  phone?: string | null;
+  telegram_handle?: string | null;
+  department?: string | null;
+  status: string;
+  avatar_url?: string | null;
+  last_login_at?: string | null;
+  permissions?: Record<string, Record<string, boolean>>;
+  created_at: string;
+  updated_at: string;
+}
+
+export declare function getUsers(params?: Record<string, any>): Promise<{ success: boolean; message?: string; data: LaravelUser[] }>;
+export declare function getUser(id: number | string): Promise<{ success: boolean; data: LaravelUser }>;
+export declare function createUser(userData: Record<string, any>): Promise<{ success: boolean; message?: string; data: LaravelUser }>;
+export declare function updateUser(id: number | string, updates: Record<string, any>): Promise<{ success: boolean; message?: string; data: LaravelUser }>;
+export declare function updateUserStatus(id: number | string, status: string): Promise<{ success: boolean; message?: string; data: LaravelUser }>;
+export declare function resetUserPassword(id: number | string, password: string, passwordConfirmation: string): Promise<{ success: boolean; message?: string }>;
+export declare function deleteUser(id: number | string): Promise<{ success: boolean; message?: string }>;
+export declare function getRoles(): Promise<{ success: boolean; data: LaravelRole[] }>;
 
 declare const api: AxiosInstance;
 export default api;

@@ -863,24 +863,16 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsMap = {
     'dashboard',
     'repairs',
     'vehicles',
-    'inventory',
-    'stock',
-    'stock_in',
   ],
   parts_manager: [
     'dashboard',
     'inventory',
     'stock_in',
     'stock',
-    'repairs',
-    'vehicles',
+    'reports',
   ],
   customer: [
     'dashboard',
-    'vehicles',
-    'repairs',
-    'invoices',
-    'telegram',
   ],
 };
 

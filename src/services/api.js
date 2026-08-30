@@ -37,8 +37,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Handle unauthorized session / token expiration
-      console.warn('Unauthorized API request - session may have expired.');
+      // If unauthorized on any non-login endpoint, session has expired
+      const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+      if (!isLoginRequest) {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('apex_garage_user');
+          window.dispatchEvent(new CustomEvent('garage-session-expired'));
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -437,7 +445,15 @@ let mockInvoices = [
  * @returns {Promise<{ data: Array }>}
  */
 export async function getCustomers(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.get('/api/customers', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getCustomers failed or unauthenticated, using local state:', err);
+  }
+
   let results = [...mockCustomers];
   if (params.search) {
     const s = params.search.toLowerCase();
@@ -452,12 +468,6 @@ export async function getCustomers(params = {}) {
     results = results.filter((c) => isDateInRange(c.created_at, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/customers', { params });
-  // return response.data;
-  */
 }
 
 /**
@@ -468,10 +478,20 @@ export async function getCustomers(params = {}) {
  * @param {string} [customerData.address]
  * @param {string} [customerData.telegram_chat_id]
  * @param {boolean} [customerData.telegram_linked]
+ * @param {Object} [customerData.vehicle]
  * @returns {Promise<{ data: Object }>}
  */
 export async function createCustomer(customerData) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.post('/api/customers', customerData);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API createCustomer failed or unauthenticated, saving locally:', err);
+    throw err;
+  }
+
   const newCustomer = {
     id: mockCustomers.length > 0 ? Math.max(...mockCustomers.map((c) => c.id)) + 1 : 1,
     full_name: customerData.full_name || '',
@@ -483,12 +503,45 @@ export async function createCustomer(customerData) {
   };
   mockCustomers.unshift(newCustomer);
   return Promise.resolve({ data: newCustomer });
+}
 
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.post('/api/customers', customerData);
-  // return response.data;
-  */
+/**
+ * Update an existing customer
+ * @param {number|string} id
+ * @param {Object} updates
+ */
+export async function updateCustomer(id, updates) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.put(`/api/customers/${numericId}`, updates);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API updateCustomer failed or unauthenticated:', err);
+  }
+
+  const idx = mockCustomers.findIndex((c) => c.id === Number(id));
+  if (idx !== -1) {
+    mockCustomers[idx] = { ...mockCustomers[idx], ...updates };
+    return Promise.resolve({ data: mockCustomers[idx] });
+  }
+  return Promise.resolve({ success: true });
+}
+
+/**
+ * Delete a customer
+ * @param {number|string} id
+ */
+export async function deleteCustomer(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.delete(`/api/customers/${numericId}`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API deleteCustomer failed or unauthenticated:', err);
+  }
+
+  mockCustomers = mockCustomers.filter((c) => c.id !== Number(id));
+  return Promise.resolve({ success: true });
 }
 
 /**
@@ -496,16 +549,100 @@ export async function createCustomer(customerData) {
  * @param {number|string} id
  */
 export async function getCustomer(id) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.get(`/api/customers/${numericId}`);
+    if (response.data && response.data.data) return response.data;
+  } catch (err) {
+    console.warn('API getCustomer failed or unauthenticated:', err);
+  }
+
   const customer = mockCustomers.find((c) => c.id === Number(id));
   if (!customer) return Promise.reject(new Error(`Customer #${id} not found`));
   return Promise.resolve({ data: customer });
+}
 
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get(`/api/customers/${id}`);
-  // return response.data;
-  */
+/* ==========================================================================
+   VEHICLES API
+   ========================================================================== */
+
+/**
+ * Fetch vehicles with optional customer_id and search filters
+ * @param {Object} [params]
+ * @returns {Promise<{ data: Array }>}
+ */
+export async function getVehicles(params = {}) {
+  try {
+    const response = await api.get('/api/vehicles', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getVehicles failed or unauthenticated:', err);
+  }
+  return Promise.resolve({ data: [] });
+}
+
+/**
+ * Get single vehicle by ID
+ * @param {number|string} id
+ */
+export async function getVehicle(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.get(`/api/vehicles/${numericId}`);
+    if (response.data && response.data.data) return response.data;
+  } catch (err) {
+    console.warn('API getVehicle failed or unauthenticated:', err);
+    throw err;
+  }
+}
+
+/**
+ * Create a new vehicle
+ * @param {Object} vehicleData
+ */
+export async function createVehicle(vehicleData) {
+  try {
+    const response = await api.post('/api/vehicles', vehicleData);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API createVehicle failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Update an existing vehicle
+ * @param {number|string} id
+ * @param {Object} updates
+ */
+export async function updateVehicleApi(id, updates) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.put(`/api/vehicles/${numericId}`, updates);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API updateVehicle failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * Delete a vehicle
+ * @param {number|string} id
+ */
+export async function deleteVehicle(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.delete(`/api/vehicles/${numericId}`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API deleteVehicle failed:', err);
+    throw err;
+  }
 }
 
 /**
@@ -792,81 +929,6 @@ export async function getItem(id) {
   */
 }
 
-/**
- * 5. VEHICLES API (Companion resource for customers & repair jobs)
- * --------------------------------------------------------------------------
- * GET  /api/vehicles
- * POST /api/vehicles
- */
-
-/**
- * Fetch all vehicles
- * @param {Object} [params] (customer_id, search)
- */
-export async function getVehicles(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
-  let results = [...mockVehicles];
-  if (params.customer_id) {
-    results = results.filter((v) => v.customer_id === Number(params.customer_id));
-  }
-  if (params.search) {
-    const s = params.search.toLowerCase();
-    results = results.filter(
-      (v) =>
-        v.plate_number.toLowerCase().includes(s) ||
-        v.brand.toLowerCase().includes(s) ||
-        v.model.toLowerCase().includes(s) ||
-        v.vin.toLowerCase().includes(s)
-    );
-  }
-  if (params.date_from || params.date_to) {
-    results = results.filter((v) => isDateInRange(v.created_at, params.date_from, params.date_to));
-  }
-  return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/vehicles', { params });
-  // return response.data;
-  */
-}
-
-/**
- * Create a new vehicle
- * @param {Object} vehicleData Payload matching 'vehicles' DB schema
- * @param {number} vehicleData.customer_id
- * @param {string} vehicleData.plate_number
- * @param {string} vehicleData.brand
- * @param {string} vehicleData.model
- * @param {number} vehicleData.year
- * @param {string} [vehicleData.color]
- * @param {number} [vehicleData.mileage]
- * @param {string} [vehicleData.vin]
- */
-export async function createVehicle(vehicleData) {
-  // --- REALISTIC MOCK RETURN ---
-  const newVehicle = {
-    id: mockVehicles.length > 0 ? Math.max(...mockVehicles.map((v) => v.id)) + 1 : 1,
-    customer_id: Number(vehicleData.customer_id),
-    plate_number: vehicleData.plate_number || '',
-    brand: vehicleData.brand || '',
-    model: vehicleData.model || '',
-    year: Number(vehicleData.year || new Date().getFullYear()),
-    color: vehicleData.color || '',
-    mileage: Number(vehicleData.mileage || 0),
-    vin: vehicleData.vin || '',
-    created_at: new Date().toISOString(),
-  };
-  mockVehicles.unshift(newVehicle);
-  return Promise.resolve({ data: newVehicle });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.post('/api/vehicles', vehicleData);
-  // return response.data;
-  */
-}
-
 /* ==========================================================================
    6. TELEGRAM NOTIFICATIONS & LINKING API (PHASE 7)
    ========================================================================== */
@@ -902,6 +964,11 @@ export async function getNotificationLogs(params = {}) {
 
 export async function getDashboardOverview(params = {}) {
   const response = await api.get('/api/dashboard/overview', { params });
+  return response.data;
+}
+
+export async function getTelegramStats() {
+  const response = await api.get('/api/dashboard/telegram-stats');
   return response.data;
 }
 
@@ -988,6 +1055,68 @@ export async function updateRolePermissions(role, permissions) {
 export async function saveRolePermissions(payload = {}) {
   const response = await api.put('/api/permissions/roles', payload);
   return response.data;
+}
+
+/* ==========================================================================
+   11. USER MANAGEMENT & ROLES API (LARAVEL MYSQL BACKEND)
+   ========================================================================== */
+
+export async function getUsers(params = {}) {
+  const response = await api.get('/api/users', { params });
+  return response.data;
+}
+
+export async function getUser(id) {
+  const response = await api.get(`/api/users/${id}`);
+  return response.data;
+}
+
+export async function createUser(userData) {
+  const response = await api.post('/api/users', userData);
+  return response.data;
+}
+
+export async function updateUser(id, updates) {
+  const response = await api.put(`/api/users/${id}`, updates);
+  return response.data;
+}
+
+export async function updateUserStatus(id, status) {
+  const response = await api.patch(`/api/users/${id}/status`, { status });
+  return response.data;
+}
+
+export async function resetUserPassword(id, password, passwordConfirmation) {
+  const response = await api.patch(`/api/users/${id}/password`, {
+    password,
+    password_confirmation: passwordConfirmation,
+  });
+  return response.data;
+}
+
+export async function deleteUser(id) {
+  const response = await api.delete(`/api/users/${id}`);
+  return response.data;
+}
+
+export async function getRoles() {
+  const response = await api.get('/api/roles');
+  return response.data;
+}
+
+/* ==========================================================================
+   12. INVOICE & SIMULATED PAYMENT API (LARAVEL MYSQL BACKEND)
+   ========================================================================== */
+
+export async function simulateInvoicePayment(invoiceId) {
+  const numericId = typeof invoiceId === 'string' ? parseInt(invoiceId.replace(/\D/g, ''), 10) || invoiceId : invoiceId;
+  const response = await api.post(`/api/invoices/${numericId}/simulate-payment`);
+  return response.data;
+}
+
+export async function downloadInvoicePdf(invoiceId) {
+  const numericId = typeof invoiceId === 'string' ? parseInt(invoiceId.replace(/\D/g, ''), 10) || invoiceId : invoiceId;
+  return `${api.defaults.baseURL || ''}/api/invoices/${numericId}/pdf`;
 }
 
 // Export the base axios instance for custom requests

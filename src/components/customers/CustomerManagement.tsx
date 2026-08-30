@@ -27,11 +27,23 @@ import {
   Shield,
   Sparkles,
   Info,
+  Clock,
+  Copy,
+  RefreshCw,
+  AlertTriangle,
+  Smartphone,
+  XCircle,
 } from 'lucide-react';
+import { validateAndNormalizePhone, validatePersonName, sanitizePhoneDigits } from '../../utils/phone';
 
 export const CustomerManagement: React.FC = () => {
   const { customers, vehicles, addCustomer, updateCustomer, addVehicle, updateVehicle } = useGarage();
   const { currentUser } = useAuth();
+
+  // Permissions
+  const canCreateCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
+  const canEditCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
+  const canDeleteCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   // Navigation / View State
   // 'list' | 'customer_details' | 'vehicle_details'
@@ -41,6 +53,7 @@ export const CustomerManagement: React.FC = () => {
 
   // Unified Search State
   const [searchTerm, setSearchTerm] = useState('');
+  const [telegramFilter, setTelegramFilter] = useState<'all' | 'connected' | 'not_connected'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
 
@@ -56,8 +69,6 @@ export const CustomerManagement: React.FC = () => {
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
   const [isEditVehicleModalOpen, setIsEditVehicleModalOpen] = useState(false);
-  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
-
   // Customer Edit State
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editCustomerFullName, setEditCustomerFullName] = useState('');
@@ -76,7 +87,7 @@ export const CustomerManagement: React.FC = () => {
   const [editVehicleVin, setEditVehicleVin] = useState('');
   const [editVehicleError, setEditVehicleError] = useState('');
 
-  // Register Form State (Customer + Vehicle)
+  // Register Form State (Customer + Optional Vehicle)
   const [regFullName, setRegFullName] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regAddress, setRegAddress] = useState('');
@@ -104,9 +115,69 @@ export const CustomerManagement: React.FC = () => {
   const [addVehVin, setAddVehVin] = useState('');
   const [addVehErrors, setAddVehErrors] = useState<Record<string, string>>({});
 
-  // Telegram Linking Modal State
-  const [telegramCustomer, setTelegramCustomer] = useState<Customer | null>(null);
-  const [telegramSimulatedStep, setTelegramSimulatedStep] = useState<number>(1);
+  // Telegram Modals State
+  const [isTelegramConnectModalOpen, setIsTelegramConnectModalOpen] = useState(false);
+  const [isTelegramDetailsModalOpen, setIsTelegramDetailsModalOpen] = useState(false);
+  const [isTelegramDisconnectModalOpen, setIsTelegramDisconnectModalOpen] = useState(false);
+  const [selectedTelegramCustomer, setSelectedTelegramCustomer] = useState<Customer | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const BOT_USERNAME = 'apex_garage_management_bot';
+  const BOT_URL = `https://t.me/${BOT_USERNAME}`;
+
+  const formatTimestamp = (dateStr?: string) => {
+    if (!dateStr) return 'Recently';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleRefreshTelegramStatus = () => {
+    setIsCheckingConnection(true);
+    setTimeout(() => {
+      setIsCheckingConnection(false);
+      if (selectedTelegramCustomer) {
+        const fresh = customers.find((c) => c.id === selectedTelegramCustomer.id);
+        if (fresh && fresh.telegramLinked) {
+          showToast(`🟢 ${fresh.fullName}'s Telegram is connected!`);
+          setIsTelegramConnectModalOpen(false);
+        } else {
+          showToast('Customer has not completed phone sharing yet.');
+        }
+      }
+    }, 600);
+  };
+
+  const handleConfirmDisconnectTelegram = () => {
+    if (!selectedTelegramCustomer) return;
+    setIsDisconnecting(true);
+    const res = updateCustomer(selectedTelegramCustomer.id, {
+      telegramLinked: false,
+      telegramHandle: '',
+      telegramChatId: '',
+      telegramChatIdMasked: '',
+      telegramConnectedAt: undefined,
+    });
+    setIsDisconnecting(false);
+    if (res.success) {
+      showToast(`Telegram disconnected for ${selectedTelegramCustomer.fullName}.`);
+      setIsTelegramDisconnectModalOpen(false);
+      setIsTelegramDetailsModalOpen(false);
+    }
+  };
 
   // Helper to get selected customer & vehicle objects
   const activeCustomer = useMemo(() => {
@@ -142,9 +213,17 @@ export const CustomerManagement: React.FC = () => {
   }, [vehicles, cleanSearch]);
 
   const filteredCustomers = useMemo(() => {
-    if (!cleanSearch) return customers;
+    let list = customers;
 
-    return customers.filter((c) => {
+    if (telegramFilter === 'connected') {
+      list = list.filter((c) => Boolean(c.telegramLinked));
+    } else if (telegramFilter === 'not_connected') {
+      list = list.filter((c) => !c.telegramLinked);
+    }
+
+    if (!cleanSearch) return list;
+
+    return list.filter((c) => {
       const nameMatch = c.fullName.toLowerCase().includes(cleanSearch);
       const phoneMatch = c.phone.toLowerCase().includes(cleanSearch);
       const addressMatch = Boolean(c.address && c.address.toLowerCase().includes(cleanSearch));
@@ -160,7 +239,7 @@ export const CustomerManagement: React.FC = () => {
 
       return nameMatch || phoneMatch || addressMatch || ownsMatchingVehicle;
     });
-  }, [customers, vehicles, cleanSearch]);
+  }, [customers, vehicles, cleanSearch, telegramFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
@@ -185,21 +264,36 @@ export const CustomerManagement: React.FC = () => {
     setIsRegisterModalOpen(true);
   };
 
-  // Submit Register Customer & Vehicle Form
+  // Submit Register Customer & Optional Vehicle Form
   const handleSubmitRegister = (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
 
     if (!selectedExistingCustomer) {
-      if (!regFullName.trim()) errors.fullName = 'Full name is required.';
-      if (!regPhone.trim()) errors.phone = 'Phone number is required.';
+      const nameCheck = validatePersonName(regFullName);
+      if (!nameCheck.isValid) {
+        errors.fullName = nameCheck.error || 'Full name must be a valid person\'s name, not an email.';
+      }
+
+      if (!regPhone.trim()) {
+        errors.phone = 'Phone number is required.';
+      } else {
+        const phoneCheck = validateAndNormalizePhone(regPhone);
+        if (!phoneCheck.isValid) {
+          errors.phone = phoneCheck.error || 'Please enter a valid Cambodian phone number.';
+        }
+      }
     }
 
-    if (!regPlate.trim()) errors.plateNumber = 'Plate number is required.';
-    if (!regBrand.trim()) errors.brand = 'Brand is required.';
-    if (!regModel.trim()) errors.model = 'Model is required.';
-    if (!regYear || isNaN(Number(regYear))) errors.year = 'Valid year is required.';
-    if (!regColor.trim()) errors.color = 'Color is required.';
+    const hasVehicleInput = Boolean(regPlate.trim() || regBrand.trim() || regModel.trim());
+
+    if (hasVehicleInput) {
+      if (!regPlate.trim()) errors.plateNumber = 'Plate number is required.';
+      if (!regBrand.trim()) errors.brand = 'Brand is required.';
+      if (!regModel.trim()) errors.model = 'Model is required.';
+      if (!regYear || isNaN(Number(regYear))) errors.year = 'Valid year is required.';
+      if (!regColor.trim()) errors.color = 'Color is required.';
+    }
 
     if (Object.keys(errors).length > 0) {
       setRegErrors(errors);
@@ -207,6 +301,11 @@ export const CustomerManagement: React.FC = () => {
     }
 
     if (selectedExistingCustomer) {
+      if (!hasVehicleInput) {
+        setRegErrors({ general: 'Please specify vehicle details to add to this existing customer.' });
+        return;
+      }
+
       // Adding new vehicle to existing customer
       const resVeh = addVehicle({
         customerId: selectedExistingCustomer.id,
@@ -225,18 +324,18 @@ export const CustomerManagement: React.FC = () => {
         return;
       }
 
-      showToast('Vehicle added successfully.');
+      showToast('Vehicle added to customer successfully.');
       setIsRegisterModalOpen(false);
       
-      // If currently viewing details, refresh view
       if (selectedCustomerId === selectedExistingCustomer.id) {
         setActiveView('customer_details');
       }
     } else {
-      // Register New Customer & Vehicle
+      // Register New Customer (and optional vehicle)
+      const phoneCheck = validateAndNormalizePhone(regPhone);
       const resCust = addCustomer({
         fullName: regFullName.trim(),
-        phone: regPhone.trim(),
+        phone: phoneCheck.isValid && phoneCheck.normalized ? phoneCheck.normalized : regPhone.trim(),
         address: regAddress.trim(),
       });
 
@@ -245,24 +344,30 @@ export const CustomerManagement: React.FC = () => {
         return;
       }
 
-      const resVeh = addVehicle({
-        customerId: resCust.customer.id,
-        customerName: resCust.customer.fullName,
-        plateNumber: regPlate.trim().toUpperCase(),
-        brand: regBrand.trim(),
-        model: regModel.trim(),
-        year: Number(regYear),
-        color: regColor.trim(),
-        mileage: regMileage ? Number(regMileage) : 0,
-        vin: regVin.trim().toUpperCase(),
-      });
+      if (hasVehicleInput) {
+        const resVeh = addVehicle({
+          customerId: resCust.customer.id,
+          customerName: resCust.customer.fullName,
+          plateNumber: regPlate.trim().toUpperCase(),
+          brand: regBrand.trim(),
+          model: regModel.trim(),
+          year: Number(regYear),
+          color: regColor.trim(),
+          mileage: regMileage ? Number(regMileage) : 0,
+          vin: regVin.trim().toUpperCase(),
+        });
 
-      if (!resVeh.success) {
-        setRegErrors({ general: `Customer created, but vehicle failed: ${resVeh.error}` });
-        return;
+        if (!resVeh.success) {
+          showToast('Customer created successfully (vehicle registration failed).');
+          setIsRegisterModalOpen(false);
+          return;
+        }
+
+        showToast('Customer and vehicle registered successfully.');
+      } else {
+        showToast('Customer registered successfully.');
       }
 
-      showToast('Customer and vehicle registered successfully.');
       setIsRegisterModalOpen(false);
     }
   };
@@ -421,28 +526,6 @@ export const CustomerManagement: React.FC = () => {
     setIsEditVehicleModalOpen(false);
   };
 
-  // Open Telegram Linking Modal
-  const handleOpenTelegramModal = (cust: Customer) => {
-    setTelegramCustomer(cust);
-    setTelegramSimulatedStep(1);
-    setIsTelegramModalOpen(true);
-  };
-
-  // Complete Telegram Linking
-  const handleSimulateTelegramLink = () => {
-    if (!telegramCustomer) return;
-    const cleanHandle = `@${telegramCustomer.fullName.toLowerCase().replace(/\s+/g, '_')}`;
-    const res = updateCustomer(telegramCustomer.id, {
-      telegramHandle: cleanHandle,
-      telegramLinked: true,
-    });
-
-    if (res.success) {
-      showToast('Telegram linked successfully.');
-      setIsTelegramModalOpen(false);
-    }
-  };
-
   return (
     <div className="space-y-6 text-slate-900 font-sans">
       {/* Toast Notification Banner */}
@@ -465,15 +548,65 @@ export const CustomerManagement: React.FC = () => {
               </p>
             </div>
 
-            <button
-              id="add-customer-btn"
-              type="button"
-              onClick={handleOpenRegisterModal}
-              className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Customer</span>
-            </button>
+            {canCreateCustomer && (
+              <button
+                id="add-customer-btn"
+                type="button"
+                onClick={handleOpenRegisterModal}
+                className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 shadow-xs transition shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Customer</span>
+              </button>
+            )}
+          </div>
+
+          {/* Live Customer & Telegram Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Total Customers</span>
+                <span className="text-xl font-bold text-slate-900">{customers.length}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+                <Send className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Telegram Connected</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    {customers.length > 0 ? Math.round((customers.filter((c) => c.telegramLinked).length / customers.length) * 100) : 0}%
+                  </span>
+                </div>
+                <span className="text-xl font-bold text-emerald-700">{customers.filter((c) => c.telegramLinked).length}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Not Connected</span>
+                <span className="text-xl font-bold text-slate-700">{customers.filter((c) => !c.telegramLinked).length}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 shrink-0">
+                <Car className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Total Vehicles</span>
+                <span className="text-xl font-bold text-slate-900">{vehicles.length}</span>
+              </div>
+            </div>
           </div>
 
           {/* Unified Search Bar */}
@@ -500,6 +633,60 @@ export const CustomerManagement: React.FC = () => {
                   <X className="w-4 h-4" />
                 </button>
               )}
+            </div>
+
+            {/* Telegram Status Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Telegram Status:</span>
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
+                  <button
+                    id="filter-telegram-all-btn"
+                    type="button"
+                    onClick={() => {
+                      setTelegramFilter('all');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      telegramFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All ({customers.length})
+                  </button>
+                  <button
+                    id="filter-telegram-connected-btn"
+                    type="button"
+                    onClick={() => {
+                      setTelegramFilter('connected');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      telegramFilter === 'connected'
+                        ? 'bg-white text-emerald-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Connected ({customers.filter((c) => c.telegramLinked).length})
+                  </button>
+                  <button
+                    id="filter-telegram-unconnected-btn"
+                    type="button"
+                    onClick={() => {
+                      setTelegramFilter('not_connected');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      telegramFilter === 'not_connected'
+                        ? 'bg-white text-slate-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Not Connected ({customers.filter((c) => !c.telegramLinked).length})
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Vehicle Search Matching Results Card (if searching by plate/brand) */}
@@ -564,15 +751,17 @@ export const CustomerManagement: React.FC = () => {
                     <p className="text-xs text-slate-500 mt-1">
                       Register your first customer and vehicle to get started.
                     </p>
-                    <button
-                      id="empty-add-customer-btn"
-                      type="button"
-                      onClick={handleOpenRegisterModal}
-                      className="mt-4 px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Customer</span>
-                    </button>
+                    {canCreateCustomer && (
+                      <button
+                        id="empty-add-customer-btn"
+                        type="button"
+                        onClick={handleOpenRegisterModal}
+                        className="mt-4 px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Customer</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -624,7 +813,7 @@ export const CustomerManagement: React.FC = () => {
 
                             {/* Phone Number Column */}
                             <td className="py-3.5 px-4 text-slate-700 font-medium">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 font-mono">
                                 <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 <span>{cust.phone}</span>
                               </div>
@@ -641,13 +830,26 @@ export const CustomerManagement: React.FC = () => {
                             {/* Telegram Column */}
                             <td className="py-3.5 px-4">
                               {cust.telegramLinked ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <Send className="w-3 h-3 text-emerald-600" />
-                                  <span>Linked</span>
-                                </span>
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                    <span>Connected</span>
+                                  </span>
+                                  {cust.telegramHandle && (
+                                    <span className="block text-[11px] font-mono text-slate-500">
+                                      {cust.telegramHandle}
+                                    </span>
+                                  )}
+                                  {cust.telegramConnectedAt && (
+                                    <span className="block text-[10px] text-slate-400">
+                                      Connected: {formatTimestamp(cust.telegramConnectedAt)}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                  <span>Not Linked</span>
+                                  <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                                  <span>Not Connected</span>
                                 </span>
                               )}
                             </td>
@@ -658,7 +860,8 @@ export const CustomerManagement: React.FC = () => {
                                 <button
                                   id={`view-customer-btn-${cust.id}`}
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedCustomerId(cust.id);
                                     setActiveView('customer_details');
                                   }}
@@ -666,14 +869,19 @@ export const CustomerManagement: React.FC = () => {
                                 >
                                   View
                                 </button>
-                                <button
-                                  id={`edit-customer-btn-${cust.id}`}
-                                  type="button"
-                                  onClick={() => handleOpenEditCustomerModal(cust)}
-                                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors"
-                                >
-                                  Edit
-                                </button>
+                                {canEditCustomer && (
+                                  <button
+                                    id={`edit-customer-btn-${cust.id}`}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditCustomerModal(cust);
+                                    }}
+                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -807,55 +1015,112 @@ export const CustomerManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Telegram Status Card */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3 flex flex-col justify-between">
+            {/* Telegram Integration Card */}
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2 flex items-center justify-between">
-                  <span>Telegram Status</span>
-                  <Send className="w-3.5 h-3.5 text-sky-600" />
-                </h2>
-
-                <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Send className="w-4 h-4 text-sky-600" />
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Telegram Bot Integration
+                    </h2>
+                  </div>
                   {activeCustomer.telegramLinked ? (
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Linked</span>
-                      </span>
-                      {activeCustomer.telegramHandle && (
-                        <p className="text-xs font-mono font-semibold text-slate-700 mt-2">
-                          Handle: {activeCustomer.telegramHandle}
-                        </p>
-                      )}
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                        Automated repair updates and invoices will be delivered directly via Telegram.
-                      </p>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Connected</span>
+                    </span>
                   ) : (
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                        <AlertCircle className="w-4 h-4 text-slate-500" />
-                        <span>Not Linked</span>
-                      </span>
-                      <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                        Customer has not linked their Telegram bot yet.
-                      </p>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                      <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                      <span>Not Connected</span>
+                    </span>
                   )}
                 </div>
+
+                {activeCustomer.telegramLinked ? (
+                  <div className="mt-3 space-y-2.5 text-xs">
+                    <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Username:</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {activeCustomer.telegramHandle || 'Not set'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Chat ID:</span>
+                        <span className="font-mono font-semibold text-slate-600">
+                          {activeCustomer.telegramChatIdMasked || (activeCustomer.telegramChatId ? '••••••••' + activeCustomer.telegramChatId.slice(-4) : '••••••••')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Connected:</span>
+                        <span className="font-medium text-slate-700 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          {formatTimestamp(activeCustomer.telegramConnectedAt || activeCustomer.updatedAt || activeCustomer.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Real-time repair progress, inspection reports, and digital invoices are actively delivered to this customer.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2 text-xs">
+                    <p className="text-slate-600 text-xs leading-relaxed">
+                      Customer has not linked their Telegram bot yet. Once connected, they will receive automated repair updates and invoices.
+                    </p>
+                    <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg text-[11px] text-slate-500 flex items-center gap-2">
+                      <Info className="w-4 h-4 text-sky-600 shrink-0" />
+                      <span>Customer can scan QR code and tap <b>Share Phone Number</b>.</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {!activeCustomer.telegramLinked && (
-                <button
-                  id="link-telegram-action-btn"
-                  type="button"
-                  onClick={() => handleOpenTelegramModal(activeCustomer)}
-                  className="w-full mt-3 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-2"
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                  <span>Link Telegram</span>
-                </button>
-              )}
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                {activeCustomer.telegramLinked ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      id="view-telegram-details-btn"
+                      type="button"
+                      onClick={() => {
+                        setSelectedTelegramCustomer(activeCustomer);
+                        setIsTelegramDetailsModalOpen(true);
+                      }}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Info className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Details</span>
+                    </button>
+                    <button
+                      id="disconnect-telegram-btn"
+                      type="button"
+                      onClick={() => {
+                        setSelectedTelegramCustomer(activeCustomer);
+                        setIsTelegramDisconnectModalOpen(true);
+                      }}
+                      className="px-3 py-2 bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Disconnect</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    id="connect-telegram-btn"
+                    type="button"
+                    onClick={() => {
+                      setSelectedTelegramCustomer(activeCustomer);
+                      setIsTelegramConnectModalOpen(true);
+                    }}
+                    className="w-full px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span>Connect Telegram</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1262,11 +1527,13 @@ export const CustomerManagement: React.FC = () => {
                       </label>
                       <input
                         id="reg-phone"
-                        type="text"
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
                         value={regPhone}
-                        onChange={(e) => setRegPhone(e.target.value)}
-                        placeholder="e.g. 012 345 678"
-                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                        onChange={(e) => setRegPhone(sanitizePhoneDigits(e.target.value, 10))}
+                        placeholder="e.g. 086401600"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none font-mono"
                       />
                       {regErrors.phone && <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>}
                     </div>
@@ -1625,10 +1892,13 @@ export const CustomerManagement: React.FC = () => {
                 </label>
                 <input
                   id="edit-cust-phone"
-                  type="text"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={editCustomerPhone}
-                  onChange={(e) => setEditCustomerPhone(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none"
+                  onChange={(e) => setEditCustomerPhone(sanitizePhoneDigits(e.target.value, 10))}
+                  placeholder="e.g. 086401600"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] outline-none font-mono"
                   required
                 />
               </div>
@@ -1814,100 +2084,300 @@ export const CustomerManagement: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 5: TELEGRAM QR LINKING INTERFACE */}
-      {isTelegramModalOpen && telegramCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white border border-slate-200 rounded-xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900">
+      {/* MODAL 5: CONNECT TELEGRAM MODAL (REAL QR & 4 STEPS) */}
+      {isTelegramConnectModalOpen && selectedTelegramCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <Send className="w-4 h-4 text-sky-400" />
-                Link Telegram Account
-              </h3>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center text-white">
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Connect Customer to Telegram</h3>
+                  <p className="text-[11px] text-slate-300">
+                    For {selectedTelegramCustomer.fullName} ({selectedTelegramCustomer.phone})
+                  </p>
+                </div>
+              </div>
               <button
-                id="close-telegram-linking-modal-btn"
+                id="close-connect-telegram-modal-btn"
                 type="button"
-                onClick={() => setIsTelegramModalOpen(false)}
-                className="text-slate-300 hover:text-white transition-colors"
+                onClick={() => setIsTelegramConnectModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 text-center">
-              {/* Telegram Linking Flow Diagram / Steps */}
-              <div className="space-y-2 text-left">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                  Telegram Bot Flow Process:
-                </span>
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs text-slate-700">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">1</span>
-                    <span>Customer Registration</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">2</span>
-                    <span>Scan Telegram QR Code</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">3</span>
-                    <span>Start Telegram Bot</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold">4</span>
-                    <span>Share Phone Number ({telegramCustomer.phone})</span>
-                  </div>
-                  <div className="flex items-center gap-2 font-bold text-emerald-800">
-                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">5</span>
-                    <span>System Matches Phone Number → Chat ID Automatically Linked</span>
+            <div className="p-6 space-y-5">
+              {/* QR Code & Bot Link Container */}
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-gradient-to-br from-slate-50 to-sky-50/40 border border-slate-200 rounded-xl">
+                <div className="bg-white p-3 border border-slate-200 rounded-xl shadow-xs shrink-0 flex flex-col items-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(BOT_URL)}&margin=8`}
+                    alt="Apex Garage Telegram Bot QR Code"
+                    className="w-36 h-36 rounded-lg object-contain"
+                  />
+                  <span className="text-[10px] font-mono text-slate-500 mt-1.5 font-bold">
+                    @{BOT_USERNAME}
+                  </span>
+                </div>
+
+                <div className="flex-1 space-y-2.5 text-left">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Scan with Telegram
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Customer scans the QR code or opens the bot link on their mobile phone to connect.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <a
+                      href={BOT_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>Open in Telegram</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(BOT_URL);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                      <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* QR Code Container */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl inline-block mx-auto">
-                <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-2xs flex flex-col items-center justify-center">
-                  <div className="w-36 h-36 bg-slate-900 p-2 rounded flex items-center justify-center text-white relative">
-                    <QrCode className="w-32 h-32 text-white" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 rounded-full bg-sky-500 border-2 border-white flex items-center justify-center text-white shadow-md">
-                        <Send className="w-4 h-4" />
-                      </div>
+              {/* 5-Step Connection Flow */}
+              <div className="space-y-2 text-left">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Automated Connection Flow
+                </span>
+                <div className="space-y-2 text-xs">
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Customer scans the QR code</span>
+                      <span className="text-[11px] text-slate-500 block">Opens @{BOT_USERNAME} in the Telegram app</span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500 mt-2">
-                    https://t.me/ApexGarageBot?start=LINK_{telegramCustomer.id}
+
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Customer taps START</span>
+                      <span className="text-[11px] text-slate-500 block">Bot displays welcome message and requests contact sharing</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Customer shares their phone number</span>
+                      <span className="text-[11px] text-slate-500 block">Customer taps <b>Share My Phone Number</b> button</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-[#FF6B00] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800">Apex Garage automatically verifies the phone number</span>
+                      <span className="text-[11px] text-slate-500 block">Normalizes format and matches registered customer record</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">5</span>
+                    <div className="flex-1">
+                      <span className="font-bold text-emerald-900">Telegram is connected automatically</span>
+                      <span className="text-[11px] text-emerald-700 block">Customer receives confirmation and future repair/invoice updates</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Status Listener */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
+                  </span>
+                  <span className="text-slate-600 font-medium text-xs">
+                    Listening for customer phone sharing...
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRefreshTelegramStatus}
+                  disabled={isCheckingConnection}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isCheckingConnection ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingConnection ? 'Checking...' : 'Refresh Status'}</span>
+                </button>
+              </div>
+
+              {/* Close Button */}
+              <div className="pt-2 border-t border-slate-200 flex justify-end">
+                <button
+                  id="close-connect-modal-footer-btn"
+                  type="button"
+                  onClick={() => setIsTelegramConnectModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: TELEGRAM CONNECTION DETAILS MODAL */}
+      {isTelegramDetailsModalOpen && selectedTelegramCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-sm font-bold text-white">Telegram Connection Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTelegramDetailsModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Customer:</span>
+                  <span className="font-bold text-slate-900">{selectedTelegramCustomer.fullName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Phone Number:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedTelegramCustomer.phone}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Telegram Status:</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Connected
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Telegram Handle:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedTelegramCustomer.telegramHandle || 'Not set'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Masked Chat ID:</span>
+                  <span className="font-mono font-semibold text-slate-600">
+                    {selectedTelegramCustomer.telegramChatIdMasked || (selectedTelegramCustomer.telegramChatId ? '••••••••' + selectedTelegramCustomer.telegramChatId.slice(-4) : '••••••••')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Connected At:</span>
+                  <span className="font-medium text-slate-700">
+                    {formatTimestamp(selectedTelegramCustomer.telegramConnectedAt || selectedTelegramCustomer.updatedAt || selectedTelegramCustomer.createdAt)}
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-slate-900">
-                  Ask customer to scan QR code or start bot
-                </p>
-                <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">
-                  When the customer shares their phone number with the bot, the system automatically matches <span className="font-semibold text-slate-800">{telegramCustomer.phone}</span> and stores their Telegram Chat ID.
-                </p>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-[11px] leading-relaxed">
+                The customer is actively enrolled in automated notifications for diagnostic inspection reports, repair stage transitions, payment confirmations, and PDF invoice delivery.
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 border-t border-slate-200 flex flex-col gap-2">
+              <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
                 <button
-                  id="simulate-phone-match-btn"
                   type="button"
-                  onClick={handleSimulateTelegramLink}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition shadow-2xs flex items-center justify-center gap-2"
+                  onClick={() => {
+                    setIsTelegramDetailsModalOpen(false);
+                    setIsTelegramDisconnectModalOpen(true);
+                  }}
+                  className="px-3 py-2 text-rose-700 hover:bg-rose-50 border border-rose-200 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Simulate Customer Phone Match (Link Account)</span>
+                  Disconnect Telegram
                 </button>
 
                 <button
-                  id="cancel-telegram-linking-btn"
                   type="button"
-                  onClick={() => setIsTelegramModalOpen(false)}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition"
+                  onClick={() => setIsTelegramDetailsModalOpen(false)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition cursor-pointer"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: DISCONNECT TELEGRAM CONFIRMATION MODAL */}
+      {isTelegramDisconnectModalOpen && selectedTelegramCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-rose-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-white" />
+                <h3 className="text-sm font-bold text-white">Disconnect Telegram</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTelegramDisconnectModalOpen(false)}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-700 text-xs leading-relaxed">
+                Are you sure you want to disconnect Telegram for <span className="font-bold text-slate-900">{selectedTelegramCustomer.fullName}</span>?
+              </p>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] leading-relaxed space-y-1">
+                <p className="font-bold">What will happen:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-amber-800">
+                  <li>The customer will stop receiving Telegram repair updates and invoices.</li>
+                  <li>Customer profile, vehicles, repair history, and invoices remain intact.</li>
+                  <li>The customer can reconnect anytime by scanning the bot QR code again.</li>
+                </ul>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTelegramDisconnectModalOpen(false)}
+                  disabled={isDisconnecting}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  id="confirm-disconnect-telegram-btn"
+                  type="button"
+                  onClick={handleConfirmDisconnectTelegram}
+                  disabled={isDisconnecting}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isDisconnecting ? 'Disconnecting...' : 'Disconnect Telegram'}
                 </button>
               </div>
             </div>

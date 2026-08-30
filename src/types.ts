@@ -39,9 +39,13 @@ export interface Customer {
   fullName: string;
   phone: string;
   address?: string;
+  telegramChatId?: string;
+  telegramChatIdMasked?: string;
   telegramHandle?: string;
   telegramLinked: boolean;
+  telegramConnectedAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Vehicle {
@@ -398,8 +402,8 @@ export interface InventoryItem {
   unitPrice: number; // Selling Price
   location: string;
   status?: 'active' | 'deactivated';
-  sku: string;
-  sellingPrice: number;
+  sku?: string;
+  sellingPrice?: number;
 }
 
 export interface StockTransaction {

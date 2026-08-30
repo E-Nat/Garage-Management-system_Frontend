@@ -1,326 +1,721 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useId } from 'react';
+import {
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Mail,
+  Lock,
+  ShieldCheck,
+  ClipboardList,
+  Users,
+  Package,
+  Receipt,
+  Wrench,
+  Check,
+} from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
 import { useGarage } from '../../context/GarageContext';
-import { Wrench, Lock, Mail, Eye, EyeOff, AlertTriangle, ShieldCheck, ArrowRight, UserCheck, KeyRound } from 'lucide-react';
-import { motion } from 'motion/react';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
-import { UserRole } from '../../types';
 import logoImg from '../../assets/images/logo.png';
+import workshopHeroImg from '../../assets/images/workshop-hero.jpg';
 
 export const LoginForm: React.FC = () => {
   const { login, loginError, clearLoginError } = useAuth();
   const { systemSettings } = useGarage();
-  const [email, setEmail] = useState('');
+  const prefersReducedMotion = useReducedMotion();
 
-  const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
-    ? systemSettings.garageInfo.logoUrl
-    : logoImg;
+  // Form State
+  const [email, setEmail] = useState(() => {
+    return localStorage.getItem('apex_garage_remember_email') || '';
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(() => {
+    return Boolean(localStorage.getItem('apex_garage_remember_email'));
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [activeField, setActiveField] = useState<'email' | 'password' | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Accessibility IDs
+  const emailInputId = useId();
+  const passwordInputId = useId();
+  const rememberMeId = useId();
+  const emailErrorId = useId();
+  const passwordErrorId = useId();
+
+  // Ensure login screen is ALWAYS pure clean white light mode
+  useEffect(() => {
+    document.documentElement.classList.remove('dark');
+  }, []);
+
+  // Single Authentic Apex Garage Logo from project assets
+  const logoUrl =
+    systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com')
+      ? systemSettings.garageInfo.logoUrl
+      : logoImg;
+
+  // Form Validation
+  const validate = () => {
+    const errors: { email?: string; password?: string } = {};
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      errors.email = 'Please enter your email address.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      errors.email = 'Please enter a valid email address.';
+    }
+
+    if (!password) {
+      errors.password = 'Please enter your password.';
+    } else if (password.length < 6) {
+      errors.password = 'Password must be at least 6 characters.';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearLoginError();
+
+    if (!validate()) return;
+
+    // Handle Remember Me persistence
+    if (rememberMe) {
+      localStorage.setItem('apex_garage_remember_email', email.trim());
+    } else {
+      localStorage.removeItem('apex_garage_remember_email');
+    }
+
     setIsLoading(true);
 
-    setTimeout(() => {
-      login(email, password);
+    try {
+      const res = await login(email, password);
+      if (!res.success) {
+        setIsLoading(false);
+      }
+    } catch (_) {
       setIsLoading(false);
-    }, 300);
+    }
   };
 
-  const handleSelectDemoUser = (demoEmail: string, demoPass: string) => {
-    clearLoginError();
-    setEmail(demoEmail);
-    setPassword(demoPass);
+  // High-End Animation Variants & Curves (Dual Split-Slide Entrance)
+  const smoothEase = [0.16, 1, 0.3, 1] as const;
+
+  // Left Panel Slides in from the Left
+  const leftSectionVariants = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -80 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.8, ease: smoothEase },
+    },
   };
 
-  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
-    clearLoginError();
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setIsLoading(true);
-    setTimeout(() => {
-      login(demoEmail, demoPass);
-      setIsLoading(false);
-    }, 250);
+  // Right Panel Slides in from the Right
+  const rightSectionVariants = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 80 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.8, ease: smoothEase, delay: 0.06 },
+    },
   };
 
-  const demoRoles: { role: UserRole; title: string; email: string; pass: string; badgeColor: string }[] = [
-    { role: 'admin', title: 'Garage Owner / Admin', email: 'owner@apexgarage.com', pass: 'admin123', badgeColor: 'bg-slate-100 text-slate-800 border-slate-200' },
-    { role: 'advisor', title: 'Service Advisor', email: 'advisor@apexgarage.com', pass: 'advisor123', badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-    { role: 'mechanic', title: 'Chief Mechanic', email: 'mechanic@apexgarage.com', pass: 'mechanic123', badgeColor: 'bg-amber-50 text-amber-800 border-amber-200' },
-    { role: 'parts_manager', title: 'Parts Manager', email: 'parts@apexgarage.com', pass: 'parts123', badgeColor: 'bg-cyan-50 text-cyan-800 border-cyan-200' },
-    { role: 'customer', title: 'Customer Portal', email: 'customer@apexgarage.com', pass: 'customer123', badgeColor: 'bg-purple-50 text-purple-800 border-purple-200' },
+  const leftHeroVariants = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 1.05 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.9, ease: smoothEase },
+    },
+  };
+
+  const logoAnimation = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -18 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.55, ease: smoothEase, delay: 0.15 },
+    },
+  };
+
+  const headlineParent = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.25,
+      },
+    },
+  };
+
+  const headlineChild = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, ease: smoothEase },
+    },
+  };
+
+  const featureContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.09,
+        delayChildren: 0.4,
+      },
+    },
+  };
+
+  const featureItemVariant = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 14 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5, ease: smoothEase },
+    },
+  };
+
+  const loginRightContainer = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 18 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, ease: smoothEase, delay: 0.15 },
+    },
+  };
+
+  const formStagger = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.18,
+      },
+    },
+  };
+
+  const formItem = {
+    hidden: prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.45, ease: smoothEase },
+    },
+  };
+
+  const capabilities = [
+    {
+      id: 'jobs',
+      icon: ClipboardList,
+      title: 'Job Management',
+    },
+    {
+      id: 'customers',
+      icon: Users,
+      title: 'Customer Management',
+    },
+    {
+      id: 'inventory',
+      icon: Package,
+      title: 'Inventory Control',
+    },
+    {
+      id: 'invoicing',
+      icon: Receipt,
+      title: 'Invoicing & Payments',
+    },
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] text-[#172033] p-4 relative">
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 my-6">
-        {/* Left Side: Login Form Card */}
+    <div className="min-h-screen w-full flex bg-[#FAF9F6] text-slate-900 selection:bg-[#FF6B00] selection:text-white transition-colors duration-300 overflow-x-hidden">
+      {/* ============================================================ */}
+      {/* LEFT SIDE: Clean Bright Automotive Brand Experience (55%)   */}
+      {/* ============================================================ */}
+      <motion.section
+        initial="hidden"
+        animate="visible"
+        variants={leftSectionVariants}
+        aria-label="Apex Garage Platform"
+        className="hidden lg:flex relative w-[55%] min-h-screen flex-col justify-between p-10 xl:p-14 2xl:p-16 overflow-hidden bg-slate-50 border-r border-slate-200/80 select-none"
+      >
+        {/* Modern Bright Photographic Workshop Hero Background */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="lg:col-span-6 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col justify-between"
+          initial="hidden"
+          animate="visible"
+          variants={leftHeroVariants}
+          className="absolute inset-0 z-0 overflow-hidden"
         >
-          <div>
-            {/* Header / Logo */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs shrink-0">
-                <img
-                  src={logoUrl}
-                  alt="Logo"
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.parentElement?.querySelector('.login-logo-fallback');
-                    if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                  }}
-                />
-                <div className="login-logo-fallback hidden w-12 h-12 bg-[#FF6B00] text-white rounded-2xl items-center justify-center font-extrabold">
-                  <Wrench className="w-6 h-6 stroke-[2.5]" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900">APEX GARAGE</h1>
-                <span className="text-xs font-medium text-slate-500">Service & Operations Platform</span>
+          <img
+            src={workshopHeroImg}
+            alt="Apex Garage Modern Service Workshop"
+            className="w-full h-full object-cover object-center"
+          />
+
+          {/* Luminous White/Light Overlay for Bright, Airy, Premium Feel */}
+          <div className="absolute inset-0 bg-gradient-to-t from-white/96 via-white/85 to-white/45" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-white/20" />
+
+          {/* Ambient Warm Light Pulse Aura */}
+          <motion.div
+            animate={
+              prefersReducedMotion
+                ? {}
+                : {
+                    opacity: [0.35, 0.65, 0.35],
+                    scale: [1, 1.04, 1],
+                  }
+            }
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#FF6B00]/10 blur-3xl rounded-full pointer-events-none"
+          />
+        </motion.div>
+
+        {/* 1. Top-Left: ONLY ONE Apex Garage Brand Logo */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={logoAnimation}
+          className="relative z-10"
+        >
+          <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center gap-3">
+              <motion.img
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+                src={logoUrl}
+                alt="Apex Garage"
+                className="h-14 sm:h-16 xl:h-18 w-auto max-w-[260px] object-contain object-left drop-shadow-xs"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.parentElement?.querySelector(
+                    '.branding-logo-fallback'
+                  );
+                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                }}
+              />
+              <div
+                className="branding-logo-fallback hidden w-14 h-14 rounded-2xl bg-[#FF6B00] text-white items-center justify-center font-bold shadow-xs"
+                aria-hidden="true"
+              >
+                <Wrench className="w-7 h-7 stroke-[2.5]" />
               </div>
             </div>
 
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Welcome to Garage Management System</h2>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                Sign in to manage repair orders, vehicles, inventory, and customer communications.
+            {/* Small Professional System Label under Logo */}
+            <div className="pl-1 mt-1">
+              <span className="font-mono text-[10px] font-bold tracking-[0.22em] text-slate-500 uppercase">
+                APEX GARAGE // MANAGEMENT SYSTEM
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 2. Center: Headline & Brand Statement */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={headlineParent}
+          className="relative z-10 my-auto max-w-xl pr-4 py-8"
+        >
+          <motion.h1
+            variants={headlineChild}
+            className="text-3xl sm:text-4xl xl:text-5xl 2xl:text-[3.25rem] font-extrabold text-slate-900 tracking-tight leading-[1.14] drop-shadow-xs"
+          >
+            Manage your garage.
+            <br />
+            Drive your{' '}
+            <span className="relative inline-block text-[#FF6B00]">
+              business.
+              {/* Subtle Animated Underline Accent */}
+              <motion.span
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 0.7, delay: 0.6, ease: smoothEase }}
+                className="absolute left-0 bottom-0.5 h-[3px] bg-[#FF6B00]/40 rounded-full"
+              />
+            </span>
+          </motion.h1>
+
+          <motion.p
+            variants={headlineChild}
+            className="mt-5 text-base sm:text-lg text-slate-600 font-normal leading-relaxed max-w-lg"
+          >
+            Everything you need to manage jobs, customers, inventory, invoices and payments — in one place.
+          </motion.p>
+        </motion.div>
+
+        {/* 3. Bottom-Left: Automotive Capability Strip */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={featureContainer}
+          className="relative z-10 pt-4"
+        >
+          <div className="grid grid-cols-2 gap-3 max-w-lg">
+            {capabilities.map((item) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.id}
+                  variants={featureItemVariant}
+                  whileHover={prefersReducedMotion ? {} : { y: -3, scale: 1.01 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="group flex items-center gap-3 p-3 rounded-xl bg-white/85 border border-slate-200/90 backdrop-blur-xs shadow-2xs hover:shadow-md hover:border-orange-300 hover:bg-white transition-all duration-200 cursor-default"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200/60 text-[#FF6B00] flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110 shadow-2xs">
+                    <Icon className="w-4 h-4 stroke-[2]" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 group-hover:text-[#FF6B00] transition-colors leading-tight truncate">
+                    {item.title}
+                  </span>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      </motion.section>
+
+      {/* ============================================================ */}
+      {/* RIGHT SIDE: Pure Clean White Professional Login (45%)        */}
+      {/* ============================================================ */}
+      <motion.main
+        initial="hidden"
+        animate="visible"
+        variants={rightSectionVariants}
+        className="w-full lg:w-[45%] min-h-screen flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 bg-white transition-colors duration-300"
+      >
+        {/* Mobile Header Logo (Visible on mobile screens where left side is hidden) */}
+        <div className="lg:hidden flex items-center gap-2 mb-4">
+          <img
+            src={logoUrl}
+            alt="Apex Garage"
+            className="h-10 w-auto max-w-[160px] object-contain object-left"
+          />
+        </div>
+
+        {/* Center Login Workspace (Natural white background, centered, max-w-[460px]) */}
+        <div className="my-auto w-full flex items-center justify-center py-6">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={loginRightContainer}
+            className="w-full max-w-[460px]"
+          >
+            {/* Header: Starts DIRECTLY with "Welcome back" (No duplicate wrench/logo above it) */}
+            <div className="mb-8">
+              <h2 className="text-3xl sm:text-[2rem] font-extrabold tracking-tight text-slate-900 leading-tight">
+                Welcome back
+              </h2>
+              <p className="text-sm text-slate-500 mt-1.5 font-normal leading-relaxed">
+                Sign in to continue to your workspace.
               </p>
             </div>
 
-            {/* Error Banner if Invalid Credentials */}
-            {loginError && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-3"
-                id="login-error-banner"
-              >
-                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <div className="font-semibold text-rose-900 mb-0.5">Authentication Failed</div>
-                  <div className="text-xs text-rose-700 leading-relaxed">{loginError}</div>
-                </div>
-              </motion.div>
-            )}
+            {/* Authentication Error Banner (Animated with subtle shake) */}
+            <AnimatePresence>
+              {loginError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    x: [0, -4, 4, -3, 3, 0],
+                  }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  role="alert"
+                  aria-live="assertive"
+                  className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 shadow-2xs"
+                >
+                  <AlertCircle
+                    className="w-4 h-4 text-rose-600 shrink-0 mt-0.5"
+                    aria-hidden="true"
+                  />
+                  <span className="leading-relaxed font-medium">{loginError}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Email Address
+            {/* Login Form with Staggered Entrance */}
+            <motion.form
+              onSubmit={handleSubmit}
+              noValidate
+              initial="hidden"
+              animate="visible"
+              variants={formStagger}
+              className="space-y-4"
+            >
+              {/* Field 1: WORK EMAIL */}
+              <motion.div variants={formItem}>
+                <label
+                  htmlFor={emailInputId}
+                  className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-mono mb-1.5"
+                >
+                  WORK EMAIL
                 </label>
+
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Mail
+                    className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-200 pointer-events-none ${
+                      activeField === 'email'
+                        ? 'text-[#FF6B00] scale-110'
+                        : 'text-slate-400'
+                    }`}
+                  />
                   <input
-                    id="email-input"
+                    id={emailInputId}
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => {
                       clearLoginError();
                       setEmail(e.target.value);
+                      if (fieldErrors.email) {
+                        setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      }
                     }}
-                    placeholder="name@apexgarage.com"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] rounded-xl text-slate-900 text-sm placeholder-slate-400 outline-hidden transition"
+                    onFocus={() => setActiveField('email')}
+                    onBlur={() => setActiveField(null)}
+                    placeholder="Enter your work email"
+                    aria-required="true"
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    aria-describedby={fieldErrors.email ? emailErrorId : undefined}
+                    className={`w-full h-[54px] pl-10 pr-4 bg-white border rounded-xl text-slate-900 text-sm placeholder-slate-400 transition-all duration-200 outline-none ${
+                      fieldErrors.email
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 bg-rose-50/20 shadow-xs'
+                        : 'border-[#D9DEE7] hover:border-slate-400 focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/15 focus:shadow-xs'
+                    }`}
                   />
                 </div>
-              </div>
 
-              <div>
+                {/* Inline Email Error */}
+                <AnimatePresence>
+                  {fieldErrors.email && (
+                    <motion.p
+                      id={emailErrorId}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.2 }}
+                      role="alert"
+                      aria-live="assertive"
+                      className="mt-1.5 text-xs text-rose-600 flex items-center gap-1.5 font-medium"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />
+                      <span>{fieldErrors.email}</span>
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* Field 2: PASSWORD */}
+              <motion.div variants={formItem}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Password
+                  <label
+                    htmlFor={passwordInputId}
+                    className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-mono"
+                  >
+                    PASSWORD
                   </label>
-                  <button
-                    id="forgot-password-link"
+
+                  {/* Forgot Password Link */}
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     type="button"
                     onClick={() => setIsForgotModalOpen(true)}
-                    className="text-xs font-medium text-[#FF6B00] hover:text-[#E56000] hover:underline transition"
+                    className="text-xs font-semibold text-[#FF6B00] hover:text-[#E56000] focus:outline-none transition-colors cursor-pointer"
+                    aria-label="Forgot password?"
                   >
-                    Forgot Password?
-                  </button>
+                    Forgot password?
+                  </motion.button>
                 </div>
+
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Lock
+                    className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-200 pointer-events-none ${
+                      activeField === 'password'
+                        ? 'text-[#FF6B00] scale-110'
+                        : 'text-slate-400'
+                    }`}
+                  />
                   <input
-                    id="password-input"
+                    id={passwordInputId}
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => {
                       clearLoginError();
                       setPassword(e.target.value);
+                      if (fieldErrors.password) {
+                        setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      }
                     }}
-                    placeholder="••••••••••••"
-                    required
-                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] rounded-xl text-slate-900 text-sm placeholder-slate-400 outline-hidden transition"
+                    onFocus={() => setActiveField('password')}
+                    onBlur={() => setActiveField(null)}
+                    placeholder="Enter your password"
+                    aria-required="true"
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? passwordErrorId : undefined}
+                    className={`w-full h-[54px] pl-10 pr-11 bg-white border rounded-xl text-slate-900 text-sm placeholder-slate-400 transition-all duration-200 outline-none ${
+                      fieldErrors.password
+                        ? 'border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 bg-rose-50/20 shadow-xs'
+                        : 'border-[#D9DEE7] hover:border-slate-400 focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/15 focus:shadow-xs'
+                    }`}
                   />
-                  <button
-                    id="toggle-password-visibility-btn"
+
+                  {/* Password Visibility Toggle with Smooth Crossfade */}
+                  <motion.button
+                    whileTap={{ scale: 0.88 }}
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                     title={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1.5 rounded-lg focus:outline-none transition-colors cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {showPassword ? (
+                        <motion.span
+                          key="eye-off"
+                          initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
+                          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                          exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
+                          transition={{ duration: 0.15 }}
+                          className="block"
+                        >
+                          <EyeOff className="w-4 h-4" />
+                        </motion.span>
+                      ) : (
+                        <motion.span
+                          key="eye-on"
+                          initial={{ opacity: 0, rotate: 45, scale: 0.8 }}
+                          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                          exit={{ opacity: 0, rotate: -45, scale: 0.8 }}
+                          transition={{ duration: 0.15 }}
+                          className="block"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                  <input
-                    id="remember-me-checkbox"
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 text-[#FF6B00] focus:ring-[#FF6B00]"
-                  />
-                  <span>Remember me</span>
+                {/* Inline Password Error */}
+                <AnimatePresence>
+                  {fieldErrors.password && (
+                    <motion.p
+                      id={passwordErrorId}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.2 }}
+                      role="alert"
+                      aria-live="assertive"
+                      className="mt-1.5 text-xs text-rose-600 flex items-center gap-1.5 font-medium"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />
+                      <span>{fieldErrors.password}</span>
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* Remember Me Checkbox */}
+              <motion.div variants={formItem} className="pt-0.5">
+                <label
+                  htmlFor={rememberMeId}
+                  className="inline-flex items-center gap-2.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none transition-colors group"
+                >
+                  <div className="relative flex items-center justify-center">
+                    <input
+                      id={rememberMeId}
+                      name="rememberMe"
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-[#FF6B00] focus:ring-[#FF6B00] transition cursor-pointer accent-[#FF6B00]"
+                    />
+                  </div>
+                  <span className="font-medium group-hover:text-slate-900 transition-colors">
+                    Remember me
+                  </span>
                 </label>
+              </motion.div>
 
-                <div className="text-xs text-slate-500 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>256-bit Encrypted</span>
-                </div>
-              </div>
-
-              <button
-                id="submit-login-btn"
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3 px-4 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-xl shadow-xs flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Sign In to Garage Portal</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          <div className="mt-8 pt-4 border-t border-slate-100 text-xs text-slate-400 text-center">
-            <span>Secure Role-Based Garage Management System</span>
-          </div>
-        </motion.div>
-
-        {/* Right Side: Demo Persona Quick Switcher */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-          className="lg:col-span-6 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm uppercase tracking-wider">
-                <UserCheck className="w-4 h-4 text-slate-700" />
-                Demo Credentials & Testing
-              </div>
-              <span className="text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 font-medium">
-                5 Roles Configured
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Click any role below to sign in instantly or copy credentials to test authentication rules.
-            </p>
-
-            {/* List of Demo Accounts */}
-            <div className="space-y-2.5">
-              {demoRoles.map((demo) => (
-                <div
-                  key={demo.role}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between hover:border-slate-300 transition"
+              {/* Primary SIGN IN Button (Clean, centered, full-width, NO arrow icon) */}
+              <motion.div variants={formItem} className="pt-2">
+                <motion.button
+                  id="sign-in-submit-btn"
+                  type="submit"
+                  disabled={isLoading}
+                  whileHover={
+                    prefersReducedMotion || isLoading
+                      ? {}
+                      : { y: -1, scale: 1.006 }
+                  }
+                  whileTap={
+                    prefersReducedMotion || isLoading
+                      ? {}
+                      : { scale: 0.985, y: 0 }
+                  }
+                  aria-label={isLoading ? 'Signing in...' : 'SIGN IN'}
+                  className="relative w-full h-[54px] px-6 bg-[#FF6B00] hover:bg-[#E56000] text-white font-bold text-sm tracking-wider uppercase rounded-xl shadow-xs hover:shadow-lg hover:shadow-orange-500/25 flex items-center justify-center transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00] focus-visible:ring-offset-2 overflow-hidden"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${demo.badgeColor}`}>
-                      {demo.role.replace('_', ' ')}
-                    </span>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">
-                        {demo.title}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        {demo.email} • <span className="text-slate-400">{demo.pass}</span>
-                      </div>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2.5">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                        aria-hidden="true"
+                      />
+                      <span>Signing in...</span>
                     </div>
-                  </div>
+                  ) : (
+                    <span>SIGN IN</span>
+                  )}
+                </motion.button>
+              </motion.div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      id={`fill-demo-${demo.role}`}
-                      type="button"
-                      onClick={() => handleSelectDemoUser(demo.email, demo.pass)}
-                      className="px-2 py-1 text-xs text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg transition cursor-pointer"
-                      title="Fill into form"
-                    >
-                      Fill
-                    </button>
-                    <button
-                      id={`login-demo-${demo.role}`}
-                      type="button"
-                      onClick={() => handleQuickLogin(demo.email, demo.pass)}
-                      className="px-2.5 py-1 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-lg transition shadow-xs flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Sign In</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
+              {/* Security Indicator */}
+              <motion.div
+                variants={formItem}
+                className="pt-5 border-t border-slate-100 flex flex-col items-center text-center select-none"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Your data is secure with us</span>
                 </div>
-              ))}
-            </div>
+                <p className="text-[11px] text-slate-400 mt-0.5 font-normal">
+                  Enterprise-grade security • 256-bit encryption
+                </p>
+              </motion.div>
+            </motion.form>
+          </motion.div>
+        </div>
 
-            {/* Test Edge Cases Section */}
-            <div className="mt-6 pt-4 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-slate-700" />
-                Test Security Scenarios
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  id="test-invalid-credentials-btn"
-                  type="button"
-                  onClick={() => handleQuickLogin('owner@apexgarage.com', 'wrongpassword123')}
-                  className="p-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs text-rose-800 text-left transition"
-                >
-                  <div className="font-bold text-rose-900">Test Wrong Pass</div>
-                  <div className="text-[10px] text-rose-600">Triggers error message</div>
-                </button>
+        {/* Footer */}
+        <footer className="text-center text-xs text-slate-400 pt-4">
+          © 2025 Apex Garage Management System. All rights reserved.
+        </footer>
+      </motion.main>
 
-                <button
-                  id="test-suspended-account-btn"
-                  type="button"
-                  onClick={() => handleQuickLogin('chloe.suspended@apexgarage.com', 'password123')}
-                  className="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-xs text-amber-800 text-left transition"
-                >
-                  <div className="font-bold text-amber-900">Test Suspended/Deactivated</div>
-                  <div className="text-[10px] text-amber-700">Triggers account lockout</div>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Staff administration?</span>
-            <span className="text-slate-900 font-bold">Manage inside Owner Dashboard</span>
-          </div>
-        </motion.div>
-      </div>
-
+      {/* Forgot Password Recovery Modal */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
@@ -328,3 +723,4 @@ export const LoginForm: React.FC = () => {
     </div>
   );
 };
+export default LoginForm;

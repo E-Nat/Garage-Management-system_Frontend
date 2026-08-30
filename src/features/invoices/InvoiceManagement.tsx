@@ -14,8 +14,11 @@ import {
   FileText,
   CreditCard,
   Download,
+  CheckCircle2,
+  Send,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import logoImg from '../../assets/images/logo.png';
 
 export const InvoiceManagement: React.FC = () => {
   const {
@@ -23,6 +26,7 @@ export const InvoiceManagement: React.FC = () => {
     paymentRecords,
     paymentMethods,
     systemSettings,
+    simulatePayment,
   } = useGarage();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +36,12 @@ export const InvoiceManagement: React.FC = () => {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<{
+    success: boolean;
+    message: string;
+    telegramConnected: boolean;
+  } | null>(null);
 
   // Today's Date String YYYY-MM-DD
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -97,6 +107,38 @@ export const InvoiceManagement: React.FC = () => {
 
   const garageInfo = systemSettings.garageInfo;
 
+  const handleSimulatePayment = async () => {
+    if (!selectedInvoice) return;
+    setIsSimulating(true);
+    setSimulationResult(null);
+    try {
+      const res = await simulatePayment(selectedInvoice.id);
+      if (res.success) {
+        setSimulationResult({
+          success: true,
+          message: res.message || 'Payment successful. Your e-Invoice has been generated.',
+          telegramConnected: Boolean(res.telegramConnected),
+        });
+        setSelectedInvoice((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'paid',
+                paymentMethod: 'Demo Payment',
+                totalPaid: prev.totalAmount,
+                balanceRemaining: 0,
+                paidAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+              }
+            : null
+        );
+      } else {
+        alert(res.error || 'Failed to simulate payment');
+      }
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-slate-900 font-sans">
       {/* If Invoice Detail is Selected */}
@@ -106,21 +148,38 @@ export const InvoiceManagement: React.FC = () => {
           <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-xs print:hidden">
             <button
               id="back-to-invoices-btn"
-              onClick={() => setSelectedInvoice(null)}
+              onClick={() => {
+                setSelectedInvoice(null);
+                setSimulationResult(null);
+              }}
               className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 transition"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Invoices</span>
             </button>
 
-            <button
-              id="download-invoice-pdf-btn"
-              onClick={handlePrintPDF}
-              className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download PDF</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedInvoice.status !== 'paid' && (
+                <button
+                  id="simulate-payment-top-btn"
+                  onClick={handleSimulatePayment}
+                  disabled={isSimulating}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>{isSimulating ? 'Processing...' : 'Simulate Payment'}</span>
+                </button>
+              )}
+
+              <button
+                id="download-invoice-pdf-btn"
+                onClick={handlePrintPDF}
+                className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-2 transition shadow-xs cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download PDF</span>
+              </button>
+            </div>
           </div>
 
           {/* Printable Invoice Sheet */}
@@ -132,17 +191,11 @@ export const InvoiceManagement: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-200 pb-8">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-3">
-                  {garageInfo.logoUrl ? (
-                    <img
-                      src={garageInfo.logoUrl}
-                      alt={garageInfo.garageName || 'Garage Logo'}
-                      className="h-10 max-w-32 object-contain rounded-lg border border-slate-200"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg bg-[#FF6B00] text-white flex items-center justify-center font-bold text-sm">
-                      {garageInfo.garageName ? garageInfo.garageName.charAt(0) : 'A'}
-                    </div>
-                  )}
+                  <img
+                    src={(garageInfo.logoUrl && !garageInfo.logoUrl.includes('unsplash.com')) ? garageInfo.logoUrl : logoImg}
+                    alt={garageInfo.garageName || 'Garage Logo'}
+                    className="h-10 max-w-32 object-contain rounded-lg border border-slate-200"
+                  />
                   <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                     {garageInfo.garageName || 'Apex Performance Auto'}
                   </h1>
@@ -218,7 +271,7 @@ export const InvoiceManagement: React.FC = () => {
               <div className="overflow-x-auto border border-slate-200 rounded-lg">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px]">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
                       <th className="py-3 px-4">Description</th>
                       <th className="py-3 px-4 text-center">Type</th>
                       <th className="py-3 px-4 text-center">Qty / Hrs</th>
@@ -333,20 +386,82 @@ export const InvoiceManagement: React.FC = () => {
             {/* Calculations & Totals */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4 border-t border-slate-200">
               {/* Payment & Terms Note */}
-              <div className="w-full sm:w-1/2 space-y-2 text-xs text-slate-600">
+              <div className="w-full sm:w-1/2 space-y-3 text-xs text-slate-600">
                 <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
                   Payment Information
                 </div>
-                <div className="space-y-1">
-                  <p>Payment Method: <span className="font-semibold text-slate-900">{selectedInvoice.paymentMethod || '—'}</span></p>
-                  <p>Payment Status: <span className="font-semibold text-slate-900 uppercase">{selectedInvoice.status.replace('_', ' ')}</span></p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">Payment Status:</span>
+                    {selectedInvoice.status === 'paid' ? (
+                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 text-xs">
+                        ✅ PAID
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 uppercase text-xs">
+                        {selectedInvoice.status.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                  <p>
+                    Payment Method:{' '}
+                    <span className="font-semibold text-slate-900">
+                      {selectedInvoice.paymentMethod || (selectedInvoice.status === 'paid' ? 'Demo Payment' : '—')}
+                    </span>
+                  </p>
                   {selectedInvoice.paidAt && (
-                    <p>Settled At: <span className="font-mono text-slate-700">{selectedInvoice.paidAt}</span></p>
+                    <p>
+                      Paid At: <span className="font-mono text-slate-700">{selectedInvoice.paidAt}</span>
+                    </p>
                   )}
                   {selectedInvoice.notes && (
-                    <p className="text-slate-500 text-[11px] pt-1">Notes: {selectedInvoice.notes}</p>
+                    <p className="text-slate-500 text-[11px] pt-0.5">Notes: {selectedInvoice.notes}</p>
                   )}
                 </div>
+
+                {/* Simulate Payment Card for Unpaid Invoices */}
+                {selectedInvoice.status !== 'paid' && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 print:hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900 text-xs">Simulate Demo Payment</span>
+                      <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Competition Mode
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Process a simulated payment to test invoice settlement, PDF generation, and real-time Telegram delivery.
+                    </p>
+                    <button
+                      type="button"
+                      id="simulate-payment-action-btn"
+                      onClick={handleSimulatePayment}
+                      disabled={isSimulating}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>{isSimulating ? 'Processing Simulated Payment...' : 'Simulate Payment'}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Simulation / Payment Feedback Banner */}
+                {simulationResult && (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs text-emerald-900 print:hidden">
+                    <div className="font-bold flex items-center gap-1.5 text-emerald-800">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Payment successful. Your e-Invoice has been generated.</span>
+                    </div>
+                    {simulationResult.telegramConnected ? (
+                      <p className="text-[11px] text-emerald-700 font-medium pl-5.5 flex items-center gap-1.5">
+                        <span>📱 Invoice sent to Telegram.</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-slate-600 font-medium pl-5.5">
+                        Telegram is not connected. You can still download the invoice.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Numerical Breakdown */}

@@ -217,6 +217,8 @@ interface GarageContextType {
     recordedBy?: string;
   }) => { success: boolean; paymentRecord?: PaymentRecord; error?: string };
 
+  simulatePayment: (invoiceId: string) => Promise<{ success: boolean; telegramConnected?: boolean; message?: string; error?: string }>;
+
   addPaymentMethod: (name: string) => { success: boolean; method?: PaymentMethodConfig; error?: string };
   updatePaymentMethod: (id: string, name: string) => { success: boolean; error?: string };
   togglePaymentMethodStatus: (id: string) => void;
@@ -1822,6 +1824,80 @@ linkedRepairJobId?: string;
     return { success: true, paymentRecord: newRecord };
   };
 
+  const simulatePayment = async (invoiceId: string) => {
+    const inv = invoices.find((i) => i.id === invoiceId);
+    if (!inv) return { success: false, error: 'Invoice not found' };
+
+    if (inv.status === 'paid' || (inv.balanceRemaining !== undefined && inv.balanceRemaining <= 0.01)) {
+      return { success: false, error: 'Invoice has already been paid.' };
+    }
+
+    const staffName = currentUser?.name || 'Staff User';
+    const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const amountToPay = (inv.balanceRemaining !== undefined && inv.balanceRemaining > 0) ? inv.balanceRemaining : inv.totalAmount;
+
+    // Check customer Telegram status
+    const customerObj = customers.find((c) => c.fullName === inv.customerName || c.phone === inv.customerPhone);
+    let telegramConnected = Boolean(customerObj?.telegramLinked || customerObj?.telegramHandle);
+
+    try {
+      const invoiceNumericId = parseInt(inv.id.replace(/\D/g, ''), 10) || inv.id;
+      const apiRes = await fetch(`/api/invoices/${invoiceNumericId}/simulate-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}),
+        },
+      });
+
+      if (apiRes.ok) {
+        const resData = await apiRes.json();
+        if (resData.data?.telegram_connected !== undefined) {
+          telegramConnected = Boolean(resData.data.telegram_connected);
+        }
+      }
+    } catch {
+      // Local fallback
+    }
+
+    const newRecord: PaymentRecord = {
+      id: `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      repairJobId: inv.repairJobId,
+      invoiceId: inv.id,
+      amount: amountToPay,
+      date: new Date().toISOString().substring(0, 10),
+      method: 'Demo Payment',
+      type: 'final',
+      notes: 'Simulated Demo Payment for Competition / Development Environment',
+      recordedBy: staffName,
+      recordedAt: nowStamp,
+    };
+
+    setPaymentRecords((prev) => [newRecord, ...prev]);
+
+    setInvoices((prev) =>
+      prev.map((i) =>
+        i.id === inv.id
+          ? {
+              ...i,
+              totalPaid: i.totalAmount,
+              balanceRemaining: 0,
+              status: 'paid',
+              paymentMethod: 'Demo Payment',
+              paidAt: nowStamp,
+            }
+          : i
+      )
+    );
+
+    return {
+      success: true,
+      telegramConnected,
+      message: 'Payment successful. Your e-Invoice has been generated.',
+    };
+  };
+
   const addPaymentMethod = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return { success: false, error: 'Payment method name is required' };
@@ -2236,6 +2312,7 @@ linkedRepairJobId?: string;
         updateInvoiceStatus,
         updateInvoiceDiscounts,
         recordPayment,
+        simulatePayment,
         addDiscountReason,
         updateDiscountReason,
         reorderDiscountReasons,

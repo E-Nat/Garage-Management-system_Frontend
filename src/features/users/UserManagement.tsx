@@ -20,9 +20,56 @@ import {
   ShieldCheck,
   UserCheck,
   Key,
-  Ban
+  Ban,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Cambodian and International Phone Validator & Normalizer
+export function validateAndNormalizePhone(phoneInput: string): { isValid: boolean; normalized: string; error?: string } {
+  const trimmed = phoneInput.trim();
+  if (!trimmed) {
+    return { isValid: true, normalized: '' };
+  }
+
+  // Check valid characters
+  if (!/^[+0-9\s\-().]{7,20}$/.test(trimmed)) {
+    return { isValid: false, normalized: '', error: 'Phone number contains invalid characters.' };
+  }
+
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) {
+    return { isValid: false, normalized: '', error: 'Phone number must have between 7 and 15 digits.' };
+  }
+
+  // Cambodian phone numbers: starts with 855 or domestic 0
+  if (digits.startsWith('855')) {
+    const national = digits.substring(3).replace(/^0+/, '');
+    if (national.length >= 7 && national.length <= 9) {
+      return { isValid: true, normalized: `0${national}` };
+    }
+  } else if (digits.startsWith('0')) {
+    const national = digits.replace(/^0+/, '');
+    if (national.length >= 7 && national.length <= 9) {
+      return { isValid: true, normalized: `0${national}` };
+    }
+  } else if (digits.length >= 7 && digits.length <= 9 && !digits.startsWith('1')) {
+    return { isValid: true, normalized: `0${digits}` };
+  }
+
+  // North American numbers
+  if (digits.startsWith('1') && digits.length === 11) {
+    return { isValid: true, normalized: `+1${digits.substring(1)}` };
+  }
+
+  // International format with leading +
+  if (trimmed.startsWith('+')) {
+    return { isValid: true, normalized: `+${digits}` };
+  }
+
+  return { isValid: true, normalized: trimmed };
+}
 
 export const UserManagement: React.FC = () => {
   const { users, currentUser, addUser, updateUser, updateUserRole, updateUserStatus, deleteUser, adminResetUserPassword } = useAuth();
@@ -61,6 +108,8 @@ export const UserManagement: React.FC = () => {
   });
   const [resetPassError, setResetPassError] = useState('');
 
+  const [showInitialPassword, setShowInitialPassword] = useState(false);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -68,6 +117,7 @@ export const UserManagement: React.FC = () => {
 
   const handleOpenAddModal = () => {
     setEditingUser(null);
+    setShowInitialPassword(false);
     setFormData({
       name: '',
       email: '',
@@ -84,6 +134,7 @@ export const UserManagement: React.FC = () => {
 
   const handleOpenEditModal = (user: User) => {
     setEditingUser(user);
+    setShowInitialPassword(false);
     setFormData({
       name: user.name,
       email: user.email,
@@ -98,65 +149,120 @@ export const UserManagement: React.FC = () => {
     setIsAddUserModalOpen(true);
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleOpenResetPassModal = (user: User) => {
     setUserToResetPass(user);
     setResetPassData({ newPassword: '', confirmPassword: '' });
     setResetPassError('');
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
-    if (!formData.name.trim() || !formData.email.trim()) {
-      setFormError('Name and Email address are required.');
+    const cleanName = formData.name.trim();
+    const cleanEmail = formData.email.trim().toLowerCase();
+
+    if (!cleanName) {
+      setFormError('Full Name is required.');
       return;
     }
 
-    if (!editingUser) {
-      if (!formData.password.trim()) {
-        setFormError('Initial password is required for new accounts.');
+    if (cleanName.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanName)) {
+      setFormError('Full Name must be a person\'s name, not an email address.');
+      return;
+    }
+
+    if (cleanName.length < 2) {
+      setFormError('Full Name must be at least 2 characters long.');
+      return;
+    }
+
+    if (!cleanEmail) {
+      setFormError('Email address is required.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setFormError('Please enter a valid email address (e.g. user@gmail.com).');
+      return;
+    }
+
+    // Phone validation & normalization
+    let normalizedPhone = formData.phone.trim();
+    if (normalizedPhone) {
+      const phoneCheck = validateAndNormalizePhone(normalizedPhone);
+      if (!phoneCheck.isValid) {
+        setFormError(phoneCheck.error || 'Please enter a valid phone number (e.g. 086401600, 0971234567, or +85586401600).');
         return;
       }
-      const res = addUser({
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        password: formData.password.trim(),
+      normalizedPhone = phoneCheck.normalized;
+    }
+
+    let cleanHandle = formData.telegramHandle.trim();
+    if (cleanHandle && !cleanHandle.startsWith('@')) {
+      cleanHandle = `@${cleanHandle}`;
+    }
+
+    setIsSubmitting(true);
+
+    if (!editingUser) {
+      if (!formData.password) {
+        setFormError('Initial password is required for new accounts.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        setFormError('Initial password must be at least 6 characters long.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const res = await addUser({
+        name: cleanName,
+        email: cleanEmail,
+        password: formData.password,
         role: formData.role,
-        phone: formData.phone.trim(),
-        telegramHandle: formData.telegramHandle.trim(),
+        phone: normalizedPhone,
+        telegramHandle: cleanHandle,
         department: formData.department.trim(),
         status: formData.status,
       });
+
+      setIsSubmitting(false);
 
       if (!res.success) {
         setFormError(res.error || 'Failed to create user account.');
         return;
       }
-      showToast(`User account for ${formData.name} created successfully!`);
+      showToast(`User account for ${cleanName} created successfully in database!`);
     } else {
       const updates: Partial<User> = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
+        name: cleanName,
+        email: cleanEmail,
         role: formData.role,
-        phone: formData.phone.trim(),
-        telegramHandle: formData.telegramHandle.trim(),
+        phone: normalizedPhone,
+        telegramHandle: cleanHandle,
         department: formData.department.trim(),
         status: formData.status,
       };
 
-      const res = updateUser(editingUser.id, updates);
+      const res = await updateUser(editingUser.id, updates);
+      setIsSubmitting(false);
+
       if (!res.success) {
         setFormError(res.error || 'Failed to update user account.');
         return;
       }
-      showToast(`Account details for ${formData.name} updated successfully!`);
+      showToast(`Account details for ${cleanName} updated successfully!`);
     }
 
     setIsAddUserModalOpen(false);
   };
 
-  const handleAdminResetPasswordSubmit = (e: React.FormEvent) => {
+  const handleAdminResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetPassError('');
 
@@ -172,7 +278,10 @@ export const UserManagement: React.FC = () => {
       return;
     }
 
-    const res = adminResetUserPassword(userToResetPass.id, resetPassData.newPassword);
+    setIsSubmitting(true);
+    const res = await adminResetUserPassword(userToResetPass.id, resetPassData.newPassword);
+    setIsSubmitting(false);
+
     if (!res.success) {
       setResetPassError(res.error || 'Failed to reset password.');
       return;
@@ -182,22 +291,34 @@ export const UserManagement: React.FC = () => {
     setUserToResetPass(null);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (userToDelete) {
-      deleteUser(userToDelete.id);
-      showToast(`User account ${userToDelete.name} deleted.`);
+      setIsSubmitting(true);
+      const res = await deleteUser(userToDelete.id);
+      setIsSubmitting(false);
+      if (res && res.error) {
+        showToast(res.error);
+      } else {
+        showToast(`User account ${userToDelete.name} deleted.`);
+      }
       setUserToDelete(null);
     }
   };
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = async () => {
     if (userToConfirmStatus) {
-      updateUserStatus(userToConfirmStatus.user.id, userToConfirmStatus.targetStatus);
-      showToast(
-        userToConfirmStatus.targetStatus === 'deactivated'
-          ? `Deactivated account for ${userToConfirmStatus.user.name}`
-          : `Reactivated account for ${userToConfirmStatus.user.name}`
-      );
+      setIsSubmitting(true);
+      const res = await updateUserStatus(userToConfirmStatus.user.id, userToConfirmStatus.targetStatus);
+      setIsSubmitting(false);
+      if (res && res.error) {
+        showToast(res.error);
+      } else {
+        showToast(
+          userToConfirmStatus.targetStatus === 'deactivated'
+            ? `Deactivated account for ${userToConfirmStatus.user.name}`
+            : `Reactivated account for ${userToConfirmStatus.user.name}`
+        );
+      }
       setUserToConfirmStatus(null);
     }
   };
@@ -342,7 +463,7 @@ export const UserManagement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredUsers.map((user) => {
-                const isProtected = user.id === 'usr-1' || user.email.toLowerCase() === 'owner@apexgarage.com' || (currentUser && currentUser.id === user.id);
+                const isProtected = user.id === 'usr-1' || user.email.toLowerCase() === 'owner@gmail.com' || user.email.toLowerCase() === 'apexgarage.owner@gmail.com' || (currentUser && currentUser.id === user.id);
 
                 return (
                   <tr key={user.id} className="hover:bg-slate-50 transition">
@@ -526,7 +647,7 @@ export const UserManagement: React.FC = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="name@apexgarage.com"
+                    placeholder="user@gmail.com"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                     required
                   />
@@ -538,15 +659,26 @@ export const UserManagement: React.FC = () => {
                     <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
                       Initial Password
                     </label>
-                    <input
-                      id="user-modal-pass-input"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="••••••••••••"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        id="user-modal-pass-input"
+                        type={showInitialPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="••••••••••••"
+                        className="w-full px-3 py-2 pr-10 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowInitialPassword(!showInitialPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                        title={showInitialPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showInitialPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showInitialPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -581,7 +713,7 @@ export const UserManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
                     Account Status
                   </label>
-                  {editingUser && (editingUser.id === 'usr-1' || editingUser.email.toLowerCase() === 'owner@apexgarage.com' || editingUser.id === currentUser?.id) ? (
+                  {editingUser && (editingUser.id === 'usr-1' || editingUser.email.toLowerCase() === 'owner@gmail.com' || editingUser.email.toLowerCase() === 'apexgarage.owner@gmail.com' || editingUser.id === currentUser?.id) ? (
                     <div>
                       <input
                         type="text"
@@ -619,23 +751,29 @@ export const UserManagement: React.FC = () => {
                     type="text"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="e.g. 086401600 or +85586401600"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Supports 086401600, 0123456789, +855...
+                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-                    Telegram Handle
+                    Telegram Handle (Optional)
                   </label>
                   <input
                     id="user-modal-telegram-input"
                     type="text"
                     value={formData.telegramHandle}
                     onChange={(e) => setFormData({ ...formData, telegramHandle: e.target.value })}
-                    placeholder="@handle"
+                    placeholder="@handle (optional)"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-hidden"
                   />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    User can connect Telegram later via bot.
+                  </span>
                 </div>
               </div>
 
@@ -651,9 +789,17 @@ export const UserManagement: React.FC = () => {
                 <button
                   id="submit-user-modal-btn"
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-semibold text-white bg-[#FF6B00] hover:bg-[#E56000] rounded-xl shadow-xs transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {editingUser ? 'Save Updates' : 'Provision Account'}
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>{editingUser ? 'Saving...' : 'Provisioning...'}</span>
+                    </>
+                  ) : (
+                    <span>{editingUser ? 'Save Updates' : 'Provision Account'}</span>
+                  )}
                 </button>
               </div>
             </form>

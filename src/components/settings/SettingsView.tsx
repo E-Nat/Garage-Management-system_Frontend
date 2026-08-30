@@ -1843,7 +1843,7 @@ export const SettingsView: React.FC = () => {
                         {promoTargetType === 'item' &&
                           inventory.map((inv) => (
                             <option key={inv.id} value={inv.id}>
-                              {inv.name} {inv.sku ? `(${inv.sku})` : ''} - ${inv.sellingPrice.toFixed(2)}
+                              {inv.name} {inv.sku ? `(${inv.sku})` : ''} - ${(inv.sellingPrice ?? inv.unitPrice ?? 0).toFixed(2)}
                             </option>
                           ))}
 

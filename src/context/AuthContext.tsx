@@ -1,25 +1,44 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, UserRole, UserStatus, AuditLog, RolePermissionsMap, ModulePermissionId } from '../types';
 import { INITIAL_USERS } from '../data/mockUsers';
 import { DEFAULT_ROLE_PERMISSIONS, INITIAL_AUDIT_LOGS } from '../data/mockData';
+import api, {
+  getUsers,
+  createUser as createUserApi,
+  updateUser as updateUserApi,
+  updateUserStatus as updateUserStatusApi,
+  resetUserPassword as resetUserPasswordApi,
+  deleteUser as deleteUserApi,
+} from '../services/api';
+
+const ROLE_TO_ID_MAP: Record<UserRole, number> = {
+  admin: 1,
+  owner: 1,
+  advisor: 2,
+  staff: 2,
+  mechanic: 3,
+  parts_manager: 4,
+  customer: 5,
+};
 
 interface AuthContextType {
   currentUser: User | null;
   users: User[];
   auditLogs: AuditLog[];
   loginError: string | null;
-  login: (email: string, pass: string) => { success: boolean; error?: string };
+  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   quickSwitchRole: (role: UserRole) => void;
   refreshCurrentUserPermissions: () => void;
-  addUser: (userData: Omit<User, 'id' | 'createdAt'>) => { success: boolean; error?: string };
-  updateUser: (userId: string, updates: Partial<User>) => { success: boolean; error?: string };
+  fetchUsers: () => Promise<void>;
+  addUser: (userData: Omit<User, 'id' | 'createdAt'>) => Promise<{ success: boolean; error?: string; user?: User }>;
+  updateUser: (userId: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   updateUserRole: (userId: string, role: UserRole) => void;
-  updateUserStatus: (userId: string, status: UserStatus) => void;
-  deleteUser: (userId: string) => void;
+  updateUserStatus: (userId: string, status: UserStatus) => Promise<{ success: boolean; error?: string }>;
+  deleteUser: (userId: string) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (userId: string, updates: Partial<User>) => void;
   changeOwnPassword: (currentPass: string, newPass: string, confirmPass: string) => { success: boolean; error?: string };
-  adminResetUserPassword: (targetUserId: string, newPass: string) => { success: boolean; error?: string };
+  adminResetUserPassword: (targetUserId: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
   clearLoginError: () => void;
   addAuditLog: (
     action: string,
@@ -32,6 +51,7 @@ interface AuthContextType {
   ) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  navigate: (path: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -72,7 +92,50 @@ const hydrateUserPermissions = (user: User): User => ({
 
 const passwordMeetsRequirements = (value: string): boolean => {
   if (!value || value.length < 6) return false;
-  return /[A-Za-z]/.test(value) && /\d/.test(value);
+  return true;
+};
+
+const mapBackendUserToUser = (backendUser: any): User => {
+  const roleSlug = (backendUser.role?.slug || backendUser.role || 'advisor') as UserRole;
+  return hydrateUserPermissions({
+    id: String(backendUser.id),
+    name: backendUser.name || 'User',
+    email: backendUser.email || '',
+    role: roleSlug,
+    status: (backendUser.status || 'active') as UserStatus,
+    phone: backendUser.phone || '',
+    telegramHandle: backendUser.telegram_handle || '',
+    department: backendUser.department || '',
+    avatarUrl: backendUser.avatar_url,
+    lastLoginAt: backendUser.last_login_at,
+    createdAt: backendUser.created_at || new Date().toISOString(),
+  });
+};
+
+const tabToPathMap: Record<string, string> = {
+  dashboard: '/dashboard',
+  customers: '/customers',
+  vehicles: '/vehicles',
+  jobs: '/jobs',
+  repairs: '/jobs',
+  items: '/items',
+  stock: '/stock',
+  invoices: '/invoices',
+  reports: '/reports',
+  settings: '/settings',
+};
+
+const pathToTabMap: Record<string, string> = {
+  '/dashboard': 'dashboard',
+  '/customers': 'customers',
+  '/vehicles': 'vehicles',
+  '/jobs': 'jobs',
+  '/repairs': 'jobs',
+  '/items': 'items',
+  '/stock': 'stock',
+  '/invoices': 'invoices',
+  '/reports': 'reports',
+  '/settings': 'settings',
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -87,29 +150,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     return loadedUsers.map((u) => {
-      if (u.id === 'usr-1' || u.email.toLowerCase() === 'owner@apexgarage.com') {
+      if (u.id === 'usr-1' || u.email.toLowerCase() === 'owner@gmail.com' || u.email.toLowerCase() === 'apexgarage.owner@gmail.com') {
         return hydrateUserPermissions({ ...u, status: 'active', role: 'admin' });
       }
       return hydrateUserPermissions(u);
     });
   });
 
+  // Default to null so /login is shown first when application starts unauthenticated
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
     if (savedUser) {
       try {
         const parsed: User = JSON.parse(savedUser);
-        if (parsed.id === 'usr-1' || parsed.email.toLowerCase() === 'owner@apexgarage.com') {
+        if (parsed.id === 'usr-1' || parsed.email?.toLowerCase() === 'owner@gmail.com' || parsed.email?.toLowerCase() === 'apexgarage.owner@gmail.com') {
           return hydrateUserPermissions({ ...parsed, status: 'active', role: 'admin' });
         }
-        if (parsed.status === 'active') {
+        if (parsed && parsed.status === 'active') {
           return hydrateUserPermissions(parsed);
         }
       } catch (e) {
         console.error('Failed to parse saved current user', e);
       }
     }
-    return hydrateUserPermissions(INITIAL_USERS[0]);
+    return null;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
@@ -125,7 +189,133 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+  // Initialize active tab from current URL pathname if authenticated
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+    return pathToTabMap[pathname] || 'dashboard';
+  });
+
+  // Safe navigation helper
+  const navigate = useCallback((path: string, replace = false) => {
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    const targetPath = path.replace(/\/$/, '') || '/';
+
+    if (currentPath !== targetPath) {
+      if (replace) {
+        window.history.replaceState(null, '', targetPath);
+      } else {
+        window.history.pushState(null, '', targetPath);
+      }
+    }
+
+    const matchedTab = pathToTabMap[targetPath];
+    if (matchedTab) {
+      setActiveTabState(matchedTab);
+    }
+  }, []);
+
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab);
+    const targetPath = tabToPathMap[tab] || `/${tab}`;
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    if (currentPath !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  }, []);
+
+  // Fetch real users from Laravel API
+  const fetchUsers = useCallback(async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const res = await getUsers();
+      if (res && res.data && Array.isArray(res.data)) {
+        const mappedUsers = res.data.map(mapBackendUserToUser);
+        setUsers(mappedUsers);
+      }
+    } catch (err) {
+      console.warn('Could not fetch users list from backend API:', err);
+    }
+  }, []);
+
+  // Sync routing state on mount and on popstate (browser Back/Forward)
+  useEffect(() => {
+    const handleRouteSync = () => {
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+
+      if (!currentUser) {
+        // Unauthenticated: redirect any non-login route to /login
+        if (currentPath !== '/login') {
+          window.history.replaceState(null, '', '/login');
+        }
+      } else {
+        // Authenticated: redirect /login or / to /dashboard
+        if (currentPath === '/login' || currentPath === '' || currentPath === '/') {
+          window.history.replaceState(null, '', '/dashboard');
+          setActiveTabState('dashboard');
+        } else {
+          const tab = pathToTabMap[currentPath];
+          if (tab) {
+            setActiveTabState(tab);
+          }
+        }
+      }
+    };
+
+    // Run initial route sync
+    handleRouteSync();
+
+    window.addEventListener('popstate', handleRouteSync);
+    return () => window.removeEventListener('popstate', handleRouteSync);
+  }, [currentUser]);
+
+  // Session verification on app initialization if token exists
+  useEffect(() => {
+    const verifySession = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        try {
+          const res = await api.get('/api/auth/me');
+          if (res.data && res.data.success && res.data.data) {
+            const backendUser = res.data.data;
+            const updatedUser = mapBackendUserToUser(backendUser);
+            setCurrentUser(updatedUser);
+            localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(updatedUser));
+
+            // Fetch latest user list if admin
+            if (updatedUser.role === 'admin' || updatedUser.role === 'owner') {
+              fetchUsers();
+            }
+          }
+        } catch (err: any) {
+          // If token was revoked/expired on backend (401), clear and redirect to login
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+            setCurrentUser(null);
+            setLoginError('Your session has expired. Please sign in again.');
+            navigate('/login', true);
+          }
+        }
+      }
+    };
+
+    verifySession();
+  }, [fetchUsers, navigate]);
+
+  // Global handler for token expiration dispatched from axios interceptors
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setCurrentUser(null);
+      setLoginError('Your session has expired. Please sign in again.');
+      navigate('/login', true);
+    };
+
+    window.addEventListener('garage-session-expired', handleSessionExpired);
+    return () => window.removeEventListener('garage-session-expired', handleSessionExpired);
+  }, [navigate]);
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_USERS_LIST_KEY, JSON.stringify(users));
@@ -196,72 +386,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
-  const login = (email: string, pass: string): { success: boolean; error?: string } => {
+  const login = async (emailInput: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     setLoginError(null);
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = emailInput.trim().toLowerCase();
 
-    if (!cleanEmail || !pass) {
-      const err = 'Please enter both email and password.';
+    if (!cleanEmail) {
+      const err = 'Please enter your email address.';
       setLoginError(err);
       return { success: false, error: err };
     }
 
-    const foundUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
-
-    if (!foundUser) {
-      const err = 'Invalid email address or password. Please check your credentials.';
+    if (!pass) {
+      const err = 'Please enter your password.';
       setLoginError(err);
       return { success: false, error: err };
     }
 
-    if (foundUser.password !== pass) {
-      const err = 'Incorrect password. Access denied.';
-      setLoginError(err);
-      return { success: false, error: err };
+    // 1. Post credentials to Laravel backend API: POST /api/auth/login
+    try {
+      const response = await api.post('/api/auth/login', {
+        email: cleanEmail,
+        password: pass,
+      });
+
+      if (response.data && response.data.success) {
+        const token = response.data.token;
+        if (token) {
+          localStorage.setItem('auth_token', token);
+        }
+
+        const backendUser = response.data.data || response.data.user;
+        const mappedUser = mapBackendUserToUser(backendUser);
+
+        setCurrentUser(mappedUser);
+        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(mappedUser));
+        setActiveTabState('dashboard');
+        navigate('/dashboard');
+
+        addAuditLog('User Login', 'User', mappedUser.id, `Authenticated via API as ${mappedUser.role}`, undefined, undefined, mappedUser.name);
+
+        // Load users from backend if admin
+        if (mappedUser.role === 'admin' || mappedUser.role === 'owner') {
+          fetchUsers();
+        }
+
+        return { success: true };
+      }
+    } catch (apiError: any) {
+      // Handle 401, 403, 422, or server errors from Laravel backend
+      if (apiError.response && apiError.response.data) {
+        const errorData = apiError.response.data;
+        let errorMessage = errorData.message;
+
+        if (errorData.errors && typeof errorData.errors === 'object') {
+          const firstKey = Object.keys(errorData.errors)[0];
+          if (firstKey && Array.isArray(errorData.errors[firstKey])) {
+            errorMessage = errorData.errors[firstKey][0];
+          }
+        }
+
+        if (apiError.response.status === 422 || apiError.response.status === 401) {
+          const finalMsg = errorMessage || 'Invalid email or password.';
+          setLoginError(finalMsg);
+          return { success: false, error: finalMsg };
+        }
+
+        if (apiError.response.status === 403) {
+          const finalMsg = errorMessage || 'This account is currently inactive. Please contact the administrator.';
+          setLoginError(finalMsg);
+          return { success: false, error: finalMsg };
+        }
+
+        const finalMsg = errorMessage || 'Invalid email or password.';
+        setLoginError(finalMsg);
+        return { success: false, error: finalMsg };
+      }
+
+      // If backend network error / unavailable:
+      const networkMsg = 'Unable to connect to the server. Please try again.';
+      setLoginError(networkMsg);
+      return { success: false, error: networkMsg };
     }
 
-    if (foundUser.status === 'deactivated') {
-      const err = 'Your account has been deactivated by the Garage Owner. Access denied.';
-      setLoginError(err);
-      return { success: false, error: err };
-    }
-
-    if (foundUser.status === 'suspended') {
-      const err = 'Your account has been suspended by the Garage Administrator. Please contact management.';
-      setLoginError(err);
-      return { success: false, error: err };
-    }
-
-    if (foundUser.status === 'inactive') {
-      const err = 'Account is currently inactive. Contact system administrator for activation.';
-      setLoginError(err);
-      return { success: false, error: err };
-    }
-
-    const updatedUser: User = hydrateUserPermissions({
-      ...foundUser,
-      lastLoginAt: new Date().toISOString(),
-    });
-
-    setCurrentUser(updatedUser);
-    setActiveTab('dashboard');
-
-    setUsers((prev) =>
-      prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
-    );
-
-    addAuditLog('User Login', 'User', updatedUser.id, `Logged in as ${updatedUser.role}`, undefined, undefined, updatedUser.name);
-
-    return { success: true };
+    const genericErr = 'Invalid email or password.';
+    setLoginError(genericErr);
+    return { success: false, error: genericErr };
   };
 
   const logout = () => {
     if (currentUser) {
       addAuditLog('User Logout', 'User', currentUser.id, 'Logged out of garage portal');
     }
+
+    // Gracefully notify Laravel backend if token exists
+    try {
+      api.post('/api/auth/logout').catch(() => {});
+    } catch (_) {}
+
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
     setCurrentUser(null);
     setLoginError(null);
-    setActiveTab('dashboard');
+    setActiveTabState('dashboard');
+    navigate('/login', true);
   };
 
   const refreshCurrentUserPermissions = () => {
@@ -277,197 +504,195 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (roleUser) {
       const hydratedUser = hydrateUserPermissions(roleUser);
       setCurrentUser(hydratedUser);
-      setActiveTab('dashboard');
+      setActiveTabState('dashboard');
+      navigate('/dashboard');
       addAuditLog('Role Switch', 'User', hydratedUser.id, `Switched context to ${role} role`, undefined, undefined, hydratedUser.name);
     }
   };
 
-  const addUser = (userData: Omit<User, 'id' | 'createdAt'>): { success: boolean; error?: string } => {
-    const email = userData.email?.trim();
+  const addUser = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<{ success: boolean; error?: string; user?: User }> => {
+    const email = userData.email?.trim().toLowerCase();
     const password = userData.password?.trim() ?? '';
 
     if (!email) {
       return { success: false, error: 'Email address is required.' };
     }
 
-    const exists = users.some((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (exists) {
-      return { success: false, error: 'A user account with this email/username already exists. Duplicate credentials rejected.' };
+    if (!password) {
+      return { success: false, error: 'Initial password is required.' };
     }
 
     if (!passwordMeetsRequirements(password)) {
       return {
         success: false,
-        error: 'Initial password must be at least 6 characters and contain both letters and numbers.',
+        error: 'Initial password must be at least 6 characters.',
       };
     }
 
-    const newUser: User = {
-      ...userData,
-      email,
-      password,
-      id: `usr-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: userData.status || 'active',
-    };
+    const roleId = ROLE_TO_ID_MAP[userData.role] || 2;
 
-    setUsers((prev) => [newUser, ...prev]);
+    try {
+      const response = await createUserApi({
+        name: userData.name?.trim(),
+        email: email,
+        password: password,
+        role_id: roleId,
+        phone: userData.phone?.trim() || null,
+        telegram_handle: userData.telegramHandle?.trim() || null,
+        department: userData.department?.trim() || null,
+        status: userData.status || 'active',
+      });
 
-    if (currentUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'CREATE_USER', `Created user account for ${newUser.name} (${newUser.role})`);
+      if (response && (response.success || response.data)) {
+        const createdLaravelUser = response.data;
+        const mappedUser = mapBackendUserToUser(createdLaravelUser);
+        setUsers((prev) => [mappedUser, ...prev.filter((u) => u.id !== mappedUser.id)]);
+
+        if (currentUser) {
+          addAuditLog('Create User', 'User', mappedUser.id, `Created user account for ${mappedUser.name} (${mappedUser.role})`);
+        }
+
+        return { success: true, user: mappedUser };
+      }
+      return { success: false, error: response?.message || 'Failed to create user account.' };
+    } catch (err: any) {
+      let errorMessage = 'Failed to create user account.';
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (data.errors && typeof data.errors === 'object') {
+          const firstKey = Object.keys(data.errors)[0];
+          if (firstKey && Array.isArray(data.errors[firstKey])) {
+            errorMessage = data.errors[firstKey][0];
+          }
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+      }
+      return { success: false, error: errorMessage };
     }
-
-    return { success: true };
   };
 
-  const updateUser = (userId: string, updates: Partial<User>): { success: boolean; error?: string } => {
-    if (updates.email) {
-      const cleanEmail = updates.email.trim().toLowerCase();
-      const duplicate = users.some((u) => u.id !== userId && u.email.toLowerCase() === cleanEmail);
-      if (duplicate) {
-        return { success: false, error: 'Another account is already using this email address.' };
+  const updateUser = async (userId: string, updates: Partial<User>): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const payload: Record<string, any> = {};
+      if (updates.name !== undefined) payload.name = updates.name.trim();
+      if (updates.email !== undefined) payload.email = updates.email.trim().toLowerCase();
+      if (updates.role !== undefined) payload.role_id = ROLE_TO_ID_MAP[updates.role] || 2;
+      if (updates.phone !== undefined) payload.phone = updates.phone.trim();
+      if (updates.telegramHandle !== undefined) payload.telegram_handle = updates.telegramHandle.trim();
+      if (updates.department !== undefined) payload.department = updates.department.trim();
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      const response = await updateUserApi(userId, payload);
+      if (response && (response.success || response.data)) {
+        const updated = mapBackendUserToUser(response.data);
+        setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+        if (currentUser && currentUser.id === userId) {
+          setCurrentUser(updated);
+        }
+        addAuditLog('Update User', 'User', userId, `Updated user profile attributes for ID: ${userId}`);
+        return { success: true };
       }
+      return { success: false, error: response?.message || 'Failed to update user account.' };
+    } catch (err: any) {
+      let errorMessage = 'Failed to update user account.';
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (data.errors && typeof data.errors === 'object') {
+          const firstKey = Object.keys(data.errors)[0];
+          if (firstKey && Array.isArray(data.errors[firstKey])) {
+            errorMessage = data.errors[firstKey][0];
+          }
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+      }
+      return { success: false, error: errorMessage };
     }
-
-    const targetUser = users.find((u) => u.id === userId);
-    // Prevent setting self or owner status to non-active via edit modal
-    if (
-      (userId === 'usr-1' || targetUser?.email.toLowerCase() === 'owner@apexgarage.com' || (currentUser && currentUser.id === userId)) &&
-      updates.status &&
-      updates.status !== 'active'
-    ) {
-      updates.status = 'active';
-    }
-
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
-    );
-
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser((prev) => (prev ? { ...prev, ...updates } : null));
-    }
-
-    const updatedTarget = users.find((u) => u.id === userId);
-    if (currentUser && updatedTarget) {
-      addAuditLog(
-        currentUser.id,
-        currentUser.name,
-        'UPDATE_USER_ACCOUNT',
-        `Updated account profile/role for ${updatedTarget.name} without altering history.`
-      );
-    }
-
-    return { success: true };
   };
 
   const updateUserRole = (userId: string, newRole: UserRole) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? hydrateUserPermissions({ ...u, role: newRole }) : hydrateUserPermissions(u)))
-    );
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser((prev) => (prev ? hydrateUserPermissions({ ...prev, role: newRole }) : null));
+    if (userId === 'usr-1' && newRole !== 'admin') {
+      return;
     }
-    if (currentUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'UPDATE_USER_ROLE', `Updated role for user ${userId} to ${newRole}`);
-    }
+    updateUser(userId, { role: newRole });
   };
 
-  const updateUserStatus = (userId: string, newStatus: UserStatus) => {
+  const updateUserStatus = async (userId: string, newStatus: UserStatus): Promise<{ success: boolean; error?: string }> => {
     const targetUser = users.find((u) => u.id === userId);
 
     // Safeguard: Prevent self-deactivation or deactivation of primary Garage Owner
     const isSelf = currentUser?.id === userId;
-    const isPrimaryOwner = userId === 'usr-1' || targetUser?.email.toLowerCase() === 'owner@apexgarage.com';
+    const isPrimaryOwner = userId === 'usr-1' || targetUser?.email.toLowerCase() === 'owner@gmail.com' || targetUser?.email.toLowerCase() === 'apexgarage.owner@gmail.com';
 
     if ((isSelf || isPrimaryOwner) && newStatus !== 'active') {
       if (currentUser) {
         addAuditLog(
-          currentUser.id,
-          currentUser.name,
-          'SECURITY_PREVENTION',
+          'Security Prevention',
+          'User',
+          userId,
           `Blocked attempt to deactivate active administrator session for ${targetUser?.name || userId}.`
         );
       }
-      return;
+      return { success: false, error: 'Cannot deactivate primary administrator account.' };
     }
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, status: newStatus } : u))
-    );
-    if (currentUser && currentUser.id === userId && (newStatus === 'suspended' || newStatus === 'inactive' || newStatus === 'deactivated')) {
-      logout();
-    }
-    if (currentUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'UPDATE_USER_STATUS', `Set user status for ${userId} to ${newStatus}`);
+    try {
+      const response = await updateUserStatusApi(userId, newStatus);
+      if (response && (response.success || response.data)) {
+        const updated = mapBackendUserToUser(response.data);
+        setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+        if (currentUser && currentUser.id === userId) {
+          setCurrentUser(updated);
+        }
+        addAuditLog('Status Change', 'User', userId, `Changed user status to ${newStatus}`);
+        return { success: true };
+      }
+      return { success: false, error: response?.message || 'Failed to update user status.' };
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || 'Failed to update user status.';
+      return { success: false, error: errorMsg };
     }
   };
 
-  const deleteUser = (userId: string) => {
-    const targetUser = users.find((u) => u.id === userId);
+  const deleteUser = async (userId: string): Promise<{ success: boolean; error?: string }> => {
+    if (userId === 'usr-1') return { success: false, error: 'Cannot delete primary administrator account.' };
 
-    // Safeguard: Prevent deletion of primary Garage Owner or currently logged-in account
-    const isSelf = currentUser?.id === userId;
-    const isPrimaryOwner = userId === 'usr-1' || targetUser?.email.toLowerCase() === 'owner@apexgarage.com';
-
-    if (isSelf || isPrimaryOwner) {
-      if (currentUser) {
-        addAuditLog(
-          currentUser.id,
-          currentUser.name,
-          'SECURITY_PREVENTION',
-          `Blocked attempt to delete primary active administrator account ${targetUser?.name || userId}.`
-        );
+    try {
+      const response = await deleteUserApi(userId);
+      if (response && response.success) {
+        setUsers((prev) => prev.filter((u) => u.id !== userId));
+        addAuditLog('Delete User', 'User', userId, `Deleted user account ID: ${userId}`);
+        return { success: true };
       }
-      return;
-    }
-
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
-    if (currentUser && currentUser.id === userId) {
-      logout();
-    }
-    if (currentUser && targetUser) {
-      addAuditLog(currentUser.id, currentUser.name, 'DELETE_USER', `Removed user ${targetUser.name}`);
+      return { success: false, error: response?.message || 'Failed to delete user account.' };
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || 'Failed to delete user account.';
+      return { success: false, error: errorMsg };
     }
   };
 
   const updateProfile = (userId: string, updates: Partial<User>) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
-    );
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser((prev) => (prev ? { ...prev, ...updates } : null));
-    }
+    updateUser(userId, updates);
   };
 
   const changeOwnPassword = (currentPass: string, newPass: string, confirmPass: string): { success: boolean; error?: string } => {
-    if (!currentUser) {
-      return { success: false, error: 'No active session found.' };
-    }
-
-    if (!currentPass) {
-      return { success: false, error: 'Current password is required.' };
-    }
-
-    if (currentUser.password !== currentPass) {
-      return { success: false, error: 'Current password does not match.' };
-    }
-
+    if (!currentUser) return { success: false, error: 'No active session.' };
     if (!passwordMeetsRequirements(newPass)) {
-      return { success: false, error: 'New password must be at least 6 characters and include both letters and numbers.' };
+      return { success: false, error: 'New password must be at least 6 characters.' };
     }
-
     if (newPass !== confirmPass) {
-      return { success: false, error: 'New password and confirmation do not match.' };
+      return { success: false, error: 'New passwords do not match.' };
     }
 
-    // Update password
-    updateProfile(currentUser.id, { password: newPass });
-    addAuditLog(currentUser.id, currentUser.name, 'SELF_CHANGE_PASSWORD', 'Successfully changed account password.');
-
+    const updated = { ...currentUser, password: newPass };
+    setCurrentUser(updated);
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    addAuditLog('Password Changed', 'User', currentUser.id, 'User updated their personal account password');
     return { success: true };
   };
 
-  const adminResetUserPassword = (targetUserId: string, newPass: string): { success: boolean; error?: string } => {
+  const adminResetUserPassword = async (targetUserId: string, newPass: string): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'owner')) {
       return { success: false, error: 'Only Garage Owner/Admin can reset user passwords.' };
     }
@@ -478,26 +703,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!passwordMeetsRequirements(newPass)) {
-      return { success: false, error: 'Password must be at least 6 characters and include both letters and numbers.' };
+      return { success: false, error: 'Password must be at least 6 characters.' };
     }
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === targetUserId ? { ...u, password: newPass } : u))
-    );
-
-    addAuditLog(
-      currentUser.id,
-      currentUser.name,
-      'ADMIN_RESET_PASSWORD',
-      `Owner reset password for user ${targetUser.name} (${targetUser.email}) without requiring current password.`
-    );
-
-    return { success: true };
+    try {
+      const response = await resetUserPasswordApi(targetUserId, newPass, newPass);
+      if (response && response.success) {
+        addAuditLog('Admin Password Reset', 'User', targetUserId, `Administrator reset password for user ${targetUserId}`);
+        return { success: true };
+      }
+      return { success: false, error: response?.message || 'Failed to reset password.' };
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || 'Failed to reset password.';
+      return { success: false, error: errorMsg };
+    }
   };
 
-  const clearLoginError = () => {
-    setLoginError(null);
-  };
+  const clearLoginError = () => setLoginError(null);
 
   return (
     <AuthContext.Provider
@@ -510,6 +732,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         quickSwitchRole,
         refreshCurrentUserPermissions,
+        fetchUsers,
         addUser,
         updateUser,
         updateUserRole,
@@ -522,6 +745,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addAuditLog,
         activeTab,
         setActiveTab,
+        navigate,
       }}
     >
       {children}

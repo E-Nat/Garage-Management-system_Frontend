@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useGarage } from '../../context/GarageContext';
 import { useAuth } from '../../context/AuthContext';
+import { TelegramStatsCard } from './TelegramStatsCard';
 import {
   Users,
   Car,
@@ -28,7 +29,7 @@ export type DashboardDateFilterPreset =
 
 export const OperationalDashboardWidgets: React.FC = () => {
   const { customers, vehicles, repairJobs, invoices, inventory } = useGarage();
-  const { setActiveTab } = useAuth();
+  const { setActiveTab, currentUser } = useAuth();
 
   // Unified Dashboard Date Filter State
   const [dateFilter, setDateFilter] =
@@ -501,6 +502,11 @@ export const OperationalDashboardWidgets: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Telegram Customer Connections Statistics (Owner / Admin Exclusive) */}
+      {(currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
+        <TelegramStatsCard />
+      )}
 
       {/* =====================================================
           JOB STATUS BREAKDOWN

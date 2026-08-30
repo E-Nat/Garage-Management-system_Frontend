@@ -15,7 +15,8 @@ import {
   LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserRole } from '../../types';
+import { getRoleDisplayName } from '../../utils/roleUtils';
+import { DEFAULT_ROLE_PERMISSIONS } from '../../data/mockData';
 import logoImg from '../../assets/images/logo.png';
 
 interface NavConfig {
@@ -30,7 +31,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseMobile }) => {
-  const { currentUser, activeTab, setActiveTab, quickSwitchRole, logout } = useAuth();
+  const { currentUser, activeTab, setActiveTab, logout } = useAuth();
   const { systemSettings, rolePermissions } = useGarage();
 
   const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
@@ -53,8 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       settings: 'settings',
     };
     const permission = permissionMap[tabId];
-    const permissions = currentUser.permissions ?? rolePermissions[currentUser.role] ?? [];
-    return permission ? permissions.includes(permission) : true;
+    const permissions = currentUser.permissions ?? rolePermissions[currentUser.role] ?? DEFAULT_ROLE_PERMISSIONS[currentUser.role] ?? [];
+    return permission ? permissions.includes(permission) : false;
   };
 
   // Close on Escape key press
@@ -168,37 +169,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
           </div>
         )}
 
-        {/* Mobile Quick Role Switcher */}
-        {isMobileView && (
-          <div className="space-y-1.5">
-            <div className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Switch Role
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-              {(['admin', 'advisor', 'mechanic', 'parts_manager', 'customer'] as UserRole[]).map((roleKey) => {
-                const isCurrent = currentUser.role === roleKey;
-                return (
-                  <button
-                    key={roleKey}
-                    id={`mobile-quick-role-${roleKey}`}
-                    onClick={() => {
-                      quickSwitchRole(roleKey);
-                      if (onCloseMobile) onCloseMobile();
-                    }}
-                    className={`px-2 py-1.5 rounded-lg text-[11px] transition-colors font-medium text-center cursor-pointer ${
-                      isCurrent
-                        ? 'bg-[#FFF1E8] text-[#FF6B00] font-semibold border border-[#FF6B00]/30 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-                    }`}
-                  >
-                    {roleKey === 'parts_manager' ? 'Parts' : roleKey.replace('_', ' ')}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         <div>
           <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Navigation
@@ -233,14 +203,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500 space-y-2 px-2">
         <div className="flex justify-between items-center">
           <span className="text-slate-400">User</span>
-          <span className="text-slate-800 font-medium truncate max-w-[120px]" title={currentUser.email}>
+          <span className="text-slate-800 font-semibold truncate max-w-[120px]" title={currentUser.email}>
             {currentUser.name}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-slate-400">Role</span>
-          <span className="text-[#FF6B00] font-semibold uppercase text-[10px] bg-[#FFF1E8] px-1.5 py-0.5 rounded">
-            {currentUser.role.replace('_', ' ')}
+          <span className="text-[#FF6B00] font-bold uppercase text-[10px] bg-[#FFF1E8] px-2 py-0.5 rounded-md border border-[#FF6B00]/20">
+            {getRoleDisplayName(currentUser.role)}
           </span>
         </div>
         {isMobileView && (
