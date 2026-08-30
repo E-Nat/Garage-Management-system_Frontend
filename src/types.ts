@@ -46,6 +46,13 @@ export interface Customer {
   telegramConnectedAt?: string;
   isDeactivated?: boolean;
   status?: 'active' | 'deactivated';
+  userAccount?: {
+    id: number | string;
+    email: string;
+    name: string;
+    status: 'active' | 'inactive' | 'suspended' | 'deactivated';
+    is_password_protected?: boolean;
+  } | null;
   deletedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
