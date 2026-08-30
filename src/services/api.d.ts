@@ -184,6 +184,7 @@ export declare function updateCustomer(id: number | string, data: Partial<Larave
 export declare function deleteCustomer(id: number | string): Promise<{ success: boolean; data?: LaravelCustomer }>;
 export declare const deactivateCustomerApi: typeof deleteCustomer;
 export declare function restoreCustomer(id: number | string): Promise<{ success: boolean; data?: LaravelCustomer }>;
+export declare function resetCustomerPasswordApi(customerId: number | string, newPassword: string): Promise<{ success: boolean; message?: string }>;
 
 // 2. Vehicles API
 export declare function getVehicles(params?: Record<string, any>): Promise<{ data: LaravelVehicle[] }>;

@@ -579,6 +579,25 @@ export async function restoreCustomer(id) {
 }
 
 /**
+ * Reset password for customer portal account (Owner/Admin only)
+ * @param {number|string} customerId
+ * @param {string} newPassword
+ */
+export async function resetCustomerPasswordApi(customerId, newPassword) {
+  try {
+    const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+    const response = await api.post(`/api/customers/${numericId}/reset-password`, {
+      password: newPassword,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API resetCustomerPassword failed or unauthenticated:', err);
+    throw err;
+  }
+  return Promise.resolve({ success: true, message: 'Password reset successfully.' });
+}
+
+/**
  * Get a single customer by ID
  * @param {number|string} id
  */
