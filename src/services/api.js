@@ -1157,6 +1157,152 @@ export async function getNotificationLogs(params = {}) {
   return response.data;
 }
 
+export async function getNotificationsApi(params = {}) {
+  try {
+    const response = await api.get('/api/notifications', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    // Graceful fallback to persistent storage
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  let list = [];
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        list = parsed.filter(
+          (n) =>
+            n &&
+            n.id !== 'notif-app-1' &&
+            n.id !== 'notif-app-2' &&
+            !(n.type === 'telegram_connected' && n.customerName === 'Alex Sterling' && String(n.id).startsWith('notif-app'))
+        );
+      }
+    } catch {
+      list = [];
+    }
+  }
+  const unreadCount = list.filter((n) => !n.isRead && !n.read_at && !n.readAt && !n.read).length;
+  return Promise.resolve({
+    success: true,
+    message: 'Notifications retrieved.',
+    unread_count: unreadCount,
+    data: list,
+  });
+}
+
+export async function getUnreadNotificationsCountApi() {
+  try {
+    const response = await api.get('/api/notifications/unread-count');
+    if (response.data && typeof response.data.count === 'number') {
+      return response.data;
+    }
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  let count = 0;
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        const list = parsed.filter(
+          (n) =>
+            n &&
+            n.id !== 'notif-app-1' &&
+            n.id !== 'notif-app-2' &&
+            !(n.type === 'telegram_connected' && n.customerName === 'Alex Sterling' && String(n.id).startsWith('notif-app'))
+        );
+        count = list.filter((n) => !n.isRead && !n.read_at && !n.readAt && !n.read).length;
+      }
+    } catch {
+      count = 0;
+    }
+  }
+  return Promise.resolve({ success: true, count });
+}
+
+export async function markNotificationAsReadApi(notificationId) {
+  try {
+    const response = await api.patch(`/api/notifications/${notificationId}/read`);
+    if (response.data) return response.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  if (saved) {
+    try {
+      const list = JSON.parse(saved);
+      const updated = list.map((n) =>
+        String(n.id) === String(notificationId)
+          ? { ...n, isRead: true, is_read: true, read_at: new Date().toISOString(), readAt: new Date().toISOString() }
+          : n
+      );
+      localStorage.setItem('apex_garage_app_notifications', JSON.stringify(updated));
+      const unreadCount = updated.filter((n) => !n.isRead && !n.read_at).length;
+      return Promise.resolve({ success: true, unread_count: unreadCount });
+    } catch {
+      // ignore
+    }
+  }
+  return Promise.resolve({ success: true, unread_count: 0 });
+}
+
+export async function markAllNotificationsAsReadApi() {
+  try {
+    const response = await api.post('/api/notifications/mark-all-read');
+    if (response.data) return response.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  if (saved) {
+    try {
+      const list = JSON.parse(saved);
+      const updated = list.map((n) => ({
+        ...n,
+        isRead: true,
+        is_read: true,
+        read_at: new Date().toISOString(),
+        readAt: new Date().toISOString(),
+      }));
+      localStorage.setItem('apex_garage_app_notifications', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  }
+  return Promise.resolve({ success: true, unread_count: 0 });
+}
+
+export async function deleteNotificationApi(notificationId) {
+  try {
+    const response = await api.delete(`/api/notifications/${notificationId}`);
+    if (response.data) return response.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  if (saved) {
+    try {
+      const list = JSON.parse(saved);
+      const updated = list.filter((n) => String(n.id) !== String(notificationId));
+      localStorage.setItem('apex_garage_app_notifications', JSON.stringify(updated));
+      const unreadCount = updated.filter((n) => !n.isRead && !n.read_at).length;
+      return Promise.resolve({ success: true, unread_count: unreadCount });
+    } catch {
+      // ignore
+    }
+  }
+  return Promise.resolve({ success: true, unread_count: 0 });
+}
+
 /* ==========================================================================
    7. DASHBOARD API (PHASE 8)
    ========================================================================== */

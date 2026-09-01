@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Customer,
   Vehicle,
@@ -31,6 +31,7 @@ import {
   EstimateRevisionHistory,
   NotificationLog,
   EmbeddedRepair,
+  AppNotification,
 } from '../types';
 import {
   INITIAL_CUSTOMERS,
@@ -52,6 +53,7 @@ import {
   INITIAL_ESTIMATE_REVISIONS,
   INITIAL_NOTIFICATION_LOGS,
   INITIAL_REPAIR_STATUS_HISTORY,
+  INITIAL_APP_NOTIFICATIONS,
 } from '../data/mockData';
 import { useAuth } from './AuthContext';
 import {
@@ -60,6 +62,12 @@ import {
   updateCustomer as updateCustomerApi,
   deleteCustomer as deleteCustomerApi,
   restoreCustomer as restoreCustomerApi,
+  getNotificationsApi,
+  getUnreadNotificationsCountApi,
+  markNotificationAsReadApi,
+  markAllNotificationsAsReadApi,
+  linkTelegramCustomer as linkTelegramCustomerApi,
+  unlinkTelegramCustomer as unlinkTelegramCustomerApi,
 } from '../services/api';
 
 function mapBackendCustomerToCustomer(c: any): Customer {
@@ -96,6 +104,27 @@ function mapBackendCustomerToCustomer(c: any): Customer {
   };
 }
 
+function mapBackendNotificationToAppNotification(n: any): AppNotification {
+  const rawCustId = n.customer_id ?? n.customerId ?? n.data?.customer_id ?? n.data?.customerId;
+  return {
+    id: n.id,
+    userId: n.user_id ?? n.userId,
+    type: n.type || 'telegram_connected',
+    title: n.title || 'Telegram Connected',
+    message: n.message || '',
+    customerId: rawCustId ? (typeof rawCustId === 'number' ? `CUST-${rawCustId}` : String(rawCustId)) : undefined,
+    customerName: n.customer_name ?? n.customerName ?? n.data?.customer_name ?? n.data?.customerName ?? undefined,
+    customerPhone: n.customer_phone ?? n.customerPhone ?? n.data?.customer_phone ?? n.data?.customerPhone ?? n.data?.phone ?? undefined,
+    telegramUsername: n.telegram_username ?? n.telegramUsername ?? n.data?.telegram_username ?? n.data?.telegramUsername ?? n.data?.telegram_handle ?? undefined,
+    actionUrl: n.action_url ?? n.actionUrl ?? 'customers',
+    data: n.data || {},
+    readAt: n.read_at ?? n.readAt ?? null,
+    isRead: Boolean(n.is_read ?? n.isRead ?? n.read ?? (n.read_at != null) ?? (n.readAt != null)),
+    createdAt: n.created_at ?? n.createdAt ?? new Date().toISOString(),
+    updatedAt: n.updated_at ?? n.updatedAt ?? undefined,
+  };
+}
+
 interface GarageContextType {
   customers: Customer[];
   vehicles: Vehicle[];
@@ -116,7 +145,20 @@ interface GarageContextType {
   systemSettings: SystemSettings;
   estimateRevisions: EstimateRevisionHistory[];
   notificationLogs: NotificationLog[];
+  appNotifications: AppNotification[];
+  unreadNotificationsCount: number;
+  targetCustomerId: string | null;
   services: GarageService[];
+
+  // Notification Actions
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsRead: (id: string | number) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  createTelegramConnectedNotification: (customer: Customer, handle?: string) => Promise<void>;
+  linkCustomerTelegram: (customerId: string | number, telegramHandle?: string, telegramChatId?: string) => Promise<{ success: boolean; customer?: Customer; error?: string }>;
+  unlinkCustomerTelegram: (customerId: string | number) => Promise<{ success: boolean; customer?: Customer; error?: string }>;
+  setTargetCustomerId: (id: string | null) => void;
+  navigateToCustomer: (customerId: string | number) => void;
 
   // System Settings Actions
   updateGarageInfoSettings: (updates: Partial<GarageInfoSettings>) => void;
@@ -361,10 +403,33 @@ const KEYS = {
   SYSTEM_SETTINGS: 'apex_garage_system_settings',
   ESTIMATE_REVISIONS: 'apex_garage_estimate_revisions',
   NOTIFICATION_LOGS: 'apex_garage_notification_logs',
+  APP_NOTIFICATIONS: 'apex_garage_app_notifications',
 };
 
 export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, users, addAuditLog } = useAuth();
+  const { currentUser, users, addAuditLog, setActiveTab } = useAuth();
+
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>(() => {
+    const saved = localStorage.getItem(KEYS.APP_NOTIFICATIONS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out legacy mock/demo notifications
+          return parsed.filter(
+            (n: any) =>
+              n.id !== 'notif-app-1' &&
+              n.id !== 'notif-app-2' &&
+              !(n.type === 'telegram_connected' && n.customerName === 'Alex Sterling' && String(n.id).startsWith('notif-app'))
+          );
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_APP_NOTIFICATIONS;
+  });
+  const [targetCustomerId, setTargetCustomerId] = useState<string | null>(null);
 
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const saved = localStorage.getItem(KEYS.CUSTOMERS);
@@ -568,6 +633,31 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem(KEYS.NOTIFICATION_LOGS, JSON.stringify(notificationLogs));
   }, [notificationLogs]);
 
+  useEffect(() => {
+    localStorage.setItem(KEYS.APP_NOTIFICATIONS, JSON.stringify(appNotifications));
+  }, [appNotifications]);
+
+  // Role-filtered notifications for RBAC compliance
+  const userNotifications = useMemo(() => {
+    if (!currentUser) return [];
+    if (['admin', 'owner', 'advisor', 'staff'].includes(currentUser.role)) {
+      return appNotifications;
+    }
+    if (currentUser.role === 'customer') {
+      return appNotifications.filter(
+        (n) =>
+          String(n.userId) === String(currentUser.id) ||
+          (n.customerId && String(n.customerId).replace(/\D/g, '') === String(currentUser.id).replace(/\D/g, '')) ||
+          (n.customerPhone && currentUser.phone && n.customerPhone.replace(/\D/g, '') === currentUser.phone.replace(/\D/g, ''))
+      );
+    }
+    return appNotifications.filter((n) => String(n.userId) === String(currentUser.id));
+  }, [appNotifications, currentUser]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return userNotifications.filter((n) => !n.isRead).length;
+  }, [userNotifications]);
+
   const fetchCustomers = useCallback(async () => {
     try {
       const res = await getCustomers({ status: 'all' });
@@ -589,9 +679,216 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  const createTelegramConnectedNotification = useCallback(async (customer: Customer, handle?: string) => {
+    if (!customer || !customer.id) return;
+    const rawHandle = handle || customer.telegramHandle;
+    const cleanHandle = rawHandle ? (rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`) : undefined;
+    const newNotif: AppNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'telegram_connected',
+      title: 'Telegram Connected',
+      message: `${customer.fullName} has connected their Telegram account.`,
+      customerId: customer.id,
+      customerName: customer.fullName,
+      customerPhone: customer.phone,
+      telegramUsername: cleanHandle,
+      actionUrl: 'customers',
+      data: {
+        customerId: customer.id,
+        customerName: customer.fullName,
+        customerPhone: customer.phone,
+        telegramUsername: cleanHandle,
+        route: 'customer_details',
+      },
+      isRead: false,
+      readAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    setAppNotifications((prev) => {
+      // Prevent duplicate notification for the same customer
+      const isDuplicate = prev.some(
+        (n) =>
+          n.type === 'telegram_connected' &&
+          (n.customerId === customer.id || (n.customerPhone && customer.phone && n.customerPhone === customer.phone))
+      );
+      if (isDuplicate) return prev;
+      return [newNotif, ...prev];
+    });
+  }, []);
+
+  const linkCustomerTelegram = useCallback(async (
+    customerId: string | number,
+    telegramHandle?: string,
+    telegramChatId?: string
+  ): Promise<{ success: boolean; customer?: Customer; error?: string }> => {
+    const formattedId = typeof customerId === 'number' ? `CUST-${customerId}` : String(customerId);
+    const cleanHandle = telegramHandle ? (telegramHandle.startsWith('@') ? telegramHandle : `@${telegramHandle}`) : undefined;
+    const cleanChatId = telegramChatId || (cleanHandle ? `tg-${Date.now()}` : undefined);
+
+    let updatedTarget: Customer | undefined;
+    let wasAlreadyLinked = false;
+
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id === formattedId || c.id === String(customerId) || (typeof customerId === 'string' && c.id.replace(/\D/g, '') === customerId.replace(/\D/g, ''))) {
+          wasAlreadyLinked = Boolean(c.telegramLinked && (!cleanHandle || c.telegramHandle === cleanHandle));
+          const updated: Customer = {
+            ...c,
+            telegramLinked: true,
+            telegramConnectedAt: c.telegramConnectedAt || new Date().toISOString(),
+            telegramHandle: cleanHandle || c.telegramHandle,
+            telegramChatId: cleanChatId || c.telegramChatId || `98765${Date.now().toString().slice(-4)}`,
+            has_telegram: true,
+            recovery_methods: Array.from(new Set([...(c.recovery_methods || []), 'telegram'])),
+          };
+          updatedTarget = updated;
+          return updated;
+        }
+        return c;
+      })
+    );
+
+    if (updatedTarget) {
+      if (!wasAlreadyLinked) {
+        await createTelegramConnectedNotification(updatedTarget, cleanHandle);
+      }
+
+      try {
+        const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+        await linkTelegramCustomerApi(numericId, {
+          telegram_chat_id: cleanChatId || (updatedTarget as Customer).telegramChatId,
+          telegram_handle: cleanHandle || (updatedTarget as Customer).telegramHandle,
+        });
+      } catch (err) {
+        console.warn('API linkTelegramCustomer failed (saved locally):', err);
+      }
+
+      addAuditLog(
+        'Telegram Linked',
+        'Telegram',
+        (updatedTarget as Customer).id,
+        `Customer ${(updatedTarget as Customer).fullName} paired with Telegram (${cleanHandle || (updatedTarget as Customer).telegramChatId})`,
+        undefined,
+        cleanHandle
+      );
+
+      return { success: true, customer: updatedTarget };
+    }
+
+    return { success: false, error: 'Customer not found.' };
+  }, [createTelegramConnectedNotification, addAuditLog]);
+
+  const unlinkCustomerTelegram = useCallback(async (
+    customerId: string | number
+  ): Promise<{ success: boolean; customer?: Customer; error?: string }> => {
+    const formattedId = typeof customerId === 'number' ? `CUST-${customerId}` : String(customerId);
+    let targetCustomer: Customer | undefined;
+
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id === formattedId || c.id === String(customerId) || (typeof customerId === 'string' && c.id.replace(/\D/g, '') === customerId.replace(/\D/g, ''))) {
+          const updated: Customer = {
+            ...c,
+            telegramLinked: false,
+            telegramConnectedAt: undefined,
+            telegramHandle: undefined,
+            telegramChatId: undefined,
+            telegramChatIdMasked: undefined,
+            has_telegram: false,
+            recovery_methods: (c.recovery_methods || []).filter((m) => m !== 'telegram'),
+          };
+          targetCustomer = updated;
+          return updated;
+        }
+        return c;
+      })
+    );
+
+    if (targetCustomer) {
+      try {
+        const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+        await unlinkTelegramCustomerApi(numericId);
+      } catch (err) {
+        console.warn('API unlinkTelegramCustomer failed:', err);
+      }
+
+      addAuditLog(
+        'Telegram Unlinked',
+        'Telegram',
+        targetCustomer.id,
+        `Unlinked customer ${targetCustomer.fullName} from Telegram`
+      );
+
+      return { success: true, customer: targetCustomer };
+    }
+
+    return { success: false, error: 'Customer not found.' };
+  }, [addAuditLog]);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await getNotificationsApi({ limit: 30 });
+      if (res && res.data && Array.isArray(res.data)) {
+        const mapped = res.data.map(mapBackendNotificationToAppNotification);
+        setAppNotifications(mapped);
+      }
+    } catch (err) {
+      // Ignore API errors when unauthenticated or offline
+    }
+  }, []);
+
+  const markNotificationAsRead = useCallback(async (id: string | number) => {
+    setAppNotifications((prev) =>
+      prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+    );
+
+    try {
+      await markNotificationAsReadApi(id);
+    } catch (err) {
+      console.warn('Failed to mark notification as read via API:', err);
+    }
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(async () => {
+    setAppNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
+    );
+
+    try {
+      await markAllNotificationsAsReadApi();
+    } catch (err) {
+      console.warn('Failed to mark all notifications as read via API:', err);
+    }
+  }, []);
+
+  const navigateToCustomer = useCallback((customerId: string | number) => {
+    const formattedId = typeof customerId === 'number' ? `CUST-${customerId}` : String(customerId);
+    setTargetCustomerId(formattedId);
+    setActiveTab('customers');
+  }, [setActiveTab]);
+
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 15000);
+
+    const handleFocus = () => {
+      fetchNotifications();
+      fetchCustomers();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchNotifications, fetchCustomers]);
 
   // Customer Management logic
   const deactivateCustomer = async (id: string, actorName?: string): Promise<{ success: boolean; error?: string }> => {
@@ -699,6 +996,9 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setCustomers((prev) => [newCustomer, ...prev]);
+    if (newCustomer.telegramLinked) {
+      createTelegramConnectedNotification(newCustomer, newCustomer.telegramHandle);
+    }
     addAuditLog(
       'Customer Created',
       'Customer',
@@ -729,6 +1029,9 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    const prevCustomer = customers.find((c) => c.id === id);
+    let updatedCustomerObj: Customer | undefined;
+
     setCustomers((prev) =>
       prev.map((c) => {
         if (c.id === id) {
@@ -736,11 +1039,19 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (updates.telegramHandle !== undefined) {
             updated.telegramLinked = Boolean(updates.telegramHandle.trim());
           }
+          if (updates.telegramLinked !== undefined) {
+            updated.telegramLinked = updates.telegramLinked;
+          }
+          updatedCustomerObj = updated;
           return updated;
         }
         return c;
       })
     );
+
+    if (updatedCustomerObj && !prevCustomer?.telegramLinked && updatedCustomerObj.telegramLinked) {
+      createTelegramConnectedNotification(updatedCustomerObj, updatedCustomerObj.telegramHandle);
+    }
 
     addAuditLog(
       'Customer Updated',
@@ -2459,7 +2770,18 @@ linkedRepairJobId?: string;
         systemSettings,
         estimateRevisions,
         notificationLogs,
+        appNotifications: userNotifications,
+        unreadNotificationsCount,
+        targetCustomerId,
         services,
+        fetchNotifications,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        createTelegramConnectedNotification,
+        linkCustomerTelegram,
+        unlinkCustomerTelegram,
+        setTargetCustomerId,
+        navigateToCustomer,
         updateGarageInfoSettings,
         updateInvoiceSettings,
         updateTelegramBotSettings,

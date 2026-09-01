@@ -1,4 +1,4 @@
-import { RepairJob, InventoryItem, AuditLog, Customer, Vehicle, VehicleChangeLog, Invoice, Warranty, RolePermissionsMap, PaymentMethodConfig, DiscountReason, ItemServiceDiscount, DiscountCampaign, PaymentRecord, SystemSettings, EstimateRevisionHistory, NotificationLog, GarageService, RepairStatusHistory } from '../types';
+import { RepairJob, InventoryItem, AuditLog, Customer, Vehicle, VehicleChangeLog, Invoice, Warranty, RolePermissionsMap, PaymentMethodConfig, DiscountReason, ItemServiceDiscount, DiscountCampaign, PaymentRecord, SystemSettings, EstimateRevisionHistory, NotificationLog, GarageService, RepairStatusHistory, AppNotification } from '../types';
 
 export const INITIAL_SERVICES: GarageService[] = [
   { id: 'srv-1', name: 'Oil Change', category: 'Oil & Filter Maintenance', basePrice: 20.00 },
@@ -125,6 +125,8 @@ export const INITIAL_NOTIFICATION_LOGS: NotificationLog[] = [
     deliveryStatus: 'Sent',
   },
 ];
+
+export const INITIAL_APP_NOTIFICATIONS: AppNotification[] = [];
 
 export const INITIAL_REPAIR_STATUS_HISTORY: RepairStatusHistory[] = [
   // Job-101: Porsche 911 (Brake Service) - in_progress

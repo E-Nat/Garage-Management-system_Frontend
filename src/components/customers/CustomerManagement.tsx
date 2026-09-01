@@ -43,6 +43,7 @@ import {
   Mail,
   Trash2,
   Key,
+  MessageSquare,
 } from 'lucide-react';
 import { validateAndNormalizePhone, validatePersonName, sanitizePhoneDigits } from '../../utils/phone';
 import { resetCustomerPasswordApi, requestCustomerPasswordResetApi } from '../../services/api';
@@ -58,6 +59,8 @@ export const CustomerManagement: React.FC = () => {
     fetchCustomers,
     addVehicle,
     updateVehicle,
+    targetCustomerId,
+    setTargetCustomerId,
   } = useGarage();
   const { currentUser, addAuditLog } = useAuth();
 
@@ -72,6 +75,34 @@ export const CustomerManagement: React.FC = () => {
   const [activeView, setActiveView] = useState<'list' | 'customer_details' | 'vehicle_details'>('list');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+
+  // Auto-navigate to specific customer if targetCustomerId was set (e.g. from notification click)
+  useEffect(() => {
+    if (targetCustomerId) {
+      const targetIdStr = String(targetCustomerId).trim();
+      const targetNumeric = targetIdStr.replace(/\D/g, '');
+      const match = customers.find((c) => {
+        if (!c) return false;
+        const cIdStr = String(c.id);
+        const cNumeric = cIdStr.replace(/\D/g, '');
+        return (
+          cIdStr === targetIdStr ||
+          (targetNumeric && cNumeric && cNumeric === targetNumeric) ||
+          (targetNumeric && cIdStr === `CUST-${targetNumeric}`) ||
+          (cIdStr === `CUST-${targetIdStr}`) ||
+          (c.phone && targetNumeric && c.phone.replace(/\D/g, '') === targetNumeric) ||
+          (c.fullName && c.fullName.toLowerCase() === targetIdStr.toLowerCase())
+        );
+      });
+
+      if (match) {
+        setSelectedCustomerId(match.id);
+        setSelectedVehicleId(null);
+        setActiveView('customer_details');
+        setTargetCustomerId(null);
+      }
+    }
+  }, [targetCustomerId, customers, setTargetCustomerId]);
 
   // Status Filter State (Active by default, All, Deactivated)
   const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'deactivated'>('active');

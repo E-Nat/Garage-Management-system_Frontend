@@ -290,5 +290,89 @@ export declare function resetUserPassword(id: number | string, password: string,
 export declare function deleteUser(id: number | string): Promise<{ success: boolean; message?: string }>;
 export declare function getRoles(): Promise<{ success: boolean; data: LaravelRole[] }>;
 
+// 12. In-App Staff Notifications API
+export interface LaravelAppNotification {
+  id: number | string;
+  user_id?: number | string;
+  type: string;
+  title: string;
+  message: string;
+  customer_id?: number | string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  telegram_username?: string | null;
+  action_url?: string | null;
+  data?: Record<string, any>;
+  read_at?: string | null;
+  is_read?: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export declare function getNotificationsApi(params?: Record<string, any>): Promise<{ success: boolean; message?: string; unread_count?: number; data: LaravelAppNotification[]; meta?: any }>;
+export declare function getUnreadNotificationsCountApi(): Promise<{ success: boolean; count: number }>;
+export declare function markNotificationAsReadApi(id: number | string): Promise<{ success: boolean; message?: string; unread_count?: number; data?: LaravelAppNotification }>;
+export declare function markAllNotificationsAsReadApi(): Promise<{ success: boolean; message?: string; unread_count?: number }>;
+export declare function deleteNotificationApi(id: number | string): Promise<{ success: boolean; message?: string; unread_count?: number }>;
+
+// Auth & Telegram Customer API
+export declare function checkRecoveryOptionsApi(identifier: string): Promise<{
+  success: boolean;
+  data: {
+    has_account: boolean;
+    has_email: boolean;
+    email: string | null;
+    masked_email: string | null;
+    has_telegram: boolean;
+    telegram_handle: string | null;
+    customer_name: string;
+    garage_phones: string[];
+  };
+}>;
+export declare function forgotPasswordApi(identifier: string, channel?: string): Promise<{
+  success: boolean;
+  channel?: string;
+  message?: string;
+}>;
+export declare function resetPasswordApi(payload: {
+  token: string;
+  password: string;
+  passwordConfirmation?: string;
+  identifier?: string;
+  email?: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+}>;
+export declare function requestCustomerPasswordReset(customerId: number | string, options?: { channel?: string; manual_password?: string }): Promise<{
+  success: boolean;
+  message?: string;
+  customer_name?: string;
+  customer_email?: string;
+  dev_reset_token?: string;
+  dispatched_channels?: string[];
+}>;
+export declare function requestCustomerPasswordResetApi(
+  customerId: number | string,
+  channelOrOptions?: string | { channel?: string; manual_password?: string }
+): Promise<{
+  success: boolean;
+  message?: string;
+  customer_name?: string;
+  customer_email?: string;
+  dev_reset_token?: string;
+  dispatched_channels?: string[];
+}>;
+export declare function resetCustomerPasswordApi(
+  customerId: number | string,
+  password?: string,
+  passwordConfirmation?: string
+): Promise<{
+  success: boolean;
+  message?: string;
+}>;
+export declare function linkTelegramCustomer(customerId: number | string, data: { telegram_chat_id?: string; telegram_handle?: string }): Promise<{ success: boolean; data?: any }>;
+export declare function unlinkTelegramCustomer(customerId: number | string): Promise<{ success: boolean; message?: string }>;
+
 declare const api: AxiosInstance;
 export default api;

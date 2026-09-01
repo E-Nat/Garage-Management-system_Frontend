@@ -29,6 +29,7 @@ import logoImg from '../../assets/images/logo.png';
 export const InvoiceManagement: React.FC = () => {
   const {
     invoices,
+    customers,
     repairJobs,
     paymentRecords,
     paymentMethods,
@@ -436,7 +437,7 @@ export const InvoiceManagement: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-600">Telegram:</span>
-                    {customer?.telegramLinked ? (
+                    {customers.find((c) => c.id === selectedInvoice.customerId || c.fullName === selectedInvoice.customerName)?.telegramLinked ? (
                       <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px] flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                         <span>Sent</span>
