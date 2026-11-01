@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { INITIAL_INVENTORY, INITIAL_SERVICES, INITIAL_SYSTEM_SETTINGS } from '../data/mockData';
 
 /**
  * Axios instance configured for the Laravel RESTful API
@@ -388,6 +389,138 @@ let mockItems = [
     status: 'low_stock',
   },
 ];
+
+const USE_CATEGORY_API_MOCKS = true;
+const CATEGORY_NAME_CONFLICT_MESSAGE = "That name's already taken here. Try another.";
+
+// Temporary category API fixtures; switch USE_CATEGORY_API_MOCKS off when the Laravel routes are ready.
+const mockCategories = {
+  'item-categories': INITIAL_SYSTEM_SETTINGS.itemCategories.map((name, index) => ({
+    id: index + 1,
+    name,
+    parent_id: null,
+    is_active: true,
+  })),
+  'service-categories': INITIAL_SYSTEM_SETTINGS.repairCategories.map((name, index) => ({
+    id: index + 1,
+    name,
+    parent_id: null,
+    is_active: true,
+  })),
+};
+
+const getMockCategories = (type) => {
+  const categories = mockCategories[type];
+  if (!categories) {
+    throw new Error(`Unsupported category type: ${type}`);
+  }
+  return categories;
+};
+
+const getCategoryCount = (type, categoryName) => {
+  if (type === 'item-categories') {
+    return INITIAL_INVENTORY.filter((item) => item.category === categoryName).length;
+  }
+  return INITIAL_SERVICES.filter((service) => service.category === categoryName).length;
+};
+
+const getCategoryError = (errors) => {
+  const error = new Error('The given data was invalid.');
+  error.response = {
+    status: 422,
+    data: {
+      message: error.message,
+      errors,
+    },
+  };
+  return error;
+};
+
+const validateMockCategory = (type, category, payload, ignoredId = null) => {
+  const categories = getMockCategories(type);
+  const errors = {};
+  const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+  const parentId =
+    payload.parent_id === undefined || payload.parent_id === null ? null : Number(payload.parent_id);
+
+  if (!name) {
+    errors.name = ['The name field is required.'];
+  } else if (
+    categories.some(
+      (candidate) =>
+        candidate.id !== ignoredId &&
+        candidate.parent_id === parentId &&
+        candidate.name.toLowerCase() === name.toLowerCase()
+    )
+  ) {
+    errors.name = [CATEGORY_NAME_CONFLICT_MESSAGE];
+  }
+
+  if (parentId !== null) {
+    const parent = categories.find((candidate) => candidate.id === Number(parentId));
+    if (!parent || parent.parent_id !== null || !parent.is_active || parent.id === category?.id) {
+      errors.parent_id = ['Select an active main category.'];
+    }
+  }
+
+  if (
+    category?.parent_id === null &&
+    parentId !== null &&
+    categories.some((candidate) => candidate.parent_id === category.id)
+  ) {
+    errors.parent_id = ['A main category with sub-categories cannot become a sub-category.'];
+  }
+
+  if (Object.keys(errors).length > 0) {
+    throw getCategoryError(errors);
+  }
+
+  return { name, parent_id: parentId === null ? null : Number(parentId) };
+};
+
+const getCategoryTree = (type, params = {}) => {
+  const categories = getMockCategories(type);
+  const search = String(params.search || '').trim().toLowerCase();
+  const activeOnly = params.active === true || String(params.active) === '1';
+
+  return categories
+    .filter((category) => category.parent_id === null && (!activeOnly || category.is_active))
+    .map((main) => {
+      const allChildren = categories.filter((category) => category.parent_id === main.id);
+      const children = allChildren.filter(
+        (category) =>
+          category.parent_id === main.id &&
+          (!activeOnly || category.is_active) &&
+          (!search ||
+            category.name.toLowerCase().includes(search) ||
+            main.name.toLowerCase().includes(search))
+      );
+      const mainMatches = !search || main.name.toLowerCase().includes(search);
+      const count = getCategoryCount(type, main.name) + allChildren.reduce(
+        (total, child) => total + getCategoryCount(type, child.name),
+        0
+      );
+
+      return {
+        id: main.id,
+        name: main.name,
+        parent_id: null,
+        is_active: main.is_active,
+        count,
+        children: children.map((child) => ({
+          id: child.id,
+          name: child.name,
+          parent_id: child.parent_id,
+          is_active: child.is_active,
+          count: getCategoryCount(type, child.name),
+        })),
+        hasMatchingChild: children.length > 0,
+        mainMatches,
+      };
+    })
+    .filter((main) => main.mainMatches || main.hasMatchingChild)
+    .map(({ hasMatchingChild, mainMatches, ...main }) => main);
+};
 
 let mockInvoices = [
   {
@@ -930,6 +1063,123 @@ export async function getItem(id) {
 }
 
 /* ==========================================================================
+   ITEM AND SERVICE CATEGORIES API
+   ==========================================================================
+   Mock implementation is temporary until the Laravel category routes are ready.
+   The route paths below match the agreed API contract.
+   ========================================================================== */
+
+export async function getCategories(type, params = {}) {
+  if (USE_CATEGORY_API_MOCKS) {
+    return { data: getCategoryTree(type, params) };
+  }
+  const response = await api.get(`/api/${type}`, { params });
+  return response.data;
+}
+
+export async function getSelectableCategories(type, params = {}) {
+  if (USE_CATEGORY_API_MOCKS) {
+    const categories = getMockCategories(type);
+    const search = String(params.search || '').trim().toLowerCase();
+    const selectable = [];
+
+    categories.forEach((main) => {
+      if (main.parent_id !== null || !main.is_active) return;
+
+      const activeChildren = categories.filter(
+        (category) => category.parent_id === main.id && category.is_active
+      );
+      if (activeChildren.length > 0) {
+        activeChildren.forEach((child) => {
+          const label = `${main.name} > ${child.name}`;
+          if (!search || label.toLowerCase().includes(search)) {
+            selectable.push({
+              id: child.id,
+              name: child.name,
+              main_id: main.id,
+              main_name: main.name,
+              label,
+            });
+          }
+        });
+      } else if (!search || main.name.toLowerCase().includes(search)) {
+        selectable.push({
+          id: main.id,
+          name: main.name,
+          main_id: null,
+          main_name: null,
+          label: main.name,
+        });
+      }
+    });
+
+    return { data: selectable };
+  }
+  const response = await api.get(`/api/${type}/selectable`, { params });
+  return response.data;
+}
+
+export async function createCategory(type, payload) {
+  if (USE_CATEGORY_API_MOCKS) {
+    const categories = getMockCategories(type);
+    const validated = validateMockCategory(type, null, payload);
+    const category = {
+      id: categories.reduce((maxId, entry) => Math.max(maxId, entry.id), 0) + 1,
+      ...validated,
+      is_active: true,
+    };
+    categories.push(category);
+    return { data: { ...category } };
+  }
+  const response = await api.post(`/api/${type}`, payload);
+  return response.data;
+}
+
+export async function updateCategory(type, id, payload) {
+  if (USE_CATEGORY_API_MOCKS) {
+    const categories = getMockCategories(type);
+    const category = categories.find((entry) => entry.id === Number(id));
+    if (!category) throw new Error(`Category #${id} not found`);
+
+    const validated = validateMockCategory(type, category, payload, category.id);
+    Object.assign(category, validated);
+    return { data: { ...category } };
+  }
+  const response = await api.put(`/api/${type}/${id}`, payload);
+  return response.data;
+}
+
+export async function deactivateCategory(type, id) {
+  if (USE_CATEGORY_API_MOCKS) {
+    const categories = getMockCategories(type);
+    const category = categories.find((entry) => entry.id === Number(id));
+    if (!category) throw new Error(`Category #${id} not found`);
+    category.is_active = false;
+    if (category.parent_id === null) {
+      categories
+        .filter((entry) => entry.parent_id === category.id)
+        .forEach((child) => {
+          child.is_active = false;
+        });
+    }
+    return { data: { ...category } };
+  }
+  const response = await api.patch(`/api/${type}/${id}/deactivate`);
+  return response.data;
+}
+
+export async function activateCategory(type, id) {
+  if (USE_CATEGORY_API_MOCKS) {
+    const category = getMockCategories(type).find((entry) => entry.id === Number(id));
+    if (!category) throw new Error(`Category #${id} not found`);
+    category.is_active = true;
+    return { data: { ...category } };
+  }
+  const response = await api.patch(`/api/${type}/${id}/activate`);
+  return response.data;
+}
+
+/* ==========================================================================
    6. TELEGRAM NOTIFICATIONS & LINKING API (PHASE 7)
    ========================================================================== */
 
@@ -1121,4 +1371,3 @@ export async function downloadInvoicePdf(invoiceId) {
 
 // Export the base axios instance for custom requests
 export default api;
-

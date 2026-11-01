@@ -279,5 +279,66 @@ export declare function resetUserPassword(id: number | string, password: string,
 export declare function deleteUser(id: number | string): Promise<{ success: boolean; message?: string }>;
 export declare function getRoles(): Promise<{ success: boolean; data: LaravelRole[] }>;
 
+export type LaravelCategoryType = 'item-categories' | 'service-categories';
+
+export interface LaravelCategory {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  is_active: boolean;
+  count?: number;
+}
+
+export interface LaravelSubCategory extends LaravelCategory {
+  parent_id: number;
+  count: number;
+  children?: never;
+}
+
+export interface LaravelMainCategory extends LaravelCategory {
+  parent_id: null;
+  count: number;
+  children: LaravelSubCategory[];
+}
+
+export interface LaravelSelectableCategory {
+  id: number;
+  name: string;
+  main_id: number | null;
+  main_name: string | null;
+  label: string;
+}
+
+export interface LaravelCategoryPayload {
+  name: string;
+  parent_id: number | null;
+}
+
+export declare function getCategories(
+  type: LaravelCategoryType,
+  params?: { search?: string; active?: string | boolean }
+): Promise<{ data: LaravelMainCategory[] }>;
+export declare function getSelectableCategories(
+  type: LaravelCategoryType,
+  params?: { search?: string }
+): Promise<{ data: LaravelSelectableCategory[] }>;
+export declare function createCategory(
+  type: LaravelCategoryType,
+  payload: LaravelCategoryPayload
+): Promise<{ data: LaravelCategory }>;
+export declare function updateCategory(
+  type: LaravelCategoryType,
+  id: number | string,
+  payload: LaravelCategoryPayload
+): Promise<{ data: LaravelCategory }>;
+export declare function deactivateCategory(
+  type: LaravelCategoryType,
+  id: number | string
+): Promise<{ data: LaravelCategory }>;
+export declare function activateCategory(
+  type: LaravelCategoryType,
+  id: number | string
+): Promise<{ data: LaravelCategory }>;
+
 declare const api: AxiosInstance;
 export default api;
