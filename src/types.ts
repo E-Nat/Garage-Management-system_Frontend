@@ -395,6 +395,7 @@ export interface InventoryItem {
   partNumber: string; // Item Code
   name: string; // Item Name
   category: string;
+  categoryId?: number;
   brand?: string; // Brand (Optional)
   unit?: string; // Unit e.g. Pcs, Set, Liter, Kit
   stock: number; // Current Stock

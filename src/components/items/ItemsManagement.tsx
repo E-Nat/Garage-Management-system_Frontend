@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGarage } from '../../context/GarageContext';
 import { InventoryItem } from '../../types';
 import { Search, Package, Plus, Edit2, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CategoryPicker } from '../common/CategoryPicker';
+import type { LaravelSelectableCategory } from '../../services/api';
 
 export const ItemsManagement: React.FC = () => {
   const { inventory, addInventoryItem, updateInventoryItem, systemSettings } = useGarage();
@@ -18,6 +20,7 @@ export const ItemsManagement: React.FC = () => {
     partNumber: '',
     name: '',
     category: 'Braking System',
+    categoryId: null as number | null,
     brand: '',
     unit: 'pcs',
     unitPrice: 0,
@@ -26,6 +29,8 @@ export const ItemsManagement: React.FC = () => {
   });
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const itemCodeInputRef = useRef<HTMLInputElement | null>(null);
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
@@ -42,10 +47,12 @@ export const ItemsManagement: React.FC = () => {
 
   const handleOpenAddModal = () => {
     setEditingItem(null);
+    setCategoryError(null);
     setFormData({
       partNumber: `ITM-${Math.floor(1000 + Math.random() * 9000)}`,
       name: '',
       category: categoriesList[0] || 'Braking System',
+      categoryId: null,
       brand: '',
       unit: 'pcs',
       unitPrice: 0,
@@ -57,10 +64,12 @@ export const ItemsManagement: React.FC = () => {
 
   const handleOpenEditModal = (item: InventoryItem) => {
     setEditingItem(item);
+    setCategoryError(null);
     setFormData({
       partNumber: item.partNumber,
       name: item.name,
       category: item.category,
+      categoryId: item.categoryId ?? null,
       brand: item.brand || '',
       unit: item.unit || 'pcs',
       unitPrice: item.unitPrice,
@@ -73,12 +82,17 @@ export const ItemsManagement: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.partNumber.trim() || !formData.name.trim()) return;
+    if (formData.categoryId === null) {
+      setCategoryError('Select an active category.');
+      return;
+    }
 
     if (editingItem) {
       updateInventoryItem(editingItem.id, {
         partNumber: formData.partNumber.trim().toUpperCase(),
         name: formData.name.trim(),
         category: formData.category,
+        categoryId: formData.categoryId,
         brand: formData.brand.trim() || undefined,
         unit: formData.unit.trim() || 'pcs',
         unitPrice: Number(formData.unitPrice),
@@ -91,6 +105,7 @@ export const ItemsManagement: React.FC = () => {
         partNumber: formData.partNumber.trim().toUpperCase(),
         name: formData.name.trim(),
         category: formData.category,
+        categoryId: formData.categoryId,
         brand: formData.brand.trim() || undefined,
         unit: formData.unit.trim() || 'pcs',
         stock: 0,
@@ -104,6 +119,19 @@ export const ItemsManagement: React.FC = () => {
 
     setIsModalOpen(false);
   };
+
+  const handleCategorySelect = useCallback((category: LaravelSelectableCategory) => {
+    setFormData((current) => ({
+      ...current,
+      category: category.name,
+      categoryId: category.id,
+    }));
+    setCategoryError(null);
+  }, []);
+
+  useEffect(() => {
+    if (isModalOpen) itemCodeInputRef.current?.focus();
+  }, [isModalOpen]);
 
   const filteredItems = inventory.filter((item) => {
     const term = searchTerm.toLowerCase();
@@ -267,6 +295,12 @@ export const ItemsManagement: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setIsModalOpen(false);
+              }
+            }}
             className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -292,6 +326,7 @@ export const ItemsManagement: React.FC = () => {
                   </label>
                   <input
                     id="item-code-input"
+                    ref={itemCodeInputRef}
                     type="text"
                     value={formData.partNumber}
                     onChange={(e) => setFormData({ ...formData, partNumber: e.target.value })}
@@ -320,19 +355,17 @@ export const ItemsManagement: React.FC = () => {
               {/* Category & Brand */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Category</label>
-                  <select
-                    id="item-category-select"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                  >
-                    {categoriesList.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                  <label htmlFor="item-category-picker" className="block text-slate-600 font-semibold mb-1">
+                    Category <span className="text-rose-500">*</span>
+                  </label>
+                  <CategoryPicker
+                    inputId="item-category-picker"
+                    categoryType="item-categories"
+                    selectedId={formData.categoryId}
+                    selectedLabel={formData.category}
+                    onSelect={handleCategorySelect}
+                    error={categoryError}
+                  />
                 </div>
 
                 <div>
