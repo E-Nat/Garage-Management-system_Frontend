@@ -5,6 +5,7 @@ import { RepairJob, UsedPart, PerformedService } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 import { JobTypeBadge } from '../common/JobTypeBadge';
 import { RecordPaymentModal } from './RecordPaymentModal';
+import { mapInventoryParts, useMechanicParts } from './useMechanicParts';
 import {
   X,
   CheckCircle2,
@@ -67,6 +68,11 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
 
   // Global mechanic delivered rule: if role is Mechanic and job is Delivered, render entire page read-only
   const isMechanic = currentUser?.role === 'mechanic';
+  const {
+    parts: mechanicParts,
+    isLoading: isLoadingMechanicParts,
+    error: mechanicPartsError,
+  } = useMechanicParts(isOpen && isMechanic);
   const isReadOnly = isMechanic && job.status === 'delivered';
 
   // Payment form state
@@ -147,8 +153,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Filter inventory: ONLY items with stock > 0 are selectable (items with zero stock are completely excluded)
-  const inStockInventory = inventory.filter((item) => (item.stock || 0) > 0);
+  const availableParts = isMechanic ? mechanicParts : mapInventoryParts(inventory);
 
   // Keep state synced when job updates
   useEffect(() => {
@@ -269,7 +274,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
   const handleAddPartLineItem = () => {
     setErrorMessage(null);
     if (!selectedPartId) return;
-    const pObj = inventory.find((p) => p.id === selectedPartId);
+    const pObj = availableParts.find((part) => part.id === selectedPartId);
     if (!pObj) return;
 
     if (partQuantityInput <= 0) {
@@ -278,12 +283,20 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
     }
 
     const isCustomerProvided = partSourceInput === 'customer_provided';
-    const unitPrice = isCustomerProvided ? 0 : pObj.unitPrice;
+    if (!isCustomerProvided && (pObj.deactivated || pObj.stockStatus === 'out')) {
+      setErrorMessage('This item is out of stock or deactivated and cannot be used on a job.');
+      return;
+    }
+    if (!isCustomerProvided && partQuantityInput > pObj.currentStock) {
+      setErrorMessage(`Requested quantity (${partQuantityInput}) exceeds stock (${pObj.currentStock}).`);
+      return;
+    }
+    const unitPrice = isCustomerProvided ? 0 : pObj.sellingPrice;
 
     const newPart: UsedPart = {
       partId: pObj.id,
-      partNumber: pObj.partNumber,
-      partName: pObj.name,
+      partNumber: pObj.itemCode,
+      partName: pObj.itemName,
       quantity: partQuantityInput,
       unitPrice: unitPrice,
       totalPrice: unitPrice * partQuantityInput,
@@ -454,6 +467,12 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
           <div className="px-5 py-2.5 bg-rose-50 text-rose-900 border-b border-rose-200 text-xs font-semibold flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{errorMessage}</span>
+          </div>
+        )}
+        {mechanicPartsError && (
+          <div role="alert" className="px-5 py-2.5 bg-rose-50 text-rose-900 border-b border-rose-200 text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{mechanicPartsError}</span>
           </div>
         )}
 
@@ -924,14 +943,17 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
                       <select
                         value={selectedPartId}
                         onChange={(e) => setSelectedPartId(e.target.value)}
+                        disabled={isLoadingMechanicParts || Boolean(mechanicPartsError)}
                         className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-hidden"
                       >
-                        <option value="">-- Pick Part from Inventory --</option>
-                        {inStockInventory.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} (${p.unitPrice.toFixed(2)})
-                          </option>
-                        ))}
+                        <option value="">{isLoadingMechanicParts ? 'Loading parts...' : '-- Pick Part from Inventory --'}</option>
+                        {availableParts.map((p) => {
+                          return (
+                            <option key={p.id} value={p.id} disabled={p.stockStatus === 'out'}>
+                              {p.itemCode} — {p.itemName} ({p.categoryLabel}) (Stock: {p.currentStock}{p.stockStatus === 'low' ? ', Low' : p.stockStatus === 'out' ? ', Out' : ''}) — ${p.sellingPrice.toFixed(2)}
+                            </option>
+                          );
+                        })}
                       </select>
 
                       <input

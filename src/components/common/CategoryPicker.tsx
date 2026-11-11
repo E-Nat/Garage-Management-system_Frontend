@@ -81,7 +81,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
   error,
 }) => {
   const { currentUser } = useAuth();
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const generatedId = useId().replace(/:/g, '');
   const listId = `${generatedId}-category-options`;
   const wrapperRef = useRef<HTMLDivElement | null>(null);

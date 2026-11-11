@@ -56,14 +56,90 @@ export interface LaravelItem {
   item_code: string;
   item_name: string;
   category_id?: number | null;
+  category?: {
+    id: number;
+    name: string;
+    parent?: { id: number; name: string } | null;
+  } | null;
   brand?: string | null;
   unit?: string | null;
   purchase_price?: number;
   selling_price: number;
   current_stock: number;
+  stock_status?: 'ok' | 'low' | 'out';
   minimum_stock_alert: number;
   location?: string | null;
-  status: string;
+  status: 'active' | 'deactivated' | 'low_stock';
+}
+
+export type LaravelItemCreatePayload = Partial<
+  Pick<
+    LaravelItem,
+    | 'item_code'
+    | 'item_name'
+    | 'category_id'
+    | 'brand'
+    | 'unit'
+    | 'selling_price'
+    | 'minimum_stock_alert'
+    | 'status'
+  >
+> & { opening_stock?: number };
+
+export type LaravelItemUpdatePayload = Partial<
+  Pick<
+    LaravelItem,
+    | 'item_code'
+    | 'item_name'
+    | 'category_id'
+    | 'brand'
+    | 'unit'
+    | 'selling_price'
+    | 'minimum_stock_alert'
+    | 'status'
+  >
+>;
+
+export interface LaravelMechanicItem {
+  id: number;
+  item_code: string;
+  item_name: string;
+  selling_price: number;
+  current_stock: number;
+  stock_status: 'ok' | 'low' | 'out';
+  category_label: string | null;
+}
+
+export interface LaravelStockMovement {
+  id: number;
+  item_id: number;
+  item: LaravelItem;
+  movement_type: 'stock_in' | 'adjustment' | 'stock_out' | 'usage';
+  movement_date: string;
+  quantity: number;
+  quantity_before: number;
+  quantity_after: number;
+  reason?: string | null;
+  remarks?: string | null;
+  performed_by?: { id: number; name: string; role: string } | null;
+  created_at: string;
+}
+
+export interface LaravelPaginationMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+export interface StockMovementPayload {
+  item_id: number;
+  movement_type: 'stock_in' | 'adjustment';
+  quantity: number;
+  movement_date: string;
+  remarks?: string;
+  adjustment_direction?: 'increase' | 'decrease';
+  reason?: string;
 }
 
 export interface LaravelInvoice {
@@ -199,11 +275,25 @@ export declare function getPayments(params?: Record<string, any>): Promise<{ dat
 export declare function createPayment(data: Partial<LaravelPayment>): Promise<{ data: LaravelPayment }>;
 
 // 5. Inventory Items API
-export declare function getItems(params?: Record<string, any>): Promise<{ data: LaravelItem[] }>;
+export declare function getItems(params?: Record<string, string | number | undefined>): Promise<{
+  data: LaravelItem[] | LaravelMechanicItem[];
+  meta?: Record<string, number>;
+}>;
 export declare function getItem(id: number | string): Promise<{ data: LaravelItem }>;
-export declare function createItem(data: Partial<LaravelItem>): Promise<{ data: LaravelItem }>;
-export declare function updateItem(id: number | string, data: Partial<LaravelItem>): Promise<{ data: LaravelItem }>;
+export declare function createItem(data: LaravelItemCreatePayload): Promise<{ data: LaravelItem }>;
+export declare function updateItem(id: number | string, data: LaravelItemUpdatePayload): Promise<{ data: LaravelItem }>;
 export declare function deleteItem(id: number | string): Promise<{ success: boolean }>;
+export declare function getStockMovements(params?: {
+  item_id?: number;
+  movement_type?: LaravelStockMovement['movement_type'] | 'all';
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<{ data: LaravelStockMovement[]; meta?: LaravelPaginationMeta }>;
+export declare function createStockMovement(
+  data: StockMovementPayload
+): Promise<{ data: LaravelStockMovement }>;
 
 // 6. Telegram API
 export declare function getTelegramStatus(): Promise<{ success: boolean; data: any }>;

@@ -390,7 +390,7 @@ let mockItems = [
   },
 ];
 
-const USE_CATEGORY_API_MOCKS = true;
+const USE_CATEGORY_API_MOCKS = false;
 const CATEGORY_NAME_CONFLICT_MESSAGE = "That name's already taken here. Try another.";
 
 // Temporary category API fixtures; switch USE_CATEGORY_API_MOCKS off when the Laravel routes are ready.
@@ -1019,30 +1019,8 @@ export async function createInvoice(invoiceData) {
  * @returns {Promise<{ data: Array }>}
  */
 export async function getItems(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
-  let results = [...mockItems];
-  if (params.search) {
-    const s = params.search.toLowerCase();
-    results = results.filter(
-      (item) =>
-        item.item_name.toLowerCase().includes(s) ||
-        item.item_code.toLowerCase().includes(s) ||
-        item.brand.toLowerCase().includes(s)
-    );
-  }
-  if (params.category_id) {
-    results = results.filter((item) => item.category_id === Number(params.category_id));
-  }
-  if (params.status) {
-    results = results.filter((item) => item.status === params.status);
-  }
-  return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/items', { params });
-  // return response.data;
-  */
+  const response = await api.get('/api/items', { params });
+  return response.data;
 }
 
 /**
@@ -1050,16 +1028,28 @@ export async function getItems(params = {}) {
  * @param {number|string} id
  */
 export async function getItem(id) {
-  // --- REALISTIC MOCK RETURN ---
-  const item = mockItems.find((i) => i.id === Number(id));
-  if (!item) return Promise.reject(new Error(`Item #${id} not found`));
-  return Promise.resolve({ data: item });
+  const response = await api.get(`/api/items/${id}`);
+  return response.data;
+}
 
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get(`/api/items/${id}`);
-  // return response.data;
-  */
+export async function createItem(itemData) {
+  const response = await api.post('/api/items', itemData);
+  return response.data;
+}
+
+export async function updateItem(id, updates) {
+  const response = await api.put(`/api/items/${id}`, updates);
+  return response.data;
+}
+
+export async function getStockMovements(params = {}) {
+  const response = await api.get('/api/stock-movements', { params });
+  return response.data;
+}
+
+export async function createStockMovement(movementData) {
+  const response = await api.post('/api/stock-movements', movementData);
+  return response.data;
 }
 
 /* ==========================================================================

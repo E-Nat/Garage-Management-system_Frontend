@@ -7,7 +7,6 @@ import {
   Car,
   Wrench,
   Package,
-  Boxes,
   Receipt,
   BarChart3,
   Settings,
@@ -17,6 +16,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { getRoleDisplayName } from '../../utils/roleUtils';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../data/mockData';
+import { ModulePermissionId, UserRole } from '../../types';
 import logoImg from '../../assets/images/logo.png';
 
 interface NavConfig {
@@ -40,21 +40,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
 
   const hasPermission = (tabId: string) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin' || currentUser.role === 'owner') return true;
+    const role: UserRole = currentUser.role;
+    if (role === 'admin' || role === 'owner') return true;
+    if (tabId === 'inventory') {
+      return role === 'parts_manager' || role === 'advisor' || role === 'staff';
+    }
 
-    const permissionMap: Record<string, string> = {
+    const permissionMap: Record<string, ModulePermissionId> = {
       dashboard: 'dashboard',
       customers: 'customers',
       vehicles: 'vehicles',
       jobs: 'repairs',
-      items: 'inventory',
-      stock: 'stock',
+      inventory: 'inventory',
       invoices: 'invoices',
       reports: 'reports',
       settings: 'settings',
     };
     const permission = permissionMap[tabId];
-    const permissions = currentUser.permissions ?? rolePermissions[currentUser.role] ?? DEFAULT_ROLE_PERMISSIONS[currentUser.role] ?? [];
+    const permissions = currentUser.permissions ?? rolePermissions[role] ?? DEFAULT_ROLE_PERMISSIONS[role] ?? [];
     return permission ? permissions.includes(permission) : false;
   };
 
@@ -93,14 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
       icon: Wrench,
     },
     {
-      id: 'items',
-      label: 'Items',
+      id: 'inventory',
+      label: 'Inventory',
       icon: Package,
-    },
-    {
-      id: 'stock',
-      label: 'Stock',
-      icon: Boxes,
     },
     {
       id: 'invoices',
@@ -269,4 +267,3 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, onCloseM
     </>
   );
 };
-
