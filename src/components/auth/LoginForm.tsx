@@ -256,13 +256,32 @@ export const LoginForm: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#F3F5F8] p-4 sm:p-6 lg:p-10 text-slate-900 selection:bg-[#FF6B00] selection:text-white overflow-x-hidden"
+      className="relative isolate min-h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#F3F5F8] p-4 sm:p-6 lg:h-screen lg:min-h-0 lg:gap-3 lg:overflow-hidden lg:p-8 text-slate-900 selection:bg-[#FF6B00] selection:text-white overflow-x-hidden"
       style={{
         backgroundImage:
-          'radial-gradient(ellipse at 12% 18%, rgba(255,255,255,0.95), transparent 42%), radial-gradient(ellipse at 88% 82%, rgba(255,107,0,0.07), transparent 32%), linear-gradient(135deg, #F7F9FC 0%, #EEF2F7 100%)',
+          'radial-gradient(ellipse at 12% 18%, rgba(255,255,255,0.98), transparent 42%), radial-gradient(ellipse at 88% 82%, rgba(255,107,0,0.08), transparent 34%), linear-gradient(135deg, #F8FAFD 0%, #EDF2F8 100%)',
       }}
     >
-      <div className="relative w-full max-w-[1100px] flex flex-col lg:flex-row overflow-hidden rounded-[24px] border border-[#E1E7EF] bg-white shadow-[0_24px_80px_-28px_rgba(15,23,42,0.28)]">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-32 -top-40 h-[480px] w-[480px] rounded-full border border-white/80" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-[440px] w-[440px] rounded-full border border-slate-300/35" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-[360px] -left-40 h-[600px] w-[600px] rounded-full border border-white/80 shadow-[0_0_0_22px_rgba(255,255,255,0.18),0_0_0_44px_rgba(255,255,255,0.12)]" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-8 top-8 h-24 w-24 opacity-35"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(100,116,139,0.55) 1px, transparent 1.5px)',
+          backgroundSize: '12px 12px',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-8 left-8 h-20 w-20 opacity-25"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(100,116,139,0.55) 1px, transparent 1.5px)',
+          backgroundSize: '12px 12px',
+        }}
+      />
+      <div className="relative z-10 w-full max-w-[1100px] flex flex-col lg:h-[min(672px,calc(100vh-96px))] lg:flex-row overflow-hidden rounded-[24px] border-2 border-[#AEBBCC] bg-white shadow-[0_24px_80px_-28px_rgba(15,23,42,0.28)] ring-2 ring-slate-900/5">
       {/* ============================================================ */}
       {/* LEFT SIDE: Compact workshop brand panel                     */}
       {/* ============================================================ */}
@@ -271,7 +290,7 @@ export const LoginForm: React.FC = () => {
         animate="visible"
         variants={leftSectionVariants}
         aria-label="Apex Garage Platform"
-        className="hidden lg:flex relative w-[42%] min-h-[620px] flex-col justify-between p-8 xl:p-10 overflow-hidden bg-[#101C35] select-none"
+        className="hidden lg:flex relative w-[42%] min-h-[620px] flex-col justify-between p-8 xl:p-10 overflow-hidden bg-[#101C35] select-none lg:min-h-0"
       >
         {/* Modern Bright Photographic Workshop Hero Background */}
         <motion.div
@@ -288,7 +307,7 @@ export const LoginForm: React.FC = () => {
 
           <div className="absolute inset-0 bg-gradient-to-b from-[#101C35]/15 via-[#101C35]/55 to-[#101C35]/95" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#101C35]/35 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_18%_8%,rgba(255,255,255,0.86)_0%,rgba(255,255,255,0.2)_38%,transparent_68%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_48%_36%_at_18%_8%,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.22)_55%,transparent_100%)]" />
 
           {/* Ambient Warm Light Pulse Aura */}
           <motion.div
@@ -319,7 +338,7 @@ export const LoginForm: React.FC = () => {
                 transition={{ duration: 0.2 }}
                 src={logoUrl}
                 alt="Apex Garage"
-                className="h-[88px] w-[150px] object-contain drop-shadow-[0_4px_12px_rgba(15,23,42,0.35)]"
+                className="h-[104px] w-[180px] object-contain drop-shadow-[0_4px_12px_rgba(15,23,42,0.35)]"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = e.currentTarget.parentElement?.querySelector(
@@ -334,7 +353,7 @@ export const LoginForm: React.FC = () => {
             </div>
 
             <div className="pl-1">
-              <span className="font-mono text-[10px] font-bold tracking-[0.22em] text-[#101C35]/80 uppercase">
+              <span className="font-mono text-[11px] font-bold tracking-[0.18em] text-white drop-shadow-[0_1px_3px_rgba(15,23,42,0.9)] uppercase">
                 APEX GARAGE // MANAGEMENT SYSTEM
               </span>
             </div>
@@ -413,7 +432,7 @@ export const LoginForm: React.FC = () => {
         initial="hidden"
         animate="visible"
         variants={rightSectionVariants}
-        className="w-full lg:w-[58%] min-h-[580px] lg:min-h-[620px] flex flex-col justify-center p-6 sm:p-10 lg:px-14 lg:py-12 xl:px-16 bg-white transition-colors duration-300"
+        className="w-full lg:w-[58%] min-h-[580px] lg:min-h-0 flex flex-col justify-center p-6 sm:p-10 lg:px-14 lg:py-8 xl:px-16 bg-white transition-colors duration-300"
       >
         <div className="lg:hidden flex items-center gap-3 mb-8">
           <img
@@ -729,7 +748,7 @@ export const LoginForm: React.FC = () => {
       </motion.main>
       </div>
 
-      <footer className="text-center text-xs text-slate-400">
+      <footer className="relative z-10 text-center text-xs text-slate-400">
         © {new Date().getFullYear()} Apex Garage Management System. All rights reserved.
       </footer>
 
