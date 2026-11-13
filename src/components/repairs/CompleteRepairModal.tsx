@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Package,
 } from 'lucide-react';
+import { mapInventoryParts, useMechanicParts } from './useMechanicParts';
 
 interface CompleteRepairModalProps {
   job: RepairJob;
@@ -37,6 +38,12 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
     updateRepairJobStatus,
   } = useGarage();
   const { currentUser } = useAuth();
+  const isMechanic = currentUser?.role === 'mechanic';
+  const {
+    parts: mechanicParts,
+    isLoading: isLoadingMechanicParts,
+    error: mechanicPartsError,
+  } = useMechanicParts(isOpen && isMechanic);
 
   // State for Services Performed and Parts Used
   const [performedServices, setPerformedServices] = useState<PerformedService[]>(
@@ -68,8 +75,8 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
   const todayStr = new Date().toISOString().substring(0, 10);
 
   // Available active inventory parts
-  const availableParts = inventory.filter((i) => (i.status === 'active' || !i.status) && i.stock > 0);
-  const selectedPart = inventory.find((i) => i.id === selectedPartId);
+  const availableParts = isMechanic ? mechanicParts : mapInventoryParts(inventory);
+  const selectedPart = availableParts.find((part) => part.id === selectedPartId);
   const selectedService = services.find((s) => s.id === selectedServiceId);
 
   // Active campaigns
@@ -137,7 +144,7 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
     }
 
     if (partSource === 'customer') {
-      const pName = selectedPart ? selectedPart.name : customPartName.trim();
+      const pName = selectedPart ? selectedPart.itemName : customPartName.trim();
       if (!pName) {
         setErrorMessage('Please select or enter the customer-provided part name.');
         return;
@@ -145,7 +152,7 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
 
       const newPart: UsedPart = {
         partId: selectedPart ? selectedPart.id : `cust-part-${Date.now()}`,
-        partNumber: selectedPart ? selectedPart.partNumber : 'CUST-PROVIDED',
+        partNumber: selectedPart ? selectedPart.itemCode : 'CUST-PROVIDED',
         partName: pName,
         quantity: partQty,
         unitPrice: 0,
@@ -166,22 +173,27 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
       return;
     }
 
-    if (partQty > selectedPart.stock) {
-      setErrorMessage(`Requested quantity (${partQty}) exceeds stock (${selectedPart.stock}).`);
+    if (selectedPart.deactivated || selectedPart.stockStatus === 'out') {
+      setErrorMessage('This item is out of stock or deactivated and cannot be used on a job.');
       return;
     }
 
-    const lineGross = selectedPart.unitPrice * partQty;
+    if (partQty > selectedPart.currentStock) {
+      setErrorMessage(`Requested quantity (${partQty}) exceeds stock (${selectedPart.currentStock}).`);
+      return;
+    }
+
+    const lineGross = selectedPart.sellingPrice * partQty;
 
     // Automatic discount calculation
     const activeRules = itemDiscounts.filter(
       (d) => d.status === 'active' && todayStr >= d.startDate && todayStr <= d.endDate
     );
     const partRule = activeRules.find(
-      (d) => d.targetType === 'item' && (d.targetId === selectedPart.id || d.targetId === selectedPart.partNumber)
+      (d) => d.targetType === 'item' && (d.targetId === selectedPart.id || d.targetId === selectedPart.itemCode)
     );
     const catRule = activeRules.find(
-      (d) => d.targetType === 'category' && d.targetId === selectedPart.category
+      (d) => d.targetType === 'category' && d.targetId === selectedPart.categoryLabel
     );
     const rule = partRule || catRule;
 
@@ -196,10 +208,10 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
 
     const newPart: UsedPart = {
       partId: selectedPart.id,
-      partNumber: selectedPart.partNumber,
-      partName: selectedPart.name,
+      partNumber: selectedPart.itemCode,
+      partName: selectedPart.itemName,
       quantity: partQty,
-      unitPrice: selectedPart.unitPrice,
+      unitPrice: selectedPart.sellingPrice,
       totalPrice: lineGross,
       isCustomerProvided: false,
       itemDiscountAmount: autoDisc,
@@ -349,6 +361,12 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                 <span>{errorMessage}</span>
               </div>
             )}
+            {mechanicPartsError && (
+              <div role="alert" className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{mechanicPartsError}</span>
+              </div>
+            )}
 
             {/* 1. Services Performed */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
@@ -434,14 +452,17 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                     <select
                       value={selectedPartId}
                       onChange={(e) => setSelectedPartId(e.target.value)}
+                      disabled={isLoadingMechanicParts || Boolean(mechanicPartsError)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 outline-hidden"
                     >
-                      <option value="">-- Choose Part from Inventory --</option>
-                      {availableParts.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (Stock: {p.stock}) — ${p.unitPrice.toFixed(2)}
+                      <option value="">{isLoadingMechanicParts ? 'Loading parts...' : '-- Choose Part from Inventory --'}</option>
+                      {availableParts.map((p) => {
+                        return (
+                        <option key={p.id} value={p.id} disabled={p.stockStatus === 'out'}>
+                          {p.itemCode} — {p.itemName} ({p.categoryLabel}) (Stock: {p.currentStock}{p.stockStatus === 'low' ? ', Low' : p.stockStatus === 'out' ? ', Out' : ''}) — ${p.sellingPrice.toFixed(2)}
                         </option>
-                      ))}
+                        );
+                      })}
                     </select>
                   ) : (
                     <input
@@ -457,7 +478,7 @@ export const CompleteRepairModal: React.FC<CompleteRepairModalProps> = ({
                   <input
                     type="number"
                     min="1"
-                    max={partSource === 'garage' ? selectedPart?.stock || 999 : 999}
+                    max={partSource === 'garage' ? selectedPart?.currentStock || 999 : 999}
                     value={partQty}
                     onChange={(e) => setPartQty(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center outline-hidden"

@@ -81,7 +81,13 @@ const resolveUserPermissions = (role: UserRole): ModulePermissionId[] => {
   if (role === 'admin' || role === 'owner') {
     return [...new Set(DEFAULT_ROLE_PERMISSIONS.admin ?? [])];
   }
-  const rolePermissions = storedRoles[role] ?? DEFAULT_ROLE_PERMISSIONS[role] ?? [];
+  const rolePermissions = [...(storedRoles[role] ?? DEFAULT_ROLE_PERMISSIONS[role] ?? [])];
+  if (role === 'advisor' || role === 'staff' || role === 'parts_manager') {
+    rolePermissions.push('inventory', 'stock', 'stock_in');
+  }
+  if (role === 'mechanic') {
+    return [...new Set(rolePermissions.filter((permission) => permission !== 'inventory' && permission !== 'stock' && permission !== 'stock_in'))];
+  }
   return [...new Set(rolePermissions)];
 };
 
@@ -118,8 +124,9 @@ const tabToPathMap: Record<string, string> = {
   vehicles: '/vehicles',
   jobs: '/jobs',
   repairs: '/jobs',
-  items: '/items',
-  stock: '/stock',
+  inventory: '/inventory',
+  items: '/inventory',
+  stock: '/inventory?tab=history',
   invoices: '/invoices',
   reports: '/reports',
   settings: '/settings',
@@ -131,8 +138,9 @@ const pathToTabMap: Record<string, string> = {
   '/vehicles': 'vehicles',
   '/jobs': 'jobs',
   '/repairs': 'jobs',
-  '/items': 'items',
-  '/stock': 'stock',
+  '/inventory': 'inventory',
+  '/items': 'inventory',
+  '/stock': 'inventory',
   '/invoices': 'invoices',
   '/reports': 'reports',
   '/settings': 'settings',
@@ -198,8 +206,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Safe navigation helper
   const navigate = useCallback((path: string, replace = false) => {
-    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
-    const targetPath = path.replace(/\/$/, '') || '/';
+    const currentPath = `${window.location.pathname.replace(/\/$/, '') || '/'}${window.location.search}`;
+    const requestedPath = path.replace(/\/$/, '') || '/';
+    const [requestedPathname] = requestedPath.split('?');
+    const targetPath = requestedPathname === '/stock'
+      ? '/inventory?tab=history'
+      : requestedPathname === '/items'
+        ? '/inventory'
+        : requestedPath;
 
     if (currentPath !== targetPath) {
       if (replace) {
@@ -209,16 +223,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const matchedTab = pathToTabMap[targetPath];
+    const matchedTab = pathToTabMap[requestedPathname];
     if (matchedTab) {
       setActiveTabState(matchedTab);
     }
   }, []);
 
   const setActiveTab = useCallback((tab: string) => {
-    setActiveTabState(tab);
-    const targetPath = tabToPathMap[tab] || `/${tab}`;
-    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    const routeTab = tab === 'items' || tab === 'stock' ? 'inventory' : tab;
+    setActiveTabState(routeTab);
+    const targetPath = tabToPathMap[tab] || tabToPathMap[routeTab] || `/${routeTab}`;
+    const currentPath = `${window.location.pathname.replace(/\/$/, '') || '/'}${window.location.search}`;
     if (currentPath !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
@@ -258,6 +273,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const tab = pathToTabMap[currentPath];
           if (tab) {
+            if (currentPath === '/items' || currentPath === '/stock') {
+              const targetPath = currentPath === '/stock' ? '/inventory?tab=history' : '/inventory';
+              window.history.replaceState(null, '', targetPath);
+            }
             setActiveTabState(tab);
           }
         }

@@ -1,619 +1,475 @@
-import React, { useState } from 'react';
-import { useGarage } from '../../context/GarageContext';
-import { useAuth } from '../../context/AuthContext';
-import {
-  Package,
-  Sliders,
-  History,
-  CheckCircle2,
-  Search,
-  Plus,
-  Minus,
-  Download,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, History, Minus, Package, Plus, Sliders } from 'lucide-react';
+import { createStockMovement, getItems, getStockMovements } from '../../services/api';
+import type {
+  LaravelItem,
+  LaravelMechanicItem,
+  LaravelPaginationMeta,
+  LaravelStockMovement,
+} from '../../services/api';
+import { getApiErrorDetails } from '../../utils/apiError';
 
-export const StockManagement: React.FC = () => {
-  const { currentUser } = useAuth();
-  const { inventory, stockTransactions, adjustStockQuantity } = useGarage();
+const PAGE_SIZE = 25;
+const ADJUSTMENT_REASONS = ['Count correction', 'Damaged', 'Returned', 'Other'] as const;
 
-  const [activeSubTab, setActiveSubTab] = useState<'stock_in' | 'adjust' | 'history'>('stock_in');
+const isLaravelItem = (
+  item: LaravelItem | LaravelMechanicItem
+): item is LaravelItem => 'status' in item;
 
-  // Today's Date String YYYY-MM-DD
-  const todayStr = new Date().toISOString().substring(0, 10);
+const emptyMeta = (total: number): LaravelPaginationMeta => ({
+  current_page: 1,
+  last_page: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  per_page: PAGE_SIZE,
+  total,
+});
 
-  // Stock In Form State (Item, Quantity, Date, Remarks)
-  const [stockInItemId, setStockInItemId] = useState(inventory[0]?.id || '');
-  const [stockInQty, setStockInQty] = useState(1);
-  const [stockInDate, setStockInDate] = useState(todayStr);
-  const [stockInRemarks, setStockInRemarks] = useState('');
+interface StockManagementProps {
+  initialTab?: 'stock_in' | 'adjust' | 'history';
+}
 
-  // Stock Adjustment Form State (Item, Increase/Decrease, Quantity, Reason, Date, Remarks)
-  const [adjustItemId, setAdjustItemId] = useState(inventory[0]?.id || '');
-  const [adjustDirection, setAdjustDirection] = useState<'increase' | 'decrease'>('increase');
-  const [adjustQty, setAdjustQty] = useState(1);
-  const [adjustReason, setAdjustReason] = useState('Physical Count Audit');
-  const [adjustDate, setAdjustDate] = useState(todayStr);
-  const [adjustRemarks, setAdjustRemarks] = useState('');
-
-  // Stock History Filters
-  const [historySearch, setHistorySearch] = useState('');
-  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'stock_in' | 'adjustment' | 'usage'>('all');
-  const [dateRangeFilter, setDateRangeFilter] = useState<string>('all');
-  const [customStartDate, setCustomStartDate] = useState<string>('');
-  const [customEndDate, setCustomEndDate] = useState<string>('');
-
-  // Toast
+export const StockManagement: React.FC<StockManagementProps> = ({ initialTab = 'stock_in' }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [activeTab, setActiveTab] = useState<'stock_in' | 'adjust' | 'history'>(initialTab);
+  const [items, setItems] = useState<LaravelItem[]>([]);
+  const [movements, setMovements] = useState<LaravelStockMovement[]>([]);
+  const [movementMeta, setMovementMeta] = useState<LaravelPaginationMeta>(emptyMeta(0));
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [isLoadingMovements, setIsLoadingMovements] = useState(false);
+  const [itemsError, setItemsError] = useState<string | null>(null);
+  const [movementsError, setMovementsError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formFieldErrors, setFormFieldErrors] = useState<Record<string, string[]>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const [stockInItemId, setStockInItemId] = useState('');
+  const [stockInQuantity, setStockInQuantity] = useState(1);
+  const [stockInDate, setStockInDate] = useState(today);
+  const [stockInRemarks, setStockInRemarks] = useState('');
+  const [adjustItemId, setAdjustItemId] = useState('');
+  const [adjustDirection, setAdjustDirection] = useState<'increase' | 'decrease'>('increase');
+  const [adjustQuantity, setAdjustQuantity] = useState(1);
+  const [adjustReason, setAdjustReason] = useState<(typeof ADJUSTMENT_REASONS)[number]>('Count correction');
+  const [otherReason, setOtherReason] = useState('');
+  const [adjustDate, setAdjustDate] = useState(today);
+  const [adjustRemarks, setAdjustRemarks] = useState('');
+  const [itemFilter, setItemFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | LaravelStockMovement['movement_type']>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Handle Stock In Submit
-  const handleStockInSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stockInItemId) return;
-    const qty = Math.abs(Number(stockInQty));
-    if (qty <= 0) return;
+  useEffect(() => {
+    let active = true;
+    setIsLoadingItems(true);
+    setItemsError(null);
+    getItems()
+      .then(({ data }) => {
+        if (!active) return;
+        const availableItems = data.filter(isLaravelItem);
+        setItems(availableItems);
+        setStockInItemId((current) => current || String(availableItems[0]?.id ?? ''));
+        setAdjustItemId((current) => current || String(availableItems[0]?.id ?? ''));
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        const details = getApiErrorDetails(error, 'Could not load inventory items.');
+        setItemsError(details.status === 403 ? `Access denied: ${details.message}` : details.message);
+      })
+      .finally(() => {
+        if (active) setIsLoadingItems(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshKey]);
 
-    const res = adjustStockQuantity(
+  useEffect(() => {
+    let active = true;
+    setIsLoadingMovements(true);
+    setMovementsError(null);
+    const params = {
+      page: currentPage,
+      per_page: PAGE_SIZE,
+      ...(itemFilter !== 'all' ? { item_id: Number(itemFilter) } : {}),
+      ...(typeFilter !== 'all' ? { movement_type: typeFilter } : {}),
+      ...(dateFrom ? { date_from: dateFrom } : {}),
+      ...(dateTo ? { date_to: dateTo } : {}),
+    };
+
+    getStockMovements(params)
+      .then(({ data, meta }) => {
+        if (!active) return;
+        if (meta) {
+          setMovements(data);
+          setMovementMeta(meta);
+        } else {
+          const filtered = data.filter((movement) => {
+            const movementDate = movement.movement_date.slice(0, 10);
+            return (itemFilter === 'all' || movement.item_id === Number(itemFilter))
+              && (typeFilter === 'all' || movement.movement_type === typeFilter)
+              && (!dateFrom || movementDate >= dateFrom)
+              && (!dateTo || movementDate <= dateTo);
+          });
+          const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+          const page = Math.min(currentPage, pageCount);
+          setMovements(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+          setMovementMeta({
+            current_page: page,
+            last_page: pageCount,
+            per_page: PAGE_SIZE,
+            total: filtered.length,
+          });
+          if (page !== currentPage) setCurrentPage(page);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        const details = getApiErrorDetails(error, 'Could not load stock movements.');
+        setMovementsError(details.status === 403 ? `Access denied: ${details.message}` : details.message);
+      })
+      .finally(() => {
+        if (active) setIsLoadingMovements(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentPage, dateFrom, dateTo, itemFilter, refreshKey, typeFilter]);
+
+  const handleMovementSuccess = (movement: LaravelStockMovement | undefined, itemId: string) => {
+    if (movement?.item) {
+      setItems((current) => current.map((item) => item.id === movement.item.id ? movement.item : item));
+    }
+    setRefreshKey((key) => key + 1);
+    setCurrentPage(1);
+    setFormError(null);
+    setFormFieldErrors({});
+    const item = items.find((entry) => String(entry.id) === itemId);
+    showToast(`Stock movement recorded for ${movement?.item?.item_name ?? item?.item_name ?? 'item'}.`);
+  };
+
+  const submitMovement = async (
+    event: React.FormEvent,
+    payload: Parameters<typeof createStockMovement>[0],
+    itemId: string,
+    onSuccess: () => void
+  ) => {
+    event.preventDefault();
+    setFormError(null);
+    setFormFieldErrors({});
+    setIsSubmitting(true);
+    try {
+      const { data } = await createStockMovement(payload);
+      handleMovementSuccess(data, itemId);
+      onSuccess();
+    } catch (error) {
+      const details = getApiErrorDetails(error, 'Could not record the stock movement.');
+      setFormError(details.status === 403 ? `Access denied: ${details.message}` : details.message);
+      setFormFieldErrors(details.fields);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStockInSubmit = (event: React.FormEvent) => {
+    void submitMovement(
+      event,
+      {
+        item_id: Number(stockInItemId),
+        movement_type: 'stock_in',
+        quantity: Number(stockInQuantity),
+        movement_date: stockInDate,
+        remarks: stockInRemarks,
+      },
       stockInItemId,
-      qty,
-      'stock_in',
-      stockInRemarks || 'Stock In receiving',
-      currentUser?.name || 'Staff User',
-      stockInRemarks
+      () => {
+        setStockInQuantity(1);
+        setStockInRemarks('');
+      }
     );
-
-    if (res.success) {
-      const item = inventory.find((i) => i.id === stockInItemId);
-      showToast(`Logged Stock In: +${qty} for ${item?.name || 'Item'}`);
-      setStockInQty(1);
-      setStockInRemarks('');
-    } else {
-      alert(res.error);
-    }
   };
 
-  // Handle Stock Adjustment Submit
-  const handleStockAdjustmentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adjustItemId) return;
-    const qtyVal = Math.abs(Number(adjustQty));
-    if (qtyVal <= 0) return;
-
-    const delta = adjustDirection === 'increase' ? qtyVal : -qtyVal;
-    const combinedReason = adjustRemarks.trim()
-      ? `${adjustReason} - ${adjustRemarks.trim()}`
-      : adjustReason;
-
-    const res = adjustStockQuantity(
-      adjustItemId,
-      delta,
-      'adjustment',
-      `${combinedReason} (Date: ${adjustDate})`,
-      currentUser?.name || 'Staff User'
-    );
-
-    if (res.success) {
-      const item = inventory.find((i) => i.id === adjustItemId);
-      showToast(
-        `Stock Adjustment recorded for ${item?.name || 'Item'}: ${delta > 0 ? '+' : ''}${delta}`
-      );
-      setAdjustQty(1);
-      setAdjustRemarks('');
-    } else {
-      alert(res.error);
-    }
-  };
-
-  // Filter History with Date Range
-  const filteredHistory = stockTransactions.filter((tx) => {
-    const matchesType = historyTypeFilter === 'all' || tx.type === historyTypeFilter;
-    const term = historySearch.toLowerCase();
-    const matchesSearch =
-      tx.partName.toLowerCase().includes(term) ||
-      tx.partNumber.toLowerCase().includes(term) ||
-      (tx.reason && tx.reason.toLowerCase().includes(term));
-
-    let matchesDate = true;
-    const txDate = tx.timestamp.substring(0, 10);
-
-    if (dateRangeFilter === 'today') {
-      matchesDate = txDate === todayStr;
-    } else if (dateRangeFilter === 'past_7_days') {
-      const past7 = new Date();
-      past7.setDate(past7.getDate() - 7);
-      const past7Str = past7.toISOString().substring(0, 10);
-      matchesDate = txDate >= past7Str;
-    } else if (dateRangeFilter === 'this_month') {
-      matchesDate = txDate.substring(0, 7) === todayStr.substring(0, 7);
-    } else if (dateRangeFilter === 'custom') {
-      if (customStartDate && txDate < customStartDate) matchesDate = false;
-      if (customEndDate && txDate > customEndDate) matchesDate = false;
-    }
-
-    return matchesType && matchesSearch && matchesDate;
-  });
-
-  // Export to Excel / CSV
-  const handleExportToExcel = () => {
-    if (filteredHistory.length === 0) {
-      alert('No rows available to export.');
+  const handleAdjustmentSubmit = (event: React.FormEvent) => {
+    const reason = adjustReason === 'Other' ? otherReason.trim() : adjustReason;
+    if (adjustReason === 'Other' && !reason) {
+      event.preventDefault();
+      setFormError('Enter a reason for the adjustment.');
       return;
     }
+    void submitMovement(
+      event,
+      {
+        item_id: Number(adjustItemId),
+        movement_type: 'adjustment',
+        adjustment_direction: adjustDirection,
+        quantity: Number(adjustQuantity),
+        movement_date: adjustDate,
+        reason,
+        remarks: adjustRemarks,
+      },
+      adjustItemId,
+      () => {
+        setAdjustQuantity(1);
+        setOtherReason('');
+        setAdjustRemarks('');
+      }
+    );
+  };
 
-    const headers = ['Item', 'Part Number', 'Movement Type', 'Quantity', 'Date & Time', 'Reason / Remarks', 'Recorded By'];
-    const rows = filteredHistory.map((tx) => {
-      const typeLabel =
-        tx.type === 'stock_in'
-          ? 'Stock In'
-          : tx.type === 'usage'
-          ? 'Usage'
-          : 'Adjustment';
-      const qtyStr = tx.quantity > 0 ? `+${tx.quantity}` : `${tx.quantity}`;
-      const reasonStr = [tx.reason, tx.supplier ? `Ref: ${tx.supplier}` : ''].filter(Boolean).join(' | ');
-
+  const exportMovements = () => {
+    if (!movements.length) return;
+    const headers = ['Item', 'Item Code', 'Movement Type', 'Quantity Change', 'Date', 'Reason', 'Remarks', 'Performed By'];
+    const rows = movements.map((movement) => {
+      const delta = movement.quantity_after - movement.quantity_before;
+      const signedDelta = delta >= 0 ? `+${delta}` : `${delta}`;
+      const typeLabel = movement.movement_type === 'stock_in'
+        ? 'Stock in'
+        : movement.movement_type === 'adjustment'
+          ? 'Adjustment'
+          : movement.movement_type === 'stock_out'
+            ? 'Stock out'
+            : 'Used on job';
       return [
-        `"${(tx.partName || '').replace(/"/g, '""')}"`,
-        `"${(tx.partNumber || '').replace(/"/g, '""')}"`,
-        `"${typeLabel}"`,
-        `"${qtyStr}"`,
-        `"${tx.timestamp}"`,
-        `"${reasonStr.replace(/"/g, '""')}"`,
-        `"${(tx.performedBy || '').replace(/"/g, '""')}"`,
-      ];
+        movement.item.item_name,
+        movement.item.item_code,
+        typeLabel,
+        signedDelta,
+        movement.movement_date,
+        movement.reason ?? '',
+        movement.remarks ?? '',
+        movement.performed_by?.name ?? '',
+      ].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',');
     });
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF', [headers.join(','), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Stock_History_${todayStr}.csv`);
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = `Stock_Movements_${today}.csv`;
     link.click();
-    document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast('Exported filtered stock records to Excel (CSV).');
   };
+
+  const renderItemSelect = (id: string, value: string, onChange: (value: string) => void) => (
+    <select
+      id={id}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium"
+      required
+      disabled={isLoadingItems || items.length === 0}
+    >
+      <option value="">Select an item</option>
+      {items.map((item) => (
+        <option key={item.id} value={item.id}>{item.item_name} ({item.item_code})</option>
+      ))}
+    </select>
+  );
 
   return (
     <div className="space-y-6 text-slate-900 font-sans">
-      {/* Toast */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl flex items-center gap-2 text-xs font-semibold">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
-
-      {/* Header Banner */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
         <h1 className="text-xl font-bold text-slate-900">Stock</h1>
       </div>
 
-      {/* Sub Tabs */}
+      {(itemsError || movementsError) && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{[itemsError, movementsError].filter(Boolean).join(' ')}</span>
+        </div>
+      )}
+
       <div className="flex border-b border-slate-200 space-x-4 overflow-x-auto">
-        <button
-          id="tab-stock-in"
-          onClick={() => setActiveSubTab('stock_in')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
-            activeSubTab === 'stock_in'
-              ? 'border-[#FF6B00] text-[#FF6B00]'
-              : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>Stock In</span>
-        </button>
-
-        <button
-          id="tab-stock-adjustment"
-          onClick={() => setActiveSubTab('adjust')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
-            activeSubTab === 'adjust'
-              ? 'border-[#FF6B00] text-[#FF6B00]'
-              : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          <span>Stock Adjustment</span>
-        </button>
-
-        <button
-          id="tab-stock-history"
-          onClick={() => setActiveSubTab('history')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 transition border-b-2 shrink-0 cursor-pointer ${
-            activeSubTab === 'history'
-              ? 'border-[#FF6B00] text-[#FF6B00]'
-              : 'border-transparent text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Stock History ({stockTransactions.length})</span>
-        </button>
+        {([
+          ['stock_in', 'Stock in', Package],
+          ['adjust', 'Adjustment', Sliders],
+          ['history', 'Stock movements', History],
+        ] as const).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 shrink-0 ${activeTab === id ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* TAB 1: STOCK IN FORM */}
-      {activeSubTab === 'stock_in' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-xl space-y-4">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-slate-700" />
-            Stock In
-          </h2>
+      {formError && (
+        <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+          {formError}
+          {Object.entries(formFieldErrors).map(([field, messages]) => (
+            <p key={field}>{field}: {messages.join(', ')}</p>
+          ))}
+        </div>
+      )}
 
+      {activeTab === 'stock_in' && (
+        <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-xl space-y-4">
+          <h2 className="text-base font-bold flex items-center gap-2"><Package className="w-5 h-5" />Stock in</h2>
           <form onSubmit={handleStockInSubmit} className="space-y-4 text-xs">
-            {/* Item Select (Item name only) */}
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">
-                Item <span className="text-rose-500">*</span>
-              </label>
-              <select
-                id="stock-in-item-select"
-                value={stockInItemId}
-                onChange={(e) => setStockInItemId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                required
-              >
-                {inventory.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Quantity & Date */}
+            <label className="block text-slate-700 font-semibold">
+              Item <span className="text-rose-500">*</span>
+              <span className="mt-1 block">{renderItemSelect('stock-in-item-select', stockInItemId, setStockInItemId)}</span>
+            </label>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  Quantity <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  id="stock-in-quantity-input"
-                  type="number"
-                  min="1"
-                  value={stockInQty}
-                  onChange={(e) => setStockInQty(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  Date <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  id="stock-in-date-input"
-                  type="date"
-                  value={stockInDate}
-                  onChange={(e) => setStockInDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                  required
-                />
-              </div>
+              <label className="block text-slate-700 font-semibold">
+                Quantity <span className="text-rose-500">*</span>
+                <input id="stock-in-quantity-input" type="number" min="1" step="1" value={stockInQuantity} onChange={(event) => setStockInQuantity(Number(event.target.value))} required className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono" />
+              </label>
+              <label className="block text-slate-700 font-semibold">
+                Date <span className="text-rose-500">*</span>
+                <input id="stock-in-date-input" type="date" max={today} value={stockInDate} onChange={(event) => setStockInDate(event.target.value)} required className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+              </label>
             </div>
-
-            {/* Remarks */}
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">Remarks</label>
-              <input
-                id="stock-in-remarks-input"
-                type="text"
-                value={stockInRemarks}
-                onChange={(e) => setStockInRemarks(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-              />
-            </div>
-
-            <button
-              id="submit-stock-in-btn"
-              type="submit"
-              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg shadow-xs transition text-xs cursor-pointer"
-            >
-              Record Stock In
+            <label className="block text-slate-700 font-semibold">
+              Remarks
+              <input id="stock-in-remarks-input" value={stockInRemarks} onChange={(event) => setStockInRemarks(event.target.value)} className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+            </label>
+            <button id="submit-stock-in-btn" type="submit" disabled={isSubmitting || !stockInItemId} className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg disabled:opacity-60">
+              {isSubmitting ? 'Recording...' : 'Record stock in'}
             </button>
           </form>
-        </div>
+        </section>
       )}
 
-      {/* TAB 2: STOCK ADJUSTMENT FORM */}
-      {activeSubTab === 'adjust' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-xl space-y-4">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-amber-600" />
-            Stock Adjustment
-          </h2>
-
-          <form onSubmit={handleStockAdjustmentSubmit} className="space-y-4 text-xs">
-            {/* Item Select (Item name only) */}
+      {activeTab === 'adjust' && (
+        <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-xl space-y-4">
+          <h2 className="text-base font-bold flex items-center gap-2"><Sliders className="w-5 h-5 text-amber-600" />Adjustment</h2>
+          <form onSubmit={handleAdjustmentSubmit} className="space-y-4 text-xs">
+            <label className="block text-slate-700 font-semibold">
+              Item <span className="text-rose-500">*</span>
+              <span className="mt-1 block">{renderItemSelect('adjust-item-select', adjustItemId, setAdjustItemId)}</span>
+            </label>
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">
-                Item <span className="text-rose-500">*</span>
-              </label>
-              <select
-                id="adjust-item-select"
-                value={adjustItemId}
-                onChange={(e) => setAdjustItemId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                required
-              >
-                {inventory.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Increase / Decrease Toggle */}
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">
-                Adjustment Type <span className="text-rose-500">*</span>
-              </label>
+              <span className="block text-slate-700 font-semibold mb-1">Direction <span className="text-rose-500">*</span></span>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  id="adjust-toggle-increase"
-                  onClick={() => setAdjustDirection('increase')}
-                  className={`py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border transition ${
-                    adjustDirection === 'increase'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Plus className="w-4 h-4 text-emerald-600" />
-                  <span>Increase (+)</span>
+                <button type="button" onClick={() => setAdjustDirection('increase')} className={`py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border ${adjustDirection === 'increase' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                  <Plus className="w-4 h-4" />Increase
                 </button>
-
-                <button
-                  type="button"
-                  id="adjust-toggle-decrease"
-                  onClick={() => setAdjustDirection('decrease')}
-                  className={`py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border transition ${
-                    adjustDirection === 'decrease'
-                      ? 'bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-400'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Minus className="w-4 h-4 text-rose-600" />
-                  <span>Decrease (-)</span>
+                <button type="button" onClick={() => setAdjustDirection('decrease')} className={`py-2 px-3 rounded-lg font-bold flex items-center justify-center gap-2 border ${adjustDirection === 'decrease' ? 'bg-rose-50 text-rose-800 border-rose-300' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                  <Minus className="w-4 h-4" />Decrease
                 </button>
               </div>
             </div>
-
-            {/* Quantity & Date */}
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  Quantity <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  id="adjust-quantity-input"
-                  type="number"
-                  min="1"
-                  value={adjustQty}
-                  onChange={(e) => setAdjustQty(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  Date <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  id="adjust-date-input"
-                  type="date"
-                  value={adjustDate}
-                  onChange={(e) => setAdjustDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Reason */}
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">
-                Reason <span className="text-rose-500">*</span>
+              <label className="block text-slate-700 font-semibold">
+                Quantity <span className="text-rose-500">*</span>
+                <input id="adjust-quantity-input" type="number" min="1" step="1" value={adjustQuantity} onChange={(event) => setAdjustQuantity(Number(event.target.value))} required className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono" />
               </label>
-              <input
-                id="adjust-reason-input"
-                type="text"
-                value={adjustReason}
-                onChange={(e) => setAdjustReason(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                required
-              />
+              <label className="block text-slate-700 font-semibold">
+                Date <span className="text-rose-500">*</span>
+                <input id="adjust-date-input" type="date" max={today} value={adjustDate} onChange={(event) => setAdjustDate(event.target.value)} required className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+              </label>
             </div>
-
-            {/* Remarks */}
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">Remarks</label>
-              <input
-                id="adjust-remarks-input"
-                type="text"
-                value={adjustRemarks}
-                onChange={(e) => setAdjustRemarks(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-              />
-            </div>
-
-            <button
-              id="submit-adjust-btn"
-              type="submit"
-              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg shadow-xs transition text-xs cursor-pointer"
-            >
-              Save Adjustment
+            <label className="block text-slate-700 font-semibold">
+              Reason <span className="text-rose-500">*</span>
+              <select id="adjust-reason-select" value={adjustReason} onChange={(event) => setAdjustReason(event.target.value as (typeof ADJUSTMENT_REASONS)[number])} required className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                {ADJUSTMENT_REASONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+              </select>
+            </label>
+            {adjustReason === 'Other' && (
+              <label className="block text-slate-700 font-semibold">
+                Specify reason <span className="text-rose-500">*</span>
+                <input id="adjust-other-reason-input" value={otherReason} onChange={(event) => setOtherReason(event.target.value)} required className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+              </label>
+            )}
+            <label className="block text-slate-700 font-semibold">
+              Remarks
+              <input id="adjust-remarks-input" value={adjustRemarks} onChange={(event) => setAdjustRemarks(event.target.value)} className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+            </label>
+            <button id="submit-adjust-btn" type="submit" disabled={isSubmitting || !adjustItemId} className="px-5 py-2.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg disabled:opacity-60">
+              {isSubmitting ? 'Saving...' : 'Save adjustment'}
             </button>
           </form>
-        </div>
+        </section>
       )}
 
-      {/* TAB 3: STOCK HISTORY TABLE */}
-      {activeSubTab === 'history' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+      {activeTab === 'history' && (
+        <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-            <h2 className="text-sm font-bold text-slate-900">Stock History</h2>
-
-            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  id="history-search-input"
-                  type="text"
-                  placeholder="Search..."
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-                />
-              </div>
-
-              <select
-                id="history-type-filter"
-                value={historyTypeFilter}
-                onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-              >
-                <option value="all">All Movement Types</option>
-                <option value="stock_in">Stock In</option>
-                <option value="adjustment">Stock Adjustment</option>
-                <option value="usage">Usage</option>
+            <h2 className="text-sm font-bold text-slate-900">Stock movements ({movementMeta.total})</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <select id="history-item-filter" value={itemFilter} onChange={(event) => { setItemFilter(event.target.value); setCurrentPage(1); }} className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg">
+                <option value="all">All items</option>
+                {items.map((item) => <option key={item.id} value={item.id}>{item.item_name}</option>)}
               </select>
-
-              <select
-                id="history-date-filter"
-                value={dateRangeFilter}
-                onChange={(e) => setDateRangeFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
-              >
-                <option value="all">All Dates</option>
-                <option value="today">Today</option>
-                <option value="past_7_days">Past 7 Days</option>
-                <option value="this_month">This Month</option>
-                <option value="custom">Custom Range</option>
+              <select id="history-type-filter" value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value as typeof typeFilter); setCurrentPage(1); }} className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg">
+                <option value="all">All movement types</option>
+                <option value="stock_in">Stock in</option>
+                <option value="adjustment">Adjustment</option>
+                <option value="stock_out">Stock out</option>
+                <option value="usage">Used on job</option>
               </select>
-
-              {dateRangeFilter === 'custom' && (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
-                  />
-                  <span className="text-slate-400 text-xs">to</span>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
-                  />
-                </div>
-              )}
-
-              <button
-                id="export-stock-history-btn"
-                onClick={handleExportToExcel}
-                className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-white" />
-                <span>Export to Excel</span>
-              </button>
+              <label className="text-xs text-slate-600">From <input type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setCurrentPage(1); }} className="ml-1 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg" /></label>
+              <label className="text-xs text-slate-600">To <input type="date" value={dateTo} onChange={(event) => { setDateTo(event.target.value); setCurrentPage(1); }} className="ml-1 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg" /></label>
+              <button type="button" onClick={exportMovements} disabled={!movements.length} className="px-3 py-1.5 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold rounded-lg text-xs disabled:opacity-60">Export</button>
             </div>
           </div>
-
-          {/* Movements Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-lg">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px]">
                   <th className="py-3 px-4">Item</th>
-                  <th className="py-3 px-4">Movement Type</th>
-                  <th className="py-3 px-4 text-right">Quantity</th>
-                  <th className="py-3 px-4">Date & Time</th>
+                  <th className="py-3 px-4">Movement type</th>
+                  <th className="py-3 px-4 text-right">Quantity change</th>
+                  <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Reason / Remarks</th>
-                  <th className="py-3 px-4">Recorded By</th>
+                  <th className="py-3 px-4">Performed by</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredHistory.length > 0 ? (
-                  filteredHistory.map((tx, idx) => {
-                    const isPositive = tx.quantity > 0;
-
-                    return (
-                      <tr key={tx.id ? `${tx.id}-${idx}` : idx} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Item */}
-                        <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">{tx.partName}</div>
-                          <div className="text-[10px] font-mono text-slate-500">{tx.partNumber}</div>
-                        </td>
-
-                        {/* Type */}
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${
-                              tx.type === 'stock_in'
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : tx.type === 'usage'
-                                ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                                : 'bg-amber-50 text-amber-800 border border-amber-200'
-                            }`}
-                          >
-                            {tx.type === 'stock_in'
-                              ? 'Stock In'
-                              : tx.type === 'usage'
-                              ? 'Usage'
-                              : 'Adjustment'}
-                          </span>
-                        </td>
-
-                        {/* Quantity */}
-                        <td
-                          className={`py-3 px-4 text-right font-bold font-mono text-xs ${
-                            isPositive ? 'text-emerald-700' : 'text-rose-700'
-                          }`}
-                        >
-                          {isPositive ? `+${tx.quantity}` : tx.quantity}
-                        </td>
-
-                        {/* Date */}
-                        <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
-                          {tx.timestamp}
-                        </td>
-
-                        {/* Reason / Remarks */}
-                        <td className="py-3 px-4 text-slate-700">
-                          {tx.reason || '—'}
-                          {tx.supplier && (
-                            <span className="block text-[10px] text-slate-400">
-                              Ref: {tx.supplier}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Recorded By */}
-                        <td className="py-3 px-4 text-slate-700 font-medium">
-                          {tx.performedBy}
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
-                      No stock history records match your search filter.
-                    </td>
-                  </tr>
+                {isLoadingMovements ? (
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-400">Loading stock movements...</td></tr>
+                ) : movements.length ? movements.map((movement) => {
+                  const delta = movement.quantity_after - movement.quantity_before;
+                  const typeLabel = movement.movement_type === 'stock_in'
+                    ? 'Stock in'
+                    : movement.movement_type === 'adjustment'
+                      ? 'Adjustment'
+                      : movement.movement_type === 'stock_out'
+                        ? 'Stock out'
+                        : 'Used on job';
+                  return (
+                    <tr key={movement.id} className="hover:bg-slate-50/80">
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900">{movement.item.item_name}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{movement.item.item_code}</div>
+                      </td>
+                      <td className="py-3 px-4">{typeLabel}</td>
+                      <td className={`py-3 px-4 text-right font-bold font-mono ${delta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{delta >= 0 ? `+${delta}` : delta}</td>
+                      <td className="py-3 px-4">{movement.movement_date}</td>
+                      <td className="py-3 px-4">{[movement.reason, movement.remarks].filter(Boolean).join(' — ') || '—'}</td>
+                      <td className="py-3 px-4">{movement.performed_by?.name ?? '—'}</td>
+                    </tr>
+                  );
+                }) : (
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-400">No stock movements found.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+          <div className="flex items-center justify-between text-xs text-slate-600">
+            <span>Page {movementMeta.current_page} of {movementMeta.last_page} · {movementMeta.total} total</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={movementMeta.current_page <= 1 || isLoadingMovements} onClick={() => setCurrentPage(movementMeta.current_page - 1)} className="px-3 py-1.5 border border-slate-200 rounded-lg disabled:opacity-50">Previous</button>
+              <button type="button" disabled={movementMeta.current_page >= movementMeta.last_page || isLoadingMovements} onClick={() => setCurrentPage(movementMeta.current_page + 1)} className="px-3 py-1.5 border border-slate-200 rounded-lg disabled:opacity-50">Next</button>
+            </div>
+          </div>
+        </section>
       )}
     </div>
   );

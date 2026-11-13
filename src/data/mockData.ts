@@ -849,6 +849,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsMap = {
     'vehicles',
     'repairs',
     'invoices',
+    'inventory',
+    'stock_in',
+    'stock',
     'reports',
     'telegram',
   ],
@@ -858,6 +861,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsMap = {
     'vehicles',
     'repairs',
     'invoices',
+    'inventory',
+    'stock_in',
+    'stock',
     'reports',
     'telegram',
   ],
@@ -987,4 +993,3 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
     ipAddress: '192.168.1.30',
   },
 ];
-

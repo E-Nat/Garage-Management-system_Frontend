@@ -35,6 +35,7 @@ import {
 import logoImg from '../../assets/images/logo.png';
 import { UserManagement } from '../users/UserManagement';
 import { StatusHistoryActivityLog } from './StatusHistoryActivityLog';
+import { CategoryManagement } from './CategoryManagement';
 
 const ALL_ROLES: Array<{ role: UserRole; label: string; badge: string }> = [
   {
@@ -122,12 +123,6 @@ export const SettingsView: React.FC = () => {
     systemSettings,
     updateGarageInfoSettings,
     updateInvoiceSettings,
-    addItemCategory,
-    updateItemCategory,
-    removeItemCategory,
-    addRepairCategory,
-    updateRepairCategory,
-    removeRepairCategory,
     notificationLogs,
     repairJobs,
   } = useGarage();
@@ -171,18 +166,6 @@ export const SettingsView: React.FC = () => {
   const [newMethodName, setNewMethodName] = useState('');
   const [editingMethodId, setEditingMethodId] = useState<string | null>(null);
   const [editingMethodName, setEditingMethodName] = useState('');
-
-  // Categories State
-  const [categorySubTab, setCategorySubTab] = useState<'item' | 'service'>('item');
-  const [itemCatSearch, setItemCatSearch] = useState('');
-  const [newItemCat, setNewItemCat] = useState('');
-  const [editingItemCat, setEditingItemCat] = useState<string | null>(null);
-  const [editingItemCatName, setEditingItemCatName] = useState('');
-
-  const [serviceCatSearch, setServiceCatSearch] = useState('');
-  const [newServiceCat, setNewServiceCat] = useState('');
-  const [editingServiceCat, setEditingServiceCat] = useState<string | null>(null);
-  const [editingServiceCatName, setEditingServiceCatName] = useState('');
 
   // Discount / Promotion modal state
   const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
@@ -274,69 +257,6 @@ export const SettingsView: React.FC = () => {
       alert(res.error || 'Failed to update payment method.');
     }
   };
-
-  // Item Categories Handlers
-  const handleAddItemCat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItemCat.trim()) return;
-    const res = addItemCategory(newItemCat.trim());
-    if (res.success) {
-      showToast(`Item category "${newItemCat.trim()}" added.`);
-      setNewItemCat('');
-    } else {
-      alert(res.error || 'Failed to add category.');
-    }
-  };
-
-  const handleSaveItemCatEdit = (oldCat: string) => {
-    if (!editingItemCatName.trim() || editingItemCatName.trim() === oldCat) {
-      setEditingItemCat(null);
-      return;
-    }
-    const res = updateItemCategory(oldCat, editingItemCatName.trim());
-    if (res.success) {
-      showToast('Item category updated.');
-      setEditingItemCat(null);
-    } else {
-      alert(res.error || 'Failed to update category.');
-    }
-  };
-
-  // Service Categories Handlers
-  const handleAddServiceCat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newServiceCat.trim()) return;
-    const res = addRepairCategory(newServiceCat.trim());
-    if (res.success) {
-      showToast(`Service category "${newServiceCat.trim()}" added.`);
-      setNewServiceCat('');
-    } else {
-      alert(res.error || 'Failed to add category.');
-    }
-  };
-
-  const handleSaveServiceCatEdit = (oldCat: string) => {
-    if (!editingServiceCatName.trim() || editingServiceCatName.trim() === oldCat) {
-      setEditingServiceCat(null);
-      return;
-    }
-    const res = updateRepairCategory(oldCat, editingServiceCatName.trim());
-    if (res.success) {
-      showToast('Service category updated.');
-      setEditingServiceCat(null);
-    } else {
-      alert(res.error || 'Failed to update category.');
-    }
-  };
-
-  // Filtered Item & Service Categories
-  const filteredItemCategories = (systemSettings.itemCategories || []).filter((c) =>
-    c.toLowerCase().includes(itemCatSearch.toLowerCase())
-  );
-
-  const filteredServiceCategories = (systemSettings.repairCategories || []).filter((c) =>
-    c.toLowerCase().includes(serviceCatSearch.toLowerCase())
-  );
 
   // Telegram Notifications Metric Calculations
   const telegramSentCount = useMemo(() => {
@@ -1151,245 +1071,8 @@ export const SettingsView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 5: CATEGORIES (TWO SEPARATE TABS) */}
-      {activeTab === 'categories' && (
-        <div className="space-y-4 max-w-3xl">
-          {/* Sub-tab Navigation */}
-          <div className="flex border-b border-slate-200 gap-4">
-            <button
-              id="subtab-item-categories"
-              onClick={() => setCategorySubTab('item')}
-              className={`pb-2 text-xs font-bold border-b-2 transition ${
-                categorySubTab === 'item'
-                  ? 'border-slate-900 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Item Categories
-            </button>
-
-            <button
-              id="subtab-service-categories"
-              onClick={() => setCategorySubTab('service')}
-              className={`pb-2 text-xs font-bold border-b-2 transition ${
-                categorySubTab === 'service'
-                  ? 'border-slate-900 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Service Categories
-            </button>
-          </div>
-
-          {/* SUB-TAB 1: ITEM CATEGORIES */}
-          {categorySubTab === 'item' && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                {/* Search */}
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={itemCatSearch}
-                    onChange={(e) => setItemCatSearch(e.target.value)}
-                    placeholder="Search item categories..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
-                  />
-                </div>
-
-                {/* Add Form */}
-                <form onSubmit={handleAddItemCat} className="flex items-center gap-2 w-full sm:w-auto">
-                  <input
-                    type="text"
-                    placeholder="New Item Category"
-                    value={newItemCat}
-                    onChange={(e) => setNewItemCat(e.target.value)}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] w-full sm:w-48"
-                  />
-                  <button
-                    type="submit"
-                    id="add-item-cat-btn"
-                    className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add</span>
-                  </button>
-                </form>
-              </div>
-
-              {/* Item Categories List */}
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                {filteredItemCategories.length > 0 ? (
-                  filteredItemCategories.map((cat) => (
-                    <div
-                      key={cat}
-                      className="p-3 bg-white hover:bg-slate-50/60 transition flex items-center justify-between gap-3"
-                    >
-                      {editingItemCat === cat ? (
-                        <div className="flex items-center gap-2 flex-1">
-                          <input
-                            type="text"
-                            value={editingItemCatName}
-                            onChange={(e) => setEditingItemCatName(e.target.value)}
-                            className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-[#FF6B00]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSaveItemCatEdit(cat)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Save</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingItemCat(null)}
-                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="text-xs font-bold text-slate-900">{cat}</div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingItemCat(cat);
-                                setEditingItemCatName(cat);
-                              }}
-                              className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md text-xs font-semibold flex items-center gap-1 transition"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeItemCategory(cat)}
-                              className="px-2.5 py-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md text-xs font-semibold transition"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-xs text-slate-400">
-                    No item categories found.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* SUB-TAB 2: SERVICE CATEGORIES */}
-          {categorySubTab === 'service' && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                {/* Search */}
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={serviceCatSearch}
-                    onChange={(e) => setServiceCatSearch(e.target.value)}
-                    placeholder="Search service categories..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00]"
-                  />
-                </div>
-
-                {/* Add Form */}
-                <form onSubmit={handleAddServiceCat} className="flex items-center gap-2 w-full sm:w-auto">
-                  <input
-                    type="text"
-                    placeholder="New Service Category"
-                    value={newServiceCat}
-                    onChange={(e) => setNewServiceCat(e.target.value)}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-[#FF6B00] w-full sm:w-48"
-                  />
-                  <button
-                    type="submit"
-                    id="add-service-cat-btn"
-                    className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add</span>
-                  </button>
-                </form>
-              </div>
-
-              {/* Service Categories List */}
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                {filteredServiceCategories.length > 0 ? (
-                  filteredServiceCategories.map((cat) => (
-                    <div
-                      key={cat}
-                      className="p-3 bg-white hover:bg-slate-50/60 transition flex items-center justify-between gap-3"
-                    >
-                      {editingServiceCat === cat ? (
-                        <div className="flex items-center gap-2 flex-1">
-                          <input
-                            type="text"
-                            value={editingServiceCatName}
-                            onChange={(e) => setEditingServiceCatName(e.target.value)}
-                            className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold w-full focus:outline-hidden focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSaveServiceCatEdit(cat)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Save</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingServiceCat(null)}
-                            className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="text-xs font-bold text-slate-900">{cat}</div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingServiceCat(cat);
-                                setEditingServiceCatName(cat);
-                              }}
-                              className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md text-xs font-semibold flex items-center gap-1 transition"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeRepairCategory(cat)}
-                              className="px-2.5 py-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md text-xs font-semibold transition"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-xs text-slate-400">
-                    No service categories found.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* TAB 5: CATEGORIES */}
+      {activeTab === 'categories' && <CategoryManagement />}
 
       {/* TAB 6: PROMOTIONS & CAMPAIGNS */}
       {activeTab === 'discounts' && (

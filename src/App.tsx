@@ -12,9 +12,8 @@ import { CustomerDashboard } from './components/dashboards/CustomerDashboard';
 import { CustomerManagement } from './components/customers/CustomerManagement';
 import { VehicleManagement } from './components/vehicles/VehicleManagement';
 import { RepairJobManagement } from './components/repairs/RepairJobManagement';
-import { ItemsManagement } from './components/items/ItemsManagement';
+import { InventoryManagement } from './components/inventory/InventoryManagement';
 import { InvoiceManagement } from './components/invoices/InvoiceManagement';
-import { StockManagement } from './components/inventory/StockManagement';
 import { ReportsOverview } from './components/reports/ReportsOverview';
 import { SettingsView } from './components/settings/SettingsView';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,14 +25,13 @@ const TAB_TO_PERMISSION: Record<string, ModulePermissionId> = {
   vehicles: 'vehicles',
   jobs: 'repairs',
   repairs: 'repairs',
-  items: 'inventory',
-  stock: 'stock',
+  inventory: 'inventory',
   invoices: 'invoices',
   reports: 'reports',
   settings: 'settings',
 };
 
-const DEFAULT_ALLOWED_TABS = ['dashboard', 'customers', 'vehicles', 'jobs', 'items', 'stock', 'invoices', 'reports', 'settings'];
+const DEFAULT_ALLOWED_TABS = ['dashboard', 'customers', 'vehicles', 'jobs', 'inventory', 'invoices', 'reports', 'settings'];
 
 function AppContent() {
   const { currentUser, activeTab, setActiveTab } = useAuth();
@@ -54,6 +52,11 @@ function AppContent() {
   const hasPermission = (tabId: string) => {
     if (!currentUser) return false;
     if (currentUser.role === 'admin' || currentUser.role === 'owner') return true;
+    if (tabId === 'inventory') {
+      return currentUser.role === 'parts_manager'
+        || currentUser.role === 'advisor'
+        || currentUser.role === 'staff';
+    }
 
     const permissionKey = TAB_TO_PERMISSION[tabId] ?? TAB_TO_PERMISSION[tabId === 'repairs' ? 'jobs' : tabId];
     return Boolean(permissionKey && effectivePermissions.includes(permissionKey));
@@ -73,7 +76,7 @@ function AppContent() {
   useEffect(() => {
     if (!currentUser) return;
     const hash = window.location.hash.replace('#', '').trim();
-    if (hash && !['dashboard', 'customers', 'vehicles', 'jobs', 'items', 'stock', 'invoices', 'reports', 'settings', 'repairs'].includes(hash)) {
+    if (hash && !['dashboard', 'customers', 'vehicles', 'jobs', 'inventory', 'items', 'stock', 'invoices', 'reports', 'settings', 'repairs'].includes(hash)) {
       return;
     }
     if (hash && !hasPermission(hash === 'repairs' ? 'jobs' : hash)) {
@@ -161,10 +164,8 @@ function AppContent() {
       case 'repairs':
         if (currentUser.role === 'mechanic') return <MechanicDashboard />;
         return <RepairJobManagement />;
-      case 'items':
-        return <ItemsManagement />;
-      case 'stock':
-        return <StockManagement />;
+      case 'inventory':
+        return <InventoryManagement />;
       case 'invoices':
         return <InvoiceManagement />;
       case 'reports':
