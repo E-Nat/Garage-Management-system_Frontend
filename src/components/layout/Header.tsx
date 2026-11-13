@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGarage } from '../../context/GarageContext';
 import { Wrench, LogOut, Bell, Send, CheckCircle2, Menu, X } from 'lucide-react';
 import { UserProfileModal } from '../profile/UserProfileModal';
+import { NotificationCenter } from './NotificationCenter';
 import { getRoleDisplayName } from '../../utils/roleUtils';
 import logoImg from '../../assets/images/logo.png';
 
@@ -12,9 +13,10 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }) => {
-  const { currentUser, logout, activeTab, setActiveTab } = useAuth();
-  const { systemSettings } = useGarage();
+  const { currentUser, logout } = useAuth();
+  const { systemSettings, unreadNotificationsCount } = useGarage();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [showNotificationToast, setShowNotificationToast] = useState(false);
 
   const logoUrl = (systemSettings?.garageInfo?.logoUrl && !systemSettings.garageInfo.logoUrl.includes('unsplash.com'))
@@ -69,20 +71,33 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
 
           {/* Right: Notifications, User Name, Role & Logout */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Notification Bell */}
-            <button
-              id="notifications-bell-btn"
-              onClick={() => {
-                if (currentUser.role === 'admin' || currentUser.role === 'owner' || currentUser.role === 'advisor') {
-                  setActiveTab('settings');
-                }
-              }}
-              className="relative p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors border border-slate-100 cursor-pointer"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#FF6B00]" />
-            </button>
+            {/* Notification Bell & Dropdown */}
+            <div className="relative">
+              <button
+                id="notifications-bell-btn"
+                type="button"
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                className={`relative p-2 rounded-lg transition-colors border cursor-pointer ${
+                  isNotificationOpen
+                    ? 'text-slate-900 bg-slate-100 border-slate-300'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 border-slate-200/80'
+                }`}
+                title="Notifications"
+                aria-label="View notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationsCount > 0 ? (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF6B00] text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </span>
+                ) : null}
+              </button>
+
+              <NotificationCenter
+                isOpen={isNotificationOpen}
+                onClose={() => setIsNotificationOpen(false)}
+              />
+            </div>
 
             {/* Logged-in User Profile Information */}
             <div className="flex items-center gap-1 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-100">
@@ -132,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
               Telegram Bot Alert Sent
             </div>
             <div className="text-slate-400 mt-0.5">
-              Automated status notification dispatched to <strong className="text-white">{currentUser.telegramHandle || '@alex_sterling'}</strong>.
+              Automated status notification dispatched to <strong className="text-white">{currentUser.telegramHandle || currentUser.name}</strong>.
             </div>
           </div>
         </div>

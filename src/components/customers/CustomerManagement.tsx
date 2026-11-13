@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGarage } from '../../context/GarageContext';
 import { useAuth } from '../../context/AuthContext';
 import { Customer, Vehicle } from '../../types';
@@ -25,6 +25,7 @@ import {
   UserCheck,
   Hash,
   Shield,
+  ShieldCheck,
   Sparkles,
   Info,
   Clock,
@@ -33,23 +34,108 @@ import {
   AlertTriangle,
   Smartphone,
   XCircle,
+  MoreVertical,
+  RotateCcw,
+  UserX,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Trash2,
+  Key,
+  MessageSquare,
 } from 'lucide-react';
 import { validateAndNormalizePhone, validatePersonName, sanitizePhoneDigits } from '../../utils/phone';
+import { resetCustomerPasswordApi, requestCustomerPasswordResetApi } from '../../services/api';
 
 export const CustomerManagement: React.FC = () => {
-  const { customers, vehicles, addCustomer, updateCustomer, addVehicle, updateVehicle } = useGarage();
-  const { currentUser } = useAuth();
+  const {
+    customers,
+    vehicles,
+    addCustomer,
+    updateCustomer,
+    deactivateCustomer,
+    restoreCustomer,
+    fetchCustomers,
+    addVehicle,
+    updateVehicle,
+    targetCustomerId,
+    setTargetCustomerId,
+  } = useGarage();
+  const { currentUser, addAuditLog } = useAuth();
 
   // Permissions
   const canCreateCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
   const canEditCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.role === 'advisor' || currentUser?.role === 'staff';
   const canDeleteCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const canDeactivateCustomer = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
   // Navigation / View State
   // 'list' | 'customer_details' | 'vehicle_details'
   const [activeView, setActiveView] = useState<'list' | 'customer_details' | 'vehicle_details'>('list');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+
+  // Auto-navigate to specific customer if targetCustomerId was set (e.g. from notification click)
+  useEffect(() => {
+    if (targetCustomerId) {
+      const targetIdStr = String(targetCustomerId).trim();
+      const targetNumeric = targetIdStr.replace(/\D/g, '');
+      const match = customers.find((c) => {
+        if (!c) return false;
+        const cIdStr = String(c.id);
+        const cNumeric = cIdStr.replace(/\D/g, '');
+        return (
+          cIdStr === targetIdStr ||
+          (targetNumeric && cNumeric && cNumeric === targetNumeric) ||
+          (targetNumeric && cIdStr === `CUST-${targetNumeric}`) ||
+          (cIdStr === `CUST-${targetIdStr}`) ||
+          (c.phone && targetNumeric && c.phone.replace(/\D/g, '') === targetNumeric) ||
+          (c.fullName && c.fullName.toLowerCase() === targetIdStr.toLowerCase())
+        );
+      });
+
+      if (match) {
+        setSelectedCustomerId(match.id);
+        setSelectedVehicleId(null);
+        setActiveView('customer_details');
+        setTargetCustomerId(null);
+      }
+    }
+  }, [targetCustomerId, customers, setTargetCustomerId]);
+
+  // Status Filter State (Active by default, All, Deactivated)
+  const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'deactivated'>('active');
+
+  // Row Dropdown State
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+
+  // Deactivate Modal State
+  const [customerToDeactivate, setCustomerToDeactivate] = useState<Customer | null>(null);
+  const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+
+  // Restore Modal State
+  const [customerToRestore, setCustomerToRestore] = useState<Customer | null>(null);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // Customer Password Reset Modal State
+  const [customerToResetPassword, setCustomerToResetPassword] = useState<Customer | null>(null);
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [resetPasswordVal, setResetPasswordVal] = useState('');
+  const [resetPasswordConfirmVal, setResetPasswordConfirmVal] = useState('');
+  const [showResetNewPassword, setShowResetNewPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isSendingInstructions, setIsSendingInstructions] = useState(false);
+  const [resetInstructionsSent, setResetInstructionsSent] = useState<{
+    customerName: string;
+    channelsSent: string[];
+    customerEmail?: string | null;
+    telegramHandle?: string | null;
+  } | null>(null);
 
   // Unified Search State
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,6 +176,7 @@ export const CustomerManagement: React.FC = () => {
   // Register Form State (Customer + Optional Vehicle)
   const [regFullName, setRegFullName] = useState('');
   const [regPhone, setRegPhone] = useState('');
+  const [regEmail, setRegEmail] = useState('');
   const [regAddress, setRegAddress] = useState('');
   
   const [regPlate, setRegPlate] = useState('');
@@ -145,10 +232,20 @@ export const CustomerManagement: React.FC = () => {
     }
   };
 
-  const handleRefreshTelegramStatus = () => {
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.customer-dropdown-container')) {
+        setActiveDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleRefreshTelegramStatus = async () => {
     setIsCheckingConnection(true);
-    setTimeout(() => {
-      setIsCheckingConnection(false);
+    try {
+      await fetchCustomers();
       if (selectedTelegramCustomer) {
         const fresh = customers.find((c) => c.id === selectedTelegramCustomer.id);
         if (fresh && fresh.telegramLinked) {
@@ -158,7 +255,9 @@ export const CustomerManagement: React.FC = () => {
           showToast('Customer has not completed phone sharing yet.');
         }
       }
-    }, 600);
+    } finally {
+      setIsCheckingConnection(false);
+    }
   };
 
   const handleConfirmDisconnectTelegram = () => {
@@ -215,6 +314,12 @@ export const CustomerManagement: React.FC = () => {
   const filteredCustomers = useMemo(() => {
     let list = customers;
 
+    if (statusFilter === 'active') {
+      list = list.filter((c) => !c.isDeactivated);
+    } else if (statusFilter === 'deactivated') {
+      list = list.filter((c) => Boolean(c.isDeactivated));
+    }
+
     if (telegramFilter === 'connected') {
       list = list.filter((c) => Boolean(c.telegramLinked));
     } else if (telegramFilter === 'not_connected') {
@@ -239,7 +344,7 @@ export const CustomerManagement: React.FC = () => {
 
       return nameMatch || phoneMatch || addressMatch || ownsMatchingVehicle;
     });
-  }, [customers, vehicles, cleanSearch, telegramFilter]);
+  }, [customers, vehicles, cleanSearch, statusFilter, telegramFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE));
@@ -251,6 +356,7 @@ export const CustomerManagement: React.FC = () => {
   const handleOpenRegisterModal = () => {
     setRegFullName('');
     setRegPhone('');
+    setRegEmail('');
     setRegAddress('');
     setRegPlate('');
     setRegBrand('');
@@ -281,6 +387,13 @@ export const CustomerManagement: React.FC = () => {
         const phoneCheck = validateAndNormalizePhone(regPhone);
         if (!phoneCheck.isValid) {
           errors.phone = phoneCheck.error || 'Please enter a valid Cambodian phone number.';
+        }
+      }
+
+      if (regEmail.trim()) {
+        const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim());
+        if (!isEmailValid) {
+          errors.email = 'Please enter a valid email address.';
         }
       }
     }
@@ -336,6 +449,7 @@ export const CustomerManagement: React.FC = () => {
       const resCust = addCustomer({
         fullName: regFullName.trim(),
         phone: phoneCheck.isValid && phoneCheck.normalized ? phoneCheck.normalized : regPhone.trim(),
+        email: regEmail.trim() || null,
         address: regAddress.trim(),
       });
 
@@ -568,8 +682,15 @@ export const CustomerManagement: React.FC = () => {
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Total Customers</span>
-                <span className="text-xl font-bold text-slate-900">{customers.length}</span>
+                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Active Customers</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold text-slate-900">{customers.filter((c) => !c.isDeactivated).length}</span>
+                  {customers.some((c) => c.isDeactivated) && (
+                    <span className="text-xs font-medium text-slate-500">
+                      ({customers.filter((c) => c.isDeactivated).length} deactivated)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -581,10 +702,10 @@ export const CustomerManagement: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Telegram Connected</span>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    {customers.length > 0 ? Math.round((customers.filter((c) => c.telegramLinked).length / customers.length) * 100) : 0}%
+                    {customers.filter((c) => !c.isDeactivated).length > 0 ? Math.round((customers.filter((c) => !c.isDeactivated && c.telegramLinked).length / customers.filter((c) => !c.isDeactivated).length) * 100) : 0}%
                   </span>
                 </div>
-                <span className="text-xl font-bold text-emerald-700">{customers.filter((c) => c.telegramLinked).length}</span>
+                <span className="text-xl font-bold text-emerald-700">{customers.filter((c) => !c.isDeactivated && c.telegramLinked).length}</span>
               </div>
             </div>
 
@@ -594,7 +715,7 @@ export const CustomerManagement: React.FC = () => {
               </div>
               <div>
                 <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">Not Connected</span>
-                <span className="text-xl font-bold text-slate-700">{customers.filter((c) => !c.telegramLinked).length}</span>
+                <span className="text-xl font-bold text-slate-700">{customers.filter((c) => !c.isDeactivated && !c.telegramLinked).length}</span>
               </div>
             </div>
 
@@ -609,7 +730,7 @@ export const CustomerManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Unified Search Bar */}
+          {/* Unified Search & Filters Bar */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -635,8 +756,61 @@ export const CustomerManagement: React.FC = () => {
               )}
             </div>
 
-            {/* Telegram Status Filter */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            {/* Filter Tabs Bar (Status & Telegram) */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-1 border-t border-slate-100">
+              {/* Customer Status Filter */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Customer Status:</span>
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
+                  <button
+                    id="filter-status-all-btn"
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('all');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All ({customers.length})
+                  </button>
+                  <button
+                    id="filter-status-active-btn"
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('active');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'active'
+                        ? 'bg-white text-emerald-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Active ({customers.filter((c) => !c.isDeactivated).length})
+                  </button>
+                  <button
+                    id="filter-status-deactivated-btn"
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('deactivated');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      statusFilter === 'deactivated'
+                        ? 'bg-white text-rose-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Deactivated ({customers.filter((c) => Boolean(c.isDeactivated)).length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Telegram Status Filter */}
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500 font-medium">Telegram Status:</span>
                 <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
@@ -747,11 +921,17 @@ export const CustomerManagement: React.FC = () => {
                   </div>
                 ) : (
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">No customers registered yet</h3>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {statusFilter === 'deactivated'
+                        ? 'No deactivated customers found'
+                        : 'No active customers registered yet'}
+                    </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Register your first customer and vehicle to get started.
+                      {statusFilter === 'deactivated'
+                        ? 'Deactivated customer records will appear here when archived.'
+                        : 'Register your first customer and vehicle to get started.'}
                     </p>
-                    {canCreateCustomer && (
+                    {statusFilter !== 'deactivated' && canCreateCustomer && (
                       <button
                         id="empty-add-customer-btn"
                         type="button"
@@ -772,6 +952,7 @@ export const CustomerManagement: React.FC = () => {
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
                         <th className="py-3 px-4">Customer</th>
+                        <th className="py-3 px-4 text-center">Status</th>
                         <th className="py-3 px-4">Phone Number</th>
                         <th className="py-3 px-4 text-right">Vehicles</th>
                         <th className="py-3 px-4">Telegram</th>
@@ -794,7 +975,11 @@ export const CustomerManagement: React.FC = () => {
                               setSelectedCustomerId(cust.id);
                               setActiveView('customer_details');
                             }}
-                            className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                            className={`transition-colors cursor-pointer ${
+                              cust.isDeactivated
+                                ? 'bg-slate-50/70 hover:bg-slate-100/70 opacity-90'
+                                : 'hover:bg-slate-50/80'
+                            }`}
                           >
                             {/* Customer Column */}
                             <td className="py-3.5 px-4 font-bold text-slate-900">
@@ -805,10 +990,25 @@ export const CustomerManagement: React.FC = () => {
                                   setSelectedCustomerId(cust.id);
                                   setActiveView('customer_details');
                                 }}
-                                className="hover:underline text-left text-slate-900 font-bold"
+                                className="hover:underline text-left text-slate-900 font-bold cursor-pointer"
                               >
                                 {cust.fullName}
                               </button>
+                            </td>
+
+                            {/* Status Column */}
+                            <td className="py-3.5 px-4 text-center">
+                              {cust.isDeactivated ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                  <span>Deactivated</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                  <span>Active</span>
+                                </span>
+                              )}
                             </td>
 
                             {/* Phone Number Column */}
@@ -855,8 +1055,8 @@ export const CustomerManagement: React.FC = () => {
                             </td>
 
                             {/* Actions Column */}
-                            <td className="py-3.5 px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
+                            <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   id={`view-customer-btn-${cust.id}`}
                                   type="button"
@@ -865,11 +1065,11 @@ export const CustomerManagement: React.FC = () => {
                                     setSelectedCustomerId(cust.id);
                                     setActiveView('customer_details');
                                   }}
-                                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md transition-colors"
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-md transition-colors cursor-pointer"
                                 >
                                   View
                                 </button>
-                                {canEditCustomer && (
+                                {!cust.isDeactivated && canEditCustomer && (
                                   <button
                                     id={`edit-customer-btn-${cust.id}`}
                                     type="button"
@@ -877,11 +1077,114 @@ export const CustomerManagement: React.FC = () => {
                                       e.stopPropagation();
                                       handleOpenEditCustomerModal(cust);
                                     }}
-                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors"
+                                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer"
                                   >
                                     Edit
                                   </button>
                                 )}
+
+                                {/* More / ⋮ Dropdown Menu */}
+                                <div className="relative inline-block text-left customer-dropdown-container">
+                                  <button
+                                    id={`customer-more-btn-${cust.id}`}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveDropdownId(activeDropdownId === cust.id ? null : cust.id);
+                                    }}
+                                    className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+
+                                  {activeDropdownId === cust.id && (
+                                    <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveDropdownId(null);
+                                          setSelectedCustomerId(cust.id);
+                                          setActiveView('customer_details');
+                                        }}
+                                        className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                        <span>View Customer</span>
+                                      </button>
+
+                                      {!cust.isDeactivated && canEditCustomer && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            handleOpenEditCustomerModal(cust);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                                          <span>Edit Customer</span>
+                                        </button>
+                                      )}
+
+                                      {!cust.isDeactivated && canDeactivateCustomer && (
+                                        <button
+                                          id={`dropdown-reset-password-btn-${cust.id}`}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            setCustomerToResetPassword(cust);
+                                            setResetPasswordVal('');
+                                            setResetPasswordConfirmVal('');
+                                            setResetPasswordError(null);
+                                            setIsResetPasswordModalOpen(true);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Key className="w-3.5 h-3.5 text-amber-500" />
+                                          <span>Reset Password</span>
+                                        </button>
+                                      )}
+
+                                      {!cust.isDeactivated && canDeactivateCustomer && (
+                                        <button
+                                          id={`dropdown-deactivate-btn-${cust.id}`}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            setCustomerToDeactivate(cust);
+                                            setIsDeactivateModalOpen(true);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 border-t border-slate-100 cursor-pointer"
+                                        >
+                                          <UserX className="w-3.5 h-3.5 text-rose-500" />
+                                          <span>Deactivate Customer</span>
+                                        </button>
+                                      )}
+
+                                      {cust.isDeactivated && canDeactivateCustomer && (
+                                        <button
+                                          id={`dropdown-restore-btn-${cust.id}`}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDropdownId(null);
+                                            setCustomerToRestore(cust);
+                                            setIsRestoreModalOpen(true);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 border-t border-slate-100 cursor-pointer"
+                                        >
+                                          <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                                          <span>Restore Customer</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -952,70 +1255,144 @@ export const CustomerManagement: React.FC = () => {
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Customer Details</h1>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-xl font-bold text-slate-900">{activeCustomer.fullName}</h1>
+                  {activeCustomer.isDeactivated ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                      Deactivated
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Active
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Detailed profile for <span className="font-semibold text-slate-800">{activeCustomer.fullName}</span>
+                  ID: <span className="font-mono text-slate-700">{activeCustomer.id}</span> • Phone: <span className="font-mono text-slate-700">{activeCustomer.phone}</span>
                 </p>
               </div>
             </div>
 
-            <button
-              id="edit-customer-details-btn"
-              type="button"
-              onClick={() => handleOpenEditCustomerModal(activeCustomer)}
-              className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2"
-            >
-              <Edit2 className="w-3.5 h-3.5 text-slate-600" />
-              <span>Edit Customer</span>
-            </button>
-          </div>
-
-          {/* Customer Information Card & Telegram Status */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Customer Contact Details */}
-            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Customer Information
-                </h2>
+            <div className="flex items-center gap-2">
+              {!activeCustomer.isDeactivated && canEditCustomer && (
                 <button
-                  id="edit-customer-card-btn"
+                  id="edit-customer-details-btn"
                   type="button"
                   onClick={() => handleOpenEditCustomerModal(activeCustomer)}
-                  className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-md transition shadow-2xs flex items-center gap-1.5"
+                  className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
                 >
-                  <Edit2 className="w-3 h-3 text-slate-500" />
+                  <Edit2 className="w-3.5 h-3.5 text-slate-600" />
                   <span>Edit Customer</span>
                 </button>
+              )}
+
+              {!activeCustomer.isDeactivated && canDeactivateCustomer && (
+                <button
+                  id="reset-customer-password-details-btn"
+                  type="button"
+                  onClick={() => {
+                    setCustomerToResetPassword(activeCustomer);
+                    setResetPasswordVal('');
+                    setResetPasswordConfirmVal('');
+                    setResetPasswordError(null);
+                    setIsResetPasswordModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <Key className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Reset Password</span>
+                </button>
+              )}
+
+              {!activeCustomer.isDeactivated && canDeactivateCustomer && (
+                <button
+                  id="deactivate-customer-details-btn"
+                  type="button"
+                  onClick={() => {
+                    setCustomerToDeactivate(activeCustomer);
+                    setIsDeactivateModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <UserX className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Deactivate Customer</span>
+                </button>
+              )}
+
+              {activeCustomer.isDeactivated && canDeactivateCustomer && (
+                <button
+                  id="restore-customer-details-btn"
+                  type="button"
+                  onClick={() => {
+                    setCustomerToRestore(activeCustomer);
+                    setIsRestoreModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-white" />
+                  <span>Restore Customer</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Customer Information, Telegram, and Account Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* 1. Customer Contact Details */}
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Customer Information
+                  </h2>
+                  {!activeCustomer.isDeactivated && canEditCustomer && (
+                    <button
+                      id="edit-customer-card-btn"
+                      type="button"
+                      onClick={() => handleOpenEditCustomerModal(activeCustomer)}
+                      className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-md transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit2 className="w-3 h-3 text-slate-500" />
+                      <span>Edit Customer</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 font-medium block">Full Name</span>
+                    <span className="font-bold text-slate-900 text-sm mt-0.5 block">
+                      {activeCustomer.fullName}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 font-medium block">Phone Number</span>
+                    <span className="font-bold text-slate-900 text-sm mt-0.5 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      {activeCustomer.phone}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 font-medium block">Address</span>
+                    <span className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      {activeCustomer.address || 'No address registered'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-slate-500 font-medium block">Full Name</span>
-                  <span className="font-bold text-slate-900 text-sm mt-0.5 block">
-                    {activeCustomer.fullName}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-slate-500 font-medium block">Phone Number</span>
-                  <span className="font-bold text-slate-900 text-sm mt-0.5 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    {activeCustomer.phone}
-                  </span>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <span className="text-slate-500 font-medium block">Address</span>
-                  <span className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    {activeCustomer.address || 'No address registered'}
-                  </span>
-                </div>
+              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>Registered: {formatTimestamp(activeCustomer.createdAt)}</span>
               </div>
             </div>
 
-            {/* Telegram Integration Card */}
+            {/* 2. Telegram Integration Card */}
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
               <div>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1118,6 +1495,112 @@ export const CustomerManagement: React.FC = () => {
                   >
                     <QrCode className="w-4 h-4" />
                     <span>Connect Telegram</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Customer Account Card (Section 20) */}
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Customer Account
+                    </h2>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                    activeCustomer.isDeactivated
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${activeCustomer.isDeactivated ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                    {activeCustomer.isDeactivated ? 'Deactivated' : 'Active'}
+                  </span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 font-medium block">Email Address</span>
+                    {activeCustomer.email || (activeCustomer.userAccount?.email && !activeCustomer.userAccount.email.endsWith('@portal.apexgarage.local')) ? (
+                      <div className="mt-0.5">
+                        <span className="font-bold text-slate-900 text-sm block truncate">
+                          {activeCustomer.email || activeCustomer.userAccount?.email}
+                        </span>
+                        <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500 inline" /> Registered email
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mt-0.5">
+                        <span className="font-medium text-slate-500 italic text-sm block">
+                          Not provided
+                        </span>
+                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                          Optional — no email on file
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 font-medium block">Recovery Channel</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {(activeCustomer.email || (activeCustomer.userAccount?.email && !activeCustomer.userAccount.email.endsWith('@portal.apexgarage.local'))) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[11px] font-medium">
+                          📧 Email
+                        </span>
+                      )}
+                      {activeCustomer.telegramLinked && activeCustomer.telegramChatId ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[11px] font-medium">
+                          💬 Telegram Connected
+                        </span>
+                      ) : null}
+                      {!(activeCustomer.email || (activeCustomer.userAccount?.email && !activeCustomer.userAccount.email.endsWith('@portal.apexgarage.local'))) && !(activeCustomer.telegramLinked && activeCustomer.telegramChatId) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[11px] font-medium">
+                          ⚠ No online recovery
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 font-medium block">Account Status</span>
+                    <span className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${activeCustomer.isDeactivated ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                      {activeCustomer.isDeactivated ? 'Deactivated' : 'Active'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 font-medium block">Password</span>
+                    <span className="font-semibold text-slate-700 mt-0.5 flex items-center gap-1.5 text-xs">
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>🔒 Protected</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                {canDeactivateCustomer && (
+                  <button
+                    id="card-reset-customer-password-btn"
+                    type="button"
+                    disabled={activeCustomer.isDeactivated}
+                    onClick={() => {
+                      setCustomerToResetPassword(activeCustomer);
+                      setResetPasswordVal('');
+                      setResetPasswordConfirmVal('');
+                      setResetPasswordError(null);
+                      setResetInstructionsSent(null);
+                      setIsResetPasswordModalOpen(true);
+                    }}
+                    className="w-full px-4 py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-xs rounded-lg transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Key className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Reset Password</span>
                   </button>
                 )}
               </div>
@@ -1536,6 +2019,24 @@ export const CustomerManagement: React.FC = () => {
                         className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none font-mono"
                       />
                       {regErrors.phone && <p className="text-[11px] text-rose-600 mt-1">{regErrors.phone}</p>}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="reg-email" className="block text-xs font-semibold text-slate-700 mb-1">
+                        Email Address <span className="text-slate-400 font-normal">(Optional)</span>
+                      </label>
+                      <input
+                        id="reg-email"
+                        type="email"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        placeholder="e.g. customer@gmail.com"
+                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Optional — used for account recovery and notifications.
+                      </p>
+                      {regErrors.email && <p className="text-[11px] text-rose-600 mt-1">{regErrors.email}</p>}
                     </div>
 
                     <div className="sm:col-span-2">
@@ -2384,6 +2885,524 @@ export const CustomerManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL 8: DEACTIVATE CUSTOMER CONFIRMATION MODAL */}
+      {isDeactivateModalOpen && customerToDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-rose-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-white" />
+                <h3 className="text-sm font-bold text-white">Deactivate Customer</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeactivateModalOpen(false);
+                  setCustomerToDeactivate(null);
+                }}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-800 text-xs leading-relaxed">
+                Are you sure you want to deactivate <span className="font-bold text-slate-900">"{customerToDeactivate.fullName}"</span>?
+              </p>
+
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] leading-relaxed space-y-1.5">
+                <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-amber-700" />
+                  Preservation & Access Notice:
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-amber-900">
+                  <li>The customer's vehicles, repair jobs, invoices, payments, and history will be <strong>preserved intact</strong>.</li>
+                  <li>The customer will <strong>no longer be able to log in</strong> to the customer portal.</li>
+                  <li>The customer will <strong>not receive new customer notifications</strong> while deactivated.</li>
+                  <li>All Telegram details and connection history are kept safe and can be reactivated anytime.</li>
+                </ul>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isDeactivating}
+                  onClick={() => {
+                    setIsDeactivateModalOpen(false);
+                    setCustomerToDeactivate(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  id="confirm-deactivate-customer-btn"
+                  type="button"
+                  disabled={isDeactivating}
+                  onClick={async () => {
+                    if (!customerToDeactivate) return;
+                    setIsDeactivating(true);
+                    const res = await deactivateCustomer(customerToDeactivate.id);
+                    setIsDeactivating(false);
+                    if (res.success) {
+                      showToast(`Customer "${customerToDeactivate.fullName}" deactivated successfully.`);
+                      setIsDeactivateModalOpen(false);
+                      setCustomerToDeactivate(null);
+                    } else {
+                      showToast(res.error || 'Failed to deactivate customer.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeactivating ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deactivating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="w-3.5 h-3.5" />
+                      <span>Deactivate Customer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: RESTORE CUSTOMER CONFIRMATION MODAL */}
+      {isRestoreModalOpen && customerToRestore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-emerald-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-white" />
+                <h3 className="text-sm font-bold text-white">Restore Customer</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRestoreModalOpen(false);
+                  setCustomerToRestore(null);
+                }}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-slate-800 text-xs leading-relaxed">
+                Restore <span className="font-bold text-slate-900">"{customerToRestore.fullName}"</span>?
+              </p>
+
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-[11px] leading-relaxed space-y-1">
+                <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  Account Restoration Notice:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5 text-emerald-800">
+                  <li>This will restore the customer to <strong>Active</strong> status.</li>
+                  <li>Allows the customer to <strong>access the customer portal again</strong>.</li>
+                  <li>Resumes eligible notifications and active garage workflow.</li>
+                </ul>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isRestoring}
+                  onClick={() => {
+                    setIsRestoreModalOpen(false);
+                    setCustomerToRestore(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  id="confirm-restore-customer-btn"
+                  type="button"
+                  disabled={isRestoring}
+                  onClick={async () => {
+                    if (!customerToRestore) return;
+                    setIsRestoring(true);
+                    const res = await restoreCustomer(customerToRestore.id);
+                    setIsRestoring(false);
+                    if (res.success) {
+                      showToast(`Customer "${customerToRestore.fullName}" restored successfully.`);
+                      setIsRestoreModalOpen(false);
+                      setCustomerToRestore(null);
+                    } else {
+                      showToast(res.error || 'Failed to restore customer.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isRestoring ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Restoring...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restore Customer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 10: CUSTOMER PASSWORD RESET MODAL */}
+      {isResetPasswordModalOpen && customerToResetPassword && (() => {
+        const hasRealEmail = Boolean(
+          customerToResetPassword.email ||
+          (customerToResetPassword.userAccount?.email && !customerToResetPassword.userAccount.email.endsWith('@portal.apexgarage.local'))
+        );
+        const hasTg = Boolean(customerToResetPassword.telegramLinked && customerToResetPassword.telegramChatId);
+        const emailAddress = customerToResetPassword.email || customerToResetPassword.userAccount?.email;
+
+        const handleSendInstructions = async (channel: 'email' | 'telegram' | 'both') => {
+          setIsSendingInstructions(true);
+          setResetPasswordError(null);
+          try {
+            const res = await requestCustomerPasswordResetApi(customerToResetPassword.id, channel);
+            setIsSendingInstructions(false);
+            if (res.success) {
+              addAuditLog(
+                'Customer Password Reset Requested',
+                'Customer',
+                customerToResetPassword.id,
+                `Owner ${currentUser?.name || 'Owner'} initiated password reset instructions via ${channel} for customer '${customerToResetPassword.fullName}'`
+              );
+              setResetInstructionsSent({
+                customerName: res.customer_name || customerToResetPassword.fullName,
+                channelsSent: res.dispatched_channels || (channel === 'both' ? ['telegram', 'email'] : [channel]),
+                customerEmail: hasRealEmail ? emailAddress : null,
+                telegramHandle: customerToResetPassword.telegramHandle,
+              });
+            } else {
+              setResetPasswordError(res.message || 'Failed to send reset instructions.');
+            }
+          } catch (err: any) {
+            setIsSendingInstructions(false);
+            setResetPasswordError(err.response?.data?.message || 'Failed to send reset instructions.');
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Key className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-sm font-bold text-white">Reset Customer Password</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetPasswordModalOpen(false);
+                    setCustomerToResetPassword(null);
+                    setResetInstructionsSent(null);
+                  }}
+                  className="text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 text-xs">
+                {resetInstructionsSent ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2.5">
+                      <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span>✓ Reset instructions dispatched</span>
+                      </div>
+                      <div className="text-xs text-slate-700 space-y-1 pl-7">
+                        <div><span className="text-slate-500">Customer:</span> <strong className="text-slate-900">{resetInstructionsSent.customerName}</strong></div>
+                        <div>
+                          <span className="text-slate-500">Channels Sent:</span>{' '}
+                          <strong className="text-slate-900">
+                            {resetInstructionsSent.channelsSent.map((ch) => ch === 'telegram' ? '💬 Telegram Bot' : '📧 Registered Email').join(' + ')}
+                          </strong>
+                        </div>
+                        {resetInstructionsSent.customerEmail && (
+                          <div><span className="text-slate-500">Email:</span> <span className="font-mono text-slate-800">{resetInstructionsSent.customerEmail}</span></div>
+                        )}
+                        {resetInstructionsSent.telegramHandle && (
+                          <div><span className="text-slate-500">Telegram:</span> <span className="font-mono text-slate-800">{resetInstructionsSent.telegramHandle}</span></div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      The customer will receive a secure 30-minute link to create their new password. For security, passwords are encrypted and never visible to garage staff.
+                    </p>
+                    <div className="pt-3 border-t border-slate-200 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsResetPasswordModalOpen(false);
+                          setCustomerToResetPassword(null);
+                          setResetInstructionsSent(null);
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Customer Summary Card */}
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <div className="font-bold text-slate-900">{customerToResetPassword.fullName}</div>
+                        <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{customerToResetPassword.phone}</span>
+                        </span>
+                      </div>
+                      
+                      {/* Available Recovery Methods Checklist */}
+                      <div className="pt-1.5 border-t border-slate-200/80 flex flex-col gap-1 text-[11px]">
+                        <div className={`flex items-center gap-1.5 ${hasRealEmail ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
+                          {hasRealEmail ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <X className="w-3.5 h-3.5 text-slate-400" />}
+                          <span>{hasRealEmail ? `Registered email: ${emailAddress}` : 'Email not provided'}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${hasTg ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
+                          {hasTg ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <X className="w-3.5 h-3.5 text-slate-400" />}
+                          <span>{hasTg ? `Telegram connected (${customerToResetPassword.telegramHandle || 'Chat ID: ' + customerToResetPassword.telegramChatIdMasked})` : 'Telegram not connected'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {resetPasswordError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span>{resetPasswordError}</span>
+                      </div>
+                    )}
+
+                    {/* Dispatch Options Based on Available Channels */}
+                    <div className="p-3.5 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-2.5">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                          <Send className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Send Password Reset Instructions</span>
+                        </div>
+                        <div className="text-[11px] text-indigo-800 leading-tight">
+                          Dispatches a single-use 30-minute secure reset link to the customer.
+                        </div>
+                      </div>
+
+                      {hasRealEmail && hasTg && (
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <button
+                            type="button"
+                            disabled={isSendingInstructions}
+                            onClick={() => handleSendInstructions('email')}
+                            className="px-2.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[11px] rounded-lg transition text-center cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            Send via Email
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSendingInstructions}
+                            onClick={() => handleSendInstructions('telegram')}
+                            className="px-2.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-[11px] rounded-lg transition text-center cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            Send via Telegram
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSendingInstructions}
+                            onClick={() => handleSendInstructions('both')}
+                            className="px-2.5 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-[11px] rounded-lg transition text-center cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            Send via Both
+                          </button>
+                        </div>
+                      )}
+
+                      {hasRealEmail && !hasTg && (
+                        <button
+                          type="button"
+                          disabled={isSendingInstructions}
+                          onClick={() => handleSendInstructions('email')}
+                          className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Send Email Reset Link</span>
+                        </button>
+                      )}
+
+                      {!hasRealEmail && hasTg && (
+                        <button
+                          type="button"
+                          disabled={isSendingInstructions}
+                          onClick={() => handleSendInstructions('telegram')}
+                          className="w-full px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Send Telegram Reset Link</span>
+                        </button>
+                      )}
+
+                      {!hasRealEmail && !hasTg && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] space-y-1">
+                          <div className="font-semibold flex items-center gap-1 text-amber-950">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>No online recovery method available</span>
+                          </div>
+                          <p className="text-amber-800 leading-snug">
+                            Please verify the customer's identity manually in person or via telephone (+855 23 999 888 / 086 401 600) before setting a password below.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative flex py-1 items-center">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <span className="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Or Set New Password Directly
+                      </span>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          New Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="customer-new-password-input"
+                            type={showResetNewPassword ? 'text' : 'password'}
+                            value={resetPasswordVal}
+                            onChange={(e) => setResetPasswordVal(e.target.value)}
+                            placeholder="Minimum 6 characters"
+                            className="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#FF6B00] outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowResetNewPassword(!showResetNewPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                            title={showResetNewPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showResetNewPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showResetNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Confirm New Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="customer-confirm-password-input"
+                            type={showResetConfirmPassword ? 'text' : 'password'}
+                            value={resetPasswordConfirmVal}
+                            onChange={(e) => setResetPasswordConfirmVal(e.target.value)}
+                            placeholder="Re-enter new password"
+                            className="w-full px-3 py-2 pr-10 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#FF6B00] outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                            title={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                            aria-label={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showResetConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={isResettingPassword}
+                        onClick={() => {
+                          setIsResetPasswordModalOpen(false);
+                          setCustomerToResetPassword(null);
+                        }}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        id="confirm-customer-reset-password-btn"
+                        type="button"
+                        disabled={isResettingPassword}
+                        onClick={async () => {
+                          if (!resetPasswordVal || resetPasswordVal.length < 6) {
+                            setResetPasswordError('Password must be at least 6 characters.');
+                            return;
+                          }
+                          if (resetPasswordVal !== resetPasswordConfirmVal) {
+                            setResetPasswordError('Passwords do not match.');
+                            return;
+                          }
+                          setIsResettingPassword(true);
+                          setResetPasswordError(null);
+                          try {
+                            const res = await resetCustomerPasswordApi(customerToResetPassword.id, resetPasswordVal);
+                            setIsResettingPassword(false);
+                            if (res.success) {
+                              addAuditLog(
+                                'Customer Password Reset',
+                                'Customer',
+                                customerToResetPassword.id,
+                                `Password for customer '${customerToResetPassword.fullName}' was reset by ${currentUser?.name || 'Owner'}`
+                              );
+                              showToast(`Password for "${customerToResetPassword.fullName}" reset successfully.`);
+                              setIsResetPasswordModalOpen(false);
+                              setCustomerToResetPassword(null);
+                            } else {
+                              setResetPasswordError(res.message || 'Failed to reset password.');
+                            }
+                          } catch (err: any) {
+                            setIsResettingPassword(false);
+                            setResetPasswordError(err.response?.data?.message || 'Failed to reset customer password.');
+                          }
+                        }}
+                        className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E56000] text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isResettingPassword ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Resetting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Key className="w-3.5 h-3.5" />
+                            <span>Save Password</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

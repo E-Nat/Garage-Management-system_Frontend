@@ -38,12 +38,26 @@ export interface Customer {
   id: string; // e.g. CUST-1001
   fullName: string;
   phone: string;
+  email?: string | null;
+  has_email?: boolean;
+  has_telegram?: boolean;
+  recovery_methods?: string[];
   address?: string;
   telegramChatId?: string;
   telegramChatIdMasked?: string;
   telegramHandle?: string;
   telegramLinked: boolean;
   telegramConnectedAt?: string;
+  isDeactivated?: boolean;
+  status?: 'active' | 'deactivated';
+  userAccount?: {
+    id: number | string;
+    email?: string | null;
+    name: string;
+    status: 'active' | 'inactive' | 'suspended' | 'deactivated';
+    is_password_protected?: boolean;
+  } | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -189,6 +203,32 @@ export interface NotificationLog {
   messageSnippet: string;
   timestamp: string;
   deliveryStatus: 'Sent' | 'Failed';
+}
+
+export interface AppNotification {
+  id: number | string;
+  userId?: number | string;
+  type: 'telegram_connected' | 'repair_status' | 'invoice_created' | 'system_alert' | string;
+  title: string;
+  message: string;
+  customerId?: number | string;
+  customerName?: string;
+  customerPhone?: string;
+  telegramUsername?: string;
+  actionUrl?: string;
+  data?: {
+    customerId?: number | string;
+    customerCode?: string;
+    customerName?: string;
+    customerPhone?: string;
+    telegramHandle?: string;
+    route?: string;
+    [key: string]: any;
+  };
+  readAt?: string | null;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface GarageInfoSettings {

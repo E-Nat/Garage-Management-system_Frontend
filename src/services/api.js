@@ -62,6 +62,7 @@ let mockCustomers = [
     id: 1,
     full_name: 'Sokha Chan',
     phone_number: '012-345-678',
+    email: 'sokha.chan@gmail.com',
     address: 'Street 271, Sangkat Phsar Doeum Thkov, Phnom Penh',
     telegram_chat_id: '987654321',
     telegram_linked: true,
@@ -71,6 +72,7 @@ let mockCustomers = [
     id: 2,
     full_name: 'Rithy Kem',
     phone_number: '098-765-432',
+    email: null,
     address: 'Russian Blvd, Tuol Kouk, Phnom Penh',
     telegram_chat_id: '876543210',
     telegram_linked: true,
@@ -80,6 +82,7 @@ let mockCustomers = [
     id: 3,
     full_name: 'Bopha Vong',
     phone_number: '017-889-900',
+    email: 'bopha.vong@gmail.com',
     address: 'National Road 1, Chbar Ampov, Phnom Penh',
     telegram_chat_id: null,
     telegram_linked: false,
@@ -89,6 +92,7 @@ let mockCustomers = [
     id: 4,
     full_name: 'Chanthou Sam',
     phone_number: '015-443-221',
+    email: null,
     address: 'Norodom Blvd, Boeung Keng Kang 1, Phnom Penh',
     telegram_chat_id: '765432109',
     telegram_linked: true,
@@ -98,6 +102,7 @@ let mockCustomers = [
     id: 5,
     full_name: 'Vanna Heng',
     phone_number: '077-123-999',
+    email: null,
     address: 'Monivong Blvd, Prampi Makara, Phnom Penh',
     telegram_chat_id: null,
     telegram_linked: false,
@@ -588,6 +593,11 @@ export async function getCustomers(params = {}) {
   }
 
   let results = [...mockCustomers];
+  if (params.status === 'active') {
+    results = results.filter((c) => !c.deleted_at && !c.is_deactivated);
+  } else if (params.status === 'deactivated') {
+    results = results.filter((c) => c.deleted_at || c.is_deactivated);
+  }
   if (params.search) {
     const s = params.search.toLowerCase();
     results = results.filter(
@@ -629,6 +639,7 @@ export async function createCustomer(customerData) {
     id: mockCustomers.length > 0 ? Math.max(...mockCustomers.map((c) => c.id)) + 1 : 1,
     full_name: customerData.full_name || '',
     phone_number: customerData.phone_number || '',
+    email: customerData.email ? customerData.email.trim() : null,
     address: customerData.address || '',
     telegram_chat_id: customerData.telegram_chat_id || null,
     telegram_linked: Boolean(customerData.telegram_linked),
@@ -661,7 +672,7 @@ export async function updateCustomer(id, updates) {
 }
 
 /**
- * Delete a customer
+ * Deactivate / Soft-delete a customer
  * @param {number|string} id
  */
 export async function deleteCustomer(id) {
@@ -673,8 +684,175 @@ export async function deleteCustomer(id) {
     console.warn('API deleteCustomer failed or unauthenticated:', err);
   }
 
-  mockCustomers = mockCustomers.filter((c) => c.id !== Number(id));
+  const idx = mockCustomers.findIndex((c) => c.id === Number(id));
+  if (idx !== -1) {
+    mockCustomers[idx].deleted_at = new Date().toISOString();
+    mockCustomers[idx].is_deactivated = true;
+    return Promise.resolve({ success: true, data: mockCustomers[idx] });
+  }
   return Promise.resolve({ success: true });
+}
+
+export const deactivateCustomerApi = deleteCustomer;
+
+/**
+ * Restore a soft-deleted / deactivated customer
+ * @param {number|string} id
+ */
+export async function restoreCustomer(id) {
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.post(`/api/customers/${numericId}/restore`);
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API restoreCustomer failed or unauthenticated:', err);
+  }
+
+  const idx = mockCustomers.findIndex((c) => c.id === Number(id));
+  if (idx !== -1) {
+    mockCustomers[idx].deleted_at = null;
+    mockCustomers[idx].is_deactivated = false;
+    return Promise.resolve({ success: true, data: mockCustomers[idx] });
+  }
+  return Promise.resolve({ success: true });
+}
+
+/**
+ * Reset password for customer portal account (Owner/Admin only)
+ * @param {number|string} customerId
+ * @param {string} newPassword
+ */
+export async function resetCustomerPasswordApi(customerId, newPassword) {
+  try {
+    const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+    const response = await api.post(`/api/customers/${numericId}/reset-password`, {
+      password: newPassword,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API resetCustomerPassword failed or unauthenticated:', err);
+    throw err;
+  }
+  return Promise.resolve({ success: true, message: 'Password reset successfully.' });
+}
+
+/**
+ * Owner/Admin requests password reset instructions for customer
+ * @param {number|string} customerId
+ * @param {'email'|'telegram'|'both'|'auto'} [channel]
+ */
+export async function requestCustomerPasswordResetApi(customerId, channel = 'auto') {
+  try {
+    const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+    const response = await api.post(`/api/customers/${numericId}/request-password-reset`, {
+      channel,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API requestCustomerPasswordResetApi failed:', err);
+    throw err;
+  }
+  return Promise.resolve({
+    success: true,
+    message: 'Reset instructions sent.',
+    customer_name: 'Customer',
+    customer_email: null,
+    dispatched_channels: [channel === 'telegram' ? 'telegram' : 'email'],
+  });
+}
+
+/**
+ * Check available password recovery methods for an identifier (Email or Phone)
+ * @param {string} identifier
+ */
+export async function checkRecoveryOptionsApi(identifier) {
+  try {
+    const response = await api.post('/api/auth/recovery-methods', {
+      identifier,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API checkRecoveryOptionsApi failed:', err);
+    throw err;
+  }
+
+  // Fallback mock check
+  const isEmail = identifier.includes('@');
+  const matched = isEmail
+    ? mockCustomers.find((c) => c.email && c.email.toLowerCase() === identifier.toLowerCase())
+    : mockCustomers.find((c) => c.phone_number.replace(/\D/g, '') === identifier.replace(/\D/g, ''));
+
+  return Promise.resolve({
+    success: true,
+    data: {
+      has_account: Boolean(matched),
+      has_email: Boolean(matched?.email),
+      email: matched?.email || null,
+      masked_email: matched?.email ? matched.email.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '•••') : null,
+      has_telegram: Boolean(matched?.telegram_linked && matched?.telegram_chat_id),
+      telegram_handle: matched?.telegram_handle || null,
+      customer_name: matched?.full_name || 'Customer',
+      garage_phones: ['+855 23 999 888', '086 401 600'],
+    },
+  });
+}
+
+/**
+ * Dispatch password recovery request via chosen channel (Email or Telegram)
+ * @param {string} identifier Email or Phone
+ * @param {'email'|'telegram'|'auto'} [channel]
+ */
+export async function forgotPasswordApi(identifier, channel = 'auto') {
+  try {
+    const response = await api.post('/api/auth/forgot-password', {
+      identifier,
+      email: identifier.includes('@') ? identifier : undefined,
+      phone: !identifier.includes('@') ? identifier : undefined,
+      channel,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API forgotPasswordApi failed:', err);
+    throw err;
+  }
+
+  return Promise.resolve({
+    success: true,
+    channel,
+    message: channel === 'telegram'
+      ? 'A password reset link has been sent to your connected Telegram.'
+      : 'Reset instructions have been sent.',
+  });
+}
+
+/**
+ * Complete public password reset using secure token
+ * @param {Object} payload
+ * @param {string} payload.token
+ * @param {string} payload.password
+ * @param {string} payload.passwordConfirmation
+ * @param {string} [payload.identifier]
+ */
+export async function resetPasswordApi(payload) {
+  try {
+    const response = await api.post('/api/auth/reset-password', {
+      token: payload.token,
+      password: payload.password,
+      password_confirmation: payload.passwordConfirmation || payload.password,
+      identifier: payload.identifier,
+      email: payload.identifier?.includes('@') ? payload.identifier : payload.email,
+      phone: !payload.identifier?.includes('@') ? payload.identifier : payload.phone,
+    });
+    if (response.data) return response.data;
+  } catch (err) {
+    console.warn('API resetPasswordApi failed:', err);
+    throw err;
+  }
+
+  return Promise.resolve({
+    success: true,
+    message: 'Password has been reset successfully. You can now log in.',
+  });
 }
 
 /**
@@ -792,12 +970,21 @@ export async function deleteVehicle(id) {
  * @returns {Promise<{ data: Array }>}
  */
 export async function getRepairJobs(params = {}) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.get('/api/repair-jobs', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getRepairJobs failed or unauthenticated:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   let results = [...mockRepairJobs];
-  if (params.job_status) {
+  if (params.job_status && params.job_status !== 'all') {
     results = results.filter((j) => j.job_status === params.job_status);
   }
-  if (params.job_type) {
+  if (params.job_type && params.job_type !== 'all') {
     results = results.filter((j) => j.job_type === params.job_type);
   }
   if (params.customer_id) {
@@ -810,41 +997,24 @@ export async function getRepairJobs(params = {}) {
     results = results.filter((j) => isDateInRange(j.created_at || j.service_date, params.date_from, params.date_to));
   }
   return Promise.resolve({ data: results });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get('/api/repair-jobs', { params });
-  // return response.data;
-  */
 }
 
 /**
  * Create a new repair job
  * @param {Object} jobData Payload matching 'repair_jobs' DB schema
- * @param {('repair'|'service'|'inspection')} jobData.job_type
- * @param {number} jobData.customer_id
- * @param {number} jobData.vehicle_id
- * @param {number} [jobData.assigned_mechanic_id]
- * @param {string} jobData.service_date (YYYY-MM-DD)
- * @param {number} [jobData.linked_from_job_id]
- * @param {string} [jobData.customer_complaint]
- * @param {string} [jobData.inspection_result]
- * @param {string} [jobData.recommended_repair]
- * @param {number} [jobData.estimated_cost]
- * @param {string} [jobData.mechanic_notes]
- * @param {string} [jobData.repair_details]
- * @param {number} [jobData.total_cost]
- * @param {number} [jobData.inspection_fee]
- * @param {string} [jobData.job_status] ('pending_inspection'|'waiting_approval'|'in_progress'|'completed'|'delivered'|'declined')
- * @param {string} [jobData.approval_status] ('pending'|'approved'|'declined')
- * @param {string} [jobData.approval_date]
- * @param {number} [jobData.approved_by]
- * @param {string} [jobData.approval_note]
- * @param {string} [jobData.completion_date]
  * @returns {Promise<{ data: Object }>}
  */
 export async function createRepairJob(jobData) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const response = await api.post('/api/repair-jobs', jobData);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API createRepairJob failed:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   const newJob = {
     id: mockRepairJobs.length > 0 ? Math.max(...mockRepairJobs.map((j) => j.id)) + 1 : 1,
     job_type: jobData.job_type || 'repair',
@@ -871,12 +1041,6 @@ export async function createRepairJob(jobData) {
   };
   mockRepairJobs.unshift(newJob);
   return Promise.resolve({ data: newJob });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.post('/api/repair-jobs', jobData);
-  // return response.data;
-  */
 }
 
 /**
@@ -886,23 +1050,27 @@ export async function createRepairJob(jobData) {
  * @returns {Promise<{ data: Object }>}
  */
 export async function updateRepairJob(id, updates) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.put(`/api/repair-jobs/${numericId}`, updates);
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API updateRepairJob failed:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   const index = mockRepairJobs.findIndex((j) => j.id === Number(id));
   if (index === -1) return Promise.reject(new Error(`Repair Job #${id} not found`));
 
   const updatedJob = {
     ...mockRepairJobs[index],
     ...updates,
-    id: Number(id), // ensure ID is preserved
+    id: Number(id),
   };
   mockRepairJobs[index] = updatedJob;
   return Promise.resolve({ data: updatedJob });
-
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.put(`/api/repair-jobs/${id}`, updates);
-  // return response.data;
-  */
 }
 
 /**
@@ -910,16 +1078,47 @@ export async function updateRepairJob(id, updates) {
  * @param {number|string} id
  */
 export async function getRepairJob(id) {
-  // --- REALISTIC MOCK RETURN ---
+  try {
+    const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+    const response = await api.get(`/api/repair-jobs/${numericId}`);
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getRepairJob failed:', err);
+  }
+
+  // --- REALISTIC MOCK RETURN FALLBACK ---
   const job = mockRepairJobs.find((j) => j.id === Number(id));
   if (!job) return Promise.reject(new Error(`Repair Job #${id} not found`));
   return Promise.resolve({ data: job });
+}
 
-  /*
-  // --- LIVE LARAVEL AXIOS CALL ---
-  // const response = await api.get(`/api/repair-jobs/${id}`);
-  // return response.data;
-  */
+/**
+ * Fetch repair status history activity logs (authenticated & paginated)
+ * @param {Object} [params] Query filters (job_type, status, from_status, to_status, changed_by_user_id, date_from, date_to, search, sort_order, per_page)
+ * @returns {Promise<{ success: boolean, data: Array, meta?: Object }>}
+ */
+export async function getRepairStatusHistories(params = {}) {
+  try {
+    const response = await api.get('/api/repair-status-histories', { params });
+    if (response.data && (response.data.data || response.data.success)) {
+      return response.data;
+    }
+  } catch (err) {
+    console.warn('API getRepairStatusHistories failed or unauthenticated:', err);
+  }
+
+  return Promise.resolve({
+    success: true,
+    data: [],
+    meta: {
+      current_page: 1,
+      last_page: 1,
+      per_page: 10,
+      total: 0,
+    },
+  });
 }
 
 /**
@@ -1196,6 +1395,152 @@ export async function sendTelegramTestAlert(customerId) {
 export async function getNotificationLogs(params = {}) {
   const response = await api.get('/api/notification-logs', { params });
   return response.data;
+}
+
+export async function getNotificationsApi(params = {}) {
+  try {
+    const response = await api.get('/api/notifications', { params });
+    if (response.data && response.data.data) {
+      return response.data;
+    }
+  } catch (err) {
+    // Graceful fallback to persistent storage
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  let list = [];
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        list = parsed.filter(
+          (n) =>
+            n &&
+            n.id !== 'notif-app-1' &&
+            n.id !== 'notif-app-2' &&
+            !(n.type === 'telegram_connected' && n.customerName === 'Alex Sterling' && String(n.id).startsWith('notif-app'))
+        );
+      }
+    } catch {
+      list = [];
+    }
+  }
+  const unreadCount = list.filter((n) => !n.isRead && !n.read_at && !n.readAt && !n.read).length;
+  return Promise.resolve({
+    success: true,
+    message: 'Notifications retrieved.',
+    unread_count: unreadCount,
+    data: list,
+  });
+}
+
+export async function getUnreadNotificationsCountApi() {
+  try {
+    const response = await api.get('/api/notifications/unread-count');
+    if (response.data && typeof response.data.count === 'number') {
+      return response.data;
+    }
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  let count = 0;
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        const list = parsed.filter(
+          (n) =>
+            n &&
+            n.id !== 'notif-app-1' &&
+            n.id !== 'notif-app-2' &&
+            !(n.type === 'telegram_connected' && n.customerName === 'Alex Sterling' && String(n.id).startsWith('notif-app'))
+        );
+        count = list.filter((n) => !n.isRead && !n.read_at && !n.readAt && !n.read).length;
+      }
+    } catch {
+      count = 0;
+    }
+  }
+  return Promise.resolve({ success: true, count });
+}
+
+export async function markNotificationAsReadApi(notificationId) {
+  try {
+    const response = await api.patch(`/api/notifications/${notificationId}/read`);
+    if (response.data) return response.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  if (saved) {
+    try {
+      const list = JSON.parse(saved);
+      const updated = list.map((n) =>
+        String(n.id) === String(notificationId)
+          ? { ...n, isRead: true, is_read: true, read_at: new Date().toISOString(), readAt: new Date().toISOString() }
+          : n
+      );
+      localStorage.setItem('apex_garage_app_notifications', JSON.stringify(updated));
+      const unreadCount = updated.filter((n) => !n.isRead && !n.read_at).length;
+      return Promise.resolve({ success: true, unread_count: unreadCount });
+    } catch {
+      // ignore
+    }
+  }
+  return Promise.resolve({ success: true, unread_count: 0 });
+}
+
+export async function markAllNotificationsAsReadApi() {
+  try {
+    const response = await api.post('/api/notifications/mark-all-read');
+    if (response.data) return response.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  if (saved) {
+    try {
+      const list = JSON.parse(saved);
+      const updated = list.map((n) => ({
+        ...n,
+        isRead: true,
+        is_read: true,
+        read_at: new Date().toISOString(),
+        readAt: new Date().toISOString(),
+      }));
+      localStorage.setItem('apex_garage_app_notifications', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  }
+  return Promise.resolve({ success: true, unread_count: 0 });
+}
+
+export async function deleteNotificationApi(notificationId) {
+  try {
+    const response = await api.delete(`/api/notifications/${notificationId}`);
+    if (response.data) return response.data;
+  } catch (err) {
+    // Graceful fallback
+  }
+
+  const saved = localStorage.getItem('apex_garage_app_notifications');
+  if (saved) {
+    try {
+      const list = JSON.parse(saved);
+      const updated = list.filter((n) => String(n.id) !== String(notificationId));
+      localStorage.setItem('apex_garage_app_notifications', JSON.stringify(updated));
+      const unreadCount = updated.filter((n) => !n.isRead && !n.read_at).length;
+      return Promise.resolve({ success: true, unread_count: unreadCount });
+    } catch {
+      // ignore
+    }
+  }
+  return Promise.resolve({ success: true, unread_count: 0 });
 }
 
 /* ==========================================================================

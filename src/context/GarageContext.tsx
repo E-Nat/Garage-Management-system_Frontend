@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Customer,
   Vehicle,
@@ -31,6 +31,7 @@ import {
   EstimateRevisionHistory,
   NotificationLog,
   EmbeddedRepair,
+  AppNotification,
 } from '../types';
 import {
   INITIAL_CUSTOMERS,
@@ -51,14 +52,85 @@ import {
   INITIAL_SYSTEM_SETTINGS,
   INITIAL_ESTIMATE_REVISIONS,
   INITIAL_NOTIFICATION_LOGS,
+  INITIAL_REPAIR_STATUS_HISTORY,
+  INITIAL_APP_NOTIFICATIONS,
 } from '../data/mockData';
 import { useAuth } from './AuthContext';
+import {
+  getCustomers,
+  createCustomer as createCustomerApi,
+  updateCustomer as updateCustomerApi,
+  deleteCustomer as deleteCustomerApi,
+  restoreCustomer as restoreCustomerApi,
+  getNotificationsApi,
+  getUnreadNotificationsCountApi,
+  markNotificationAsReadApi,
+  markAllNotificationsAsReadApi,
+  linkTelegramCustomer as linkTelegramCustomerApi,
+  unlinkTelegramCustomer as unlinkTelegramCustomerApi,
+} from '../services/api';
+
+function mapBackendCustomerToCustomer(c: any): Customer {
+  const rawEmail = c.email || c.user_account?.email || null;
+  const isRealEmail = Boolean(rawEmail && !String(rawEmail).endsWith('@portal.apexgarage.local') && !String(rawEmail).includes('@apexgarage.com'));
+  const hasTg = Boolean(c.telegram_linked ?? c.telegramLinked);
+
+  return {
+    id: c.id ? (typeof c.id === 'number' ? `CUST-${c.id}` : String(c.id)) : `CUST-${Date.now()}`,
+    fullName: c.full_name || c.fullName || '',
+    phone: c.phone_number || c.phone || '',
+    email: isRealEmail ? rawEmail : null,
+    has_email: isRealEmail,
+    has_telegram: hasTg,
+    recovery_methods: c.recovery_methods || (isRealEmail && hasTg ? ['email', 'telegram'] : isRealEmail ? ['email'] : hasTg ? ['telegram'] : []),
+    address: c.address || '',
+    telegramChatId: c.telegram_chat_id || c.telegramChatId || undefined,
+    telegramChatIdMasked: c.telegram_chat_id_masked || c.telegramChatIdMasked || undefined,
+    telegramHandle: c.telegram_handle || c.telegramHandle || undefined,
+    telegramLinked: hasTg,
+    telegramConnectedAt: c.telegram_connected_at || c.telegramConnectedAt || undefined,
+    isDeactivated: Boolean(c.is_deactivated ?? (c.deleted_at != null) ?? (c.status === 'deactivated')),
+    status: (c.is_deactivated || c.deleted_at != null || c.status === 'deactivated') ? 'deactivated' : 'active',
+    userAccount: c.user_account ? {
+      id: c.user_account.id,
+      email: isRealEmail ? rawEmail : null,
+      name: c.user_account.name,
+      status: c.user_account.status,
+      is_password_protected: true,
+    } : null,
+    deletedAt: c.deleted_at || c.deletedAt || null,
+    createdAt: c.created_at || c.createdAt || new Date().toISOString(),
+    updatedAt: c.updated_at || c.updatedAt || undefined,
+  };
+}
+
+function mapBackendNotificationToAppNotification(n: any): AppNotification {
+  const rawCustId = n.customer_id ?? n.customerId ?? n.data?.customer_id ?? n.data?.customerId;
+  return {
+    id: n.id,
+    userId: n.user_id ?? n.userId,
+    type: n.type || 'telegram_connected',
+    title: n.title || 'Telegram Connected',
+    message: n.message || '',
+    customerId: rawCustId ? (typeof rawCustId === 'number' ? `CUST-${rawCustId}` : String(rawCustId)) : undefined,
+    customerName: n.customer_name ?? n.customerName ?? n.data?.customer_name ?? n.data?.customerName ?? undefined,
+    customerPhone: n.customer_phone ?? n.customerPhone ?? n.data?.customer_phone ?? n.data?.customerPhone ?? n.data?.phone ?? undefined,
+    telegramUsername: n.telegram_username ?? n.telegramUsername ?? n.data?.telegram_username ?? n.data?.telegramUsername ?? n.data?.telegram_handle ?? undefined,
+    actionUrl: n.action_url ?? n.actionUrl ?? 'customers',
+    data: n.data || {},
+    readAt: n.read_at ?? n.readAt ?? null,
+    isRead: Boolean(n.is_read ?? n.isRead ?? n.read ?? (n.read_at != null) ?? (n.readAt != null)),
+    createdAt: n.created_at ?? n.createdAt ?? new Date().toISOString(),
+    updatedAt: n.updated_at ?? n.updatedAt ?? undefined,
+  };
+}
 
 interface GarageContextType {
   customers: Customer[];
   vehicles: Vehicle[];
   vehicleChangeLogs: VehicleChangeLog[];
   repairJobs: RepairJob[];
+  repairStatusHistory: RepairStatusHistory[];
   invoices: Invoice[];
   inventory: InventoryItem[];
   stockTransactions: StockTransaction[];
@@ -73,7 +145,20 @@ interface GarageContextType {
   systemSettings: SystemSettings;
   estimateRevisions: EstimateRevisionHistory[];
   notificationLogs: NotificationLog[];
+  appNotifications: AppNotification[];
+  unreadNotificationsCount: number;
+  targetCustomerId: string | null;
   services: GarageService[];
+
+  // Notification Actions
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsRead: (id: string | number) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  createTelegramConnectedNotification: (customer: Customer, handle?: string) => Promise<void>;
+  linkCustomerTelegram: (customerId: string | number, telegramHandle?: string, telegramChatId?: string) => Promise<{ success: boolean; customer?: Customer; error?: string }>;
+  unlinkCustomerTelegram: (customerId: string | number) => Promise<{ success: boolean; customer?: Customer; error?: string }>;
+  setTargetCustomerId: (id: string | null) => void;
+  navigateToCustomer: (customerId: string | number) => void;
 
   // System Settings Actions
   updateGarageInfoSettings: (updates: Partial<GarageInfoSettings>) => void;
@@ -100,6 +185,7 @@ interface GarageContextType {
   logNotification: (logData: Omit<NotificationLog, 'id' | 'timestamp'>) => void;
 
   // Customer Actions
+  fetchCustomers: () => Promise<void>;
   addCustomer: (data: Omit<Customer, 'id' | 'createdAt' | 'telegramLinked'>) => {
     success: boolean;
     customer?: Customer;
@@ -109,6 +195,8 @@ interface GarageContextType {
     id: string,
     updates: Partial<Omit<Customer, 'id' | 'createdAt'>>
   ) => { success: boolean; error?: string };
+  deactivateCustomer: (id: string, actorName?: string) => Promise<{ success: boolean; error?: string }>;
+  restoreCustomer: (id: string, actorName?: string) => Promise<{ success: boolean; error?: string }>;
 
   // Vehicle Actions
   addVehicle: (data: Omit<Vehicle, 'id' | 'createdAt'>) => {
@@ -300,6 +388,7 @@ const KEYS = {
   VEHICLES: 'apex_garage_vehicles',
   CHANGE_LOGS: 'apex_garage_vehicle_change_logs',
   REPAIR_JOBS: 'apex_garage_repair_jobs',
+  REPAIR_STATUS_HISTORY: 'apex_garage_repair_status_history',
   INVOICES: 'apex_garage_invoices',
   INVENTORY: 'apex_garage_inventory',
   STOCK_TX: 'apex_garage_stock_transactions',
@@ -314,10 +403,33 @@ const KEYS = {
   SYSTEM_SETTINGS: 'apex_garage_system_settings',
   ESTIMATE_REVISIONS: 'apex_garage_estimate_revisions',
   NOTIFICATION_LOGS: 'apex_garage_notification_logs',
+  APP_NOTIFICATIONS: 'apex_garage_app_notifications',
 };
 
 export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, users, addAuditLog } = useAuth();
+  const { currentUser, users, addAuditLog, setActiveTab } = useAuth();
+
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>(() => {
+    const saved = localStorage.getItem(KEYS.APP_NOTIFICATIONS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out legacy mock/demo notifications
+          return parsed.filter(
+            (n: any) =>
+              n.id !== 'notif-app-1' &&
+              n.id !== 'notif-app-2' &&
+              !(n.type === 'telegram_connected' && n.customerName === 'Alex Sterling' && String(n.id).startsWith('notif-app'))
+          );
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_APP_NOTIFICATIONS;
+  });
+  const [targetCustomerId, setTargetCustomerId] = useState<string | null>(null);
 
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const saved = localStorage.getItem(KEYS.CUSTOMERS);
@@ -337,6 +449,11 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [repairJobs, setRepairJobs] = useState<RepairJob[]>(() => {
     const saved = localStorage.getItem(KEYS.REPAIR_JOBS);
     return saved ? JSON.parse(saved) : INITIAL_REPAIR_JOBS;
+  });
+
+  const [repairStatusHistory, setRepairStatusHistory] = useState<RepairStatusHistory[]>(() => {
+    const saved = localStorage.getItem(KEYS.REPAIR_STATUS_HISTORY);
+    return saved ? JSON.parse(saved) : INITIAL_REPAIR_STATUS_HISTORY;
   });
 
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
@@ -457,6 +574,10 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [repairJobs]);
 
   useEffect(() => {
+    localStorage.setItem(KEYS.REPAIR_STATUS_HISTORY, JSON.stringify(repairStatusHistory));
+  }, [repairStatusHistory]);
+
+  useEffect(() => {
     localStorage.setItem(KEYS.INVOICES, JSON.stringify(invoices));
   }, [invoices]);
 
@@ -512,7 +633,335 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem(KEYS.NOTIFICATION_LOGS, JSON.stringify(notificationLogs));
   }, [notificationLogs]);
 
+  useEffect(() => {
+    localStorage.setItem(KEYS.APP_NOTIFICATIONS, JSON.stringify(appNotifications));
+  }, [appNotifications]);
+
+  // Role-filtered notifications for RBAC compliance
+  const userNotifications = useMemo(() => {
+    if (!currentUser) return [];
+    if (['admin', 'owner', 'advisor', 'staff'].includes(currentUser.role)) {
+      return appNotifications;
+    }
+    if (currentUser.role === 'customer') {
+      return appNotifications.filter(
+        (n) =>
+          String(n.userId) === String(currentUser.id) ||
+          (n.customerId && String(n.customerId).replace(/\D/g, '') === String(currentUser.id).replace(/\D/g, '')) ||
+          (n.customerPhone && currentUser.phone && n.customerPhone.replace(/\D/g, '') === currentUser.phone.replace(/\D/g, ''))
+      );
+    }
+    return appNotifications.filter((n) => String(n.userId) === String(currentUser.id));
+  }, [appNotifications, currentUser]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return userNotifications.filter((n) => !n.isRead).length;
+  }, [userNotifications]);
+
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const res = await getCustomers({ status: 'all' });
+      if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map(mapBackendCustomerToCustomer);
+        setCustomers((prev) => {
+          const idMap = new Map<string, Customer>();
+          mapped.forEach((c) => idMap.set(c.id, c));
+          prev.forEach((c) => {
+            if (!idMap.has(c.id)) {
+              idMap.set(c.id, c);
+            }
+          });
+          return Array.from(idMap.values());
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch customers from API:', err);
+    }
+  }, []);
+
+  const createTelegramConnectedNotification = useCallback(async (customer: Customer, handle?: string) => {
+    if (!customer || !customer.id) return;
+    const rawHandle = handle || customer.telegramHandle;
+    const cleanHandle = rawHandle ? (rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`) : undefined;
+    const newNotif: AppNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'telegram_connected',
+      title: 'Telegram Connected',
+      message: `${customer.fullName} has connected their Telegram account.`,
+      customerId: customer.id,
+      customerName: customer.fullName,
+      customerPhone: customer.phone,
+      telegramUsername: cleanHandle,
+      actionUrl: 'customers',
+      data: {
+        customerId: customer.id,
+        customerName: customer.fullName,
+        customerPhone: customer.phone,
+        telegramUsername: cleanHandle,
+        route: 'customer_details',
+      },
+      isRead: false,
+      readAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    setAppNotifications((prev) => {
+      // Prevent duplicate notification for the same customer
+      const isDuplicate = prev.some(
+        (n) =>
+          n.type === 'telegram_connected' &&
+          (n.customerId === customer.id || (n.customerPhone && customer.phone && n.customerPhone === customer.phone))
+      );
+      if (isDuplicate) return prev;
+      return [newNotif, ...prev];
+    });
+  }, []);
+
+  const linkCustomerTelegram = useCallback(async (
+    customerId: string | number,
+    telegramHandle?: string,
+    telegramChatId?: string
+  ): Promise<{ success: boolean; customer?: Customer; error?: string }> => {
+    const formattedId = typeof customerId === 'number' ? `CUST-${customerId}` : String(customerId);
+    const cleanHandle = telegramHandle ? (telegramHandle.startsWith('@') ? telegramHandle : `@${telegramHandle}`) : undefined;
+    const cleanChatId = telegramChatId || (cleanHandle ? `tg-${Date.now()}` : undefined);
+
+    let updatedTarget: Customer | undefined;
+    let wasAlreadyLinked = false;
+
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id === formattedId || c.id === String(customerId) || (typeof customerId === 'string' && c.id.replace(/\D/g, '') === customerId.replace(/\D/g, ''))) {
+          wasAlreadyLinked = Boolean(c.telegramLinked && (!cleanHandle || c.telegramHandle === cleanHandle));
+          const updated: Customer = {
+            ...c,
+            telegramLinked: true,
+            telegramConnectedAt: c.telegramConnectedAt || new Date().toISOString(),
+            telegramHandle: cleanHandle || c.telegramHandle,
+            telegramChatId: cleanChatId || c.telegramChatId || `98765${Date.now().toString().slice(-4)}`,
+            has_telegram: true,
+            recovery_methods: Array.from(new Set([...(c.recovery_methods || []), 'telegram'])),
+          };
+          updatedTarget = updated;
+          return updated;
+        }
+        return c;
+      })
+    );
+
+    if (updatedTarget) {
+      if (!wasAlreadyLinked) {
+        await createTelegramConnectedNotification(updatedTarget, cleanHandle);
+      }
+
+      try {
+        const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+        await linkTelegramCustomerApi(numericId, {
+          telegram_chat_id: cleanChatId || (updatedTarget as Customer).telegramChatId,
+          telegram_handle: cleanHandle || (updatedTarget as Customer).telegramHandle,
+        });
+      } catch (err) {
+        console.warn('API linkTelegramCustomer failed (saved locally):', err);
+      }
+
+      addAuditLog(
+        'Telegram Linked',
+        'Telegram',
+        (updatedTarget as Customer).id,
+        `Customer ${(updatedTarget as Customer).fullName} paired with Telegram (${cleanHandle || (updatedTarget as Customer).telegramChatId})`,
+        undefined,
+        cleanHandle
+      );
+
+      return { success: true, customer: updatedTarget };
+    }
+
+    return { success: false, error: 'Customer not found.' };
+  }, [createTelegramConnectedNotification, addAuditLog]);
+
+  const unlinkCustomerTelegram = useCallback(async (
+    customerId: string | number
+  ): Promise<{ success: boolean; customer?: Customer; error?: string }> => {
+    const formattedId = typeof customerId === 'number' ? `CUST-${customerId}` : String(customerId);
+    let targetCustomer: Customer | undefined;
+
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id === formattedId || c.id === String(customerId) || (typeof customerId === 'string' && c.id.replace(/\D/g, '') === customerId.replace(/\D/g, ''))) {
+          const updated: Customer = {
+            ...c,
+            telegramLinked: false,
+            telegramConnectedAt: undefined,
+            telegramHandle: undefined,
+            telegramChatId: undefined,
+            telegramChatIdMasked: undefined,
+            has_telegram: false,
+            recovery_methods: (c.recovery_methods || []).filter((m) => m !== 'telegram'),
+          };
+          targetCustomer = updated;
+          return updated;
+        }
+        return c;
+      })
+    );
+
+    if (targetCustomer) {
+      try {
+        const numericId = typeof customerId === 'string' ? parseInt(customerId.replace(/\D/g, ''), 10) || customerId : customerId;
+        await unlinkTelegramCustomerApi(numericId);
+      } catch (err) {
+        console.warn('API unlinkTelegramCustomer failed:', err);
+      }
+
+      addAuditLog(
+        'Telegram Unlinked',
+        'Telegram',
+        targetCustomer.id,
+        `Unlinked customer ${targetCustomer.fullName} from Telegram`
+      );
+
+      return { success: true, customer: targetCustomer };
+    }
+
+    return { success: false, error: 'Customer not found.' };
+  }, [addAuditLog]);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await getNotificationsApi({ limit: 30 });
+      if (res && res.data && Array.isArray(res.data)) {
+        const mapped = res.data.map(mapBackendNotificationToAppNotification);
+        setAppNotifications(mapped);
+      }
+    } catch (err) {
+      // Ignore API errors when unauthenticated or offline
+    }
+  }, []);
+
+  const markNotificationAsRead = useCallback(async (id: string | number) => {
+    setAppNotifications((prev) =>
+      prev.map((n) => (String(n.id) === String(id) ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+    );
+
+    try {
+      await markNotificationAsReadApi(id);
+    } catch (err) {
+      console.warn('Failed to mark notification as read via API:', err);
+    }
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(async () => {
+    setAppNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
+    );
+
+    try {
+      await markAllNotificationsAsReadApi();
+    } catch (err) {
+      console.warn('Failed to mark all notifications as read via API:', err);
+    }
+  }, []);
+
+  const navigateToCustomer = useCallback((customerId: string | number) => {
+    const formattedId = typeof customerId === 'number' ? `CUST-${customerId}` : String(customerId);
+    setTargetCustomerId(formattedId);
+    setActiveTab('customers');
+  }, [setActiveTab]);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 15000);
+
+    const handleFocus = () => {
+      fetchNotifications();
+      fetchCustomers();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchNotifications, fetchCustomers]);
+
   // Customer Management logic
+  const deactivateCustomer = async (id: string, actorName?: string): Promise<{ success: boolean; error?: string }> => {
+    const customer = customers.find((c) => c.id === id);
+    if (!customer) return { success: false, error: 'Customer not found.' };
+
+    try {
+      const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+      await deleteCustomerApi(numericId);
+    } catch (err: any) {
+      console.warn('API customer deactivation failed:', err);
+    }
+
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              isDeactivated: true,
+              status: 'deactivated',
+              deletedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Customer Deactivated',
+      'Customer',
+      id,
+      `Customer '${customer.fullName}' deactivated by ${actorName || currentUser?.name || 'Owner'}.`,
+      'Active',
+      'Deactivated'
+    );
+
+    return { success: true };
+  };
+
+  const restoreCustomer = async (id: string, actorName?: string): Promise<{ success: boolean; error?: string }> => {
+    const customer = customers.find((c) => c.id === id);
+    if (!customer) return { success: false, error: 'Customer not found.' };
+
+    try {
+      const numericId = typeof id === 'string' ? parseInt(id.replace(/\D/g, ''), 10) || id : id;
+      await restoreCustomerApi(numericId);
+    } catch (err: any) {
+      console.warn('API customer restore failed:', err);
+    }
+
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              isDeactivated: false,
+              status: 'active',
+              deletedAt: null,
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Customer Restored',
+      'Customer',
+      id,
+      `Customer '${customer.fullName}' restored by ${actorName || currentUser?.name || 'Owner'}.`,
+      'Deactivated',
+      'Active'
+    );
+
+    return { success: true };
+  };
   const addCustomer = (data: Omit<Customer, 'id' | 'createdAt' | 'telegramLinked'>) => {
     const cleanPhone = data.phone.trim();
     if (!cleanPhone) {
@@ -531,10 +980,15 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const nextIdNumber = 1001 + customers.length;
+    const cleanEmail = data.email?.trim() || null;
     const newCustomer: Customer = {
       id: `CUST-${nextIdNumber}`,
       fullName: data.fullName.trim(),
       phone: cleanPhone,
+      email: cleanEmail,
+      has_email: Boolean(cleanEmail),
+      has_telegram: Boolean(data.telegramHandle?.trim()),
+      recovery_methods: cleanEmail ? ['email'] : [],
       address: data.address?.trim() || '',
       telegramHandle: data.telegramHandle?.trim() || '',
       telegramLinked: Boolean(data.telegramHandle?.trim()),
@@ -542,6 +996,9 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setCustomers((prev) => [newCustomer, ...prev]);
+    if (newCustomer.telegramLinked) {
+      createTelegramConnectedNotification(newCustomer, newCustomer.telegramHandle);
+    }
     addAuditLog(
       'Customer Created',
       'Customer',
@@ -572,6 +1029,9 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    const prevCustomer = customers.find((c) => c.id === id);
+    let updatedCustomerObj: Customer | undefined;
+
     setCustomers((prev) =>
       prev.map((c) => {
         if (c.id === id) {
@@ -579,11 +1039,19 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (updates.telegramHandle !== undefined) {
             updated.telegramLinked = Boolean(updates.telegramHandle.trim());
           }
+          if (updates.telegramLinked !== undefined) {
+            updated.telegramLinked = updates.telegramLinked;
+          }
+          updatedCustomerObj = updated;
           return updated;
         }
         return c;
       })
     );
+
+    if (updatedCustomerObj && !prevCustomer?.telegramLinked && updatedCustomerObj.telegramLinked) {
+      createTelegramConnectedNotification(updatedCustomerObj, updatedCustomerObj.telegramHandle);
+    }
 
     addAuditLog(
       'Customer Updated',
@@ -730,66 +1198,93 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     customerName: string;
     customerPhone: string;
     vehicleId: string;
-    vehicleMake: string;
-    vehicleModel: string;
-    licensePlate: string;
-    receivedDate?: string;
-    serviceDate?: string;
-    customerComplaint?: string;
-    inspectionFee?: number;
-    manualMechanicId?: string;
-    manualMechanicName?: string;
-    createdByName?: string;
-    estimatedCost?: number;
-    servicesPerformed?: PerformedService[];
-    linkedRepairJobId?: string;
-  }) => {
-    const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    const nextNum = 485 + repairJobs.length;
-    const jobId = `job-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const jobNumber = `RO-2026-0${nextNum}`;
-    const jobType = params.jobType || 'repair';
-    const sDate = params.serviceDate || params.receivedDate || nowStamp.substring(0, 10);
+vehicleMake: string;
+vehicleModel: string;
+licensePlate: string;
+receivedDate?: string;
+serviceDate?: string;
+customerComplaint?: string;
+inspectionFee?: number;
+manualMechanicId?: string;
+manualMechanicName?: string;
+createdByName?: string;
+estimatedCost?: number;
+servicesPerformed?: PerformedService[];
+linkedRepairJobId?: string;
+}) => {
+  const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+  const nextNum = 485 + repairJobs.length;
+  const jobId = `job-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const jobNumber = `RO-2026-0${nextNum}`;
+  const jobType = params.jobType || 'repair';
+  const sDate =
+    params.serviceDate ||
+    params.receivedDate ||
+    nowStamp.substring(0, 10);
 
-    let assignedMechId = params.manualMechanicId;
-    let assignedMechName = params.manualMechanicName;
+  let assignedMechId: string = params.manualMechanicId || '';
+  let assignedMechName: string = params.manualMechanicName || '';
 
-    const isAutoAssign = !assignedMechId || assignedMechId === 'auto';
-    if (isAutoAssign) {
-      const autoMech = getLeastLoadedMechanic();
-      assignedMechId = autoMech?.id || 'usr-3';
-      assignedMechName = autoMech?.name || 'Dave Miller';
-    }
+  const isAutoAssign =
+    !assignedMechId || assignedMechId === 'auto';
 
-    const initialStatus = jobType === 'service' ? 'in_progress' : 'pending_inspection';
-    const createdBy = params.createdByName || currentUser?.name || 'Staff User';
+  if (isAutoAssign) {
+    const autoMech = getLeastLoadedMechanic();
 
-    const initialAssignmentHistory: MechanicAssignmentHistory = {
-      id: `mah-${Date.now()}`,
-      jobId,
-      newMechanicId: assignedMechId,
-      newMechanicName: assignedMechName || 'Mechanic',
-      changedBy: createdBy,
-      reason: isAutoAssign
-        ? 'System Auto-Assign'
-        : 'Manual Staff Override at intake',
-      timestamp: nowStamp,
-    };
+    // Always make sure these are strings
+    assignedMechId = autoMech?.id || 'usr-3';
+    assignedMechName = autoMech?.name || 'Dave Miller';
+  }
 
-    const initialServices = params.servicesPerformed || [];
-    const servicesTotal = initialServices.reduce((sum, s) => sum + (s.totalPrice || s.unitPrice * s.quantity), 0);
+  const initialStatus =
+    jobType === 'service'
+      ? 'in_progress'
+      : 'pending_inspection';
 
-    const initialStatusHistory: RepairStatusHistory = {
-      id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      jobId,
-      fromStatus: 'Customer Intake',
-      toStatus: initialStatus,
-      changedBy: createdBy,
-      timestamp: nowStamp,
-      note: jobType === 'service'
+  const createdBy =
+    params.createdByName ||
+    currentUser?.name ||
+    'Staff User';
+
+  const initialAssignmentHistory: MechanicAssignmentHistory = {
+    id: `mah-${Date.now()}`,
+    jobId,
+    newMechanicId: assignedMechId,
+    newMechanicName: assignedMechName || 'Mechanic',
+    changedBy: createdBy,
+    reason: isAutoAssign
+      ? 'System Auto-Assign'
+      : 'Manual Staff Override at intake',
+    timestamp: nowStamp,
+  };
+
+  const initialServices =
+    params.servicesPerformed || [];
+
+  const servicesTotal = initialServices.reduce(
+    (sum, s) =>
+      sum +
+      (s.totalPrice ||
+        s.unitPrice * s.quantity),
+    0
+  );
+
+  const initialStatusHistory: RepairStatusHistory = {
+    id: `rsh-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 7)}`,
+    jobId,
+    fromStatus: 'Customer Intake',
+    toStatus: initialStatus,
+    changedBy: createdBy,
+    timestamp: nowStamp,
+    note:
+      jobType === 'service'
         ? `Service Job created with ${initialServices.length} requested service(s).`
-        : `Repair Job created with complaint: "${params.customerComplaint || ''}"`,
-    };
+        : `Repair Job created with complaint: "${
+            params.customerComplaint || ''
+          }"`,
+  };
 
     const newJob: RepairJob = {
       id: jobId,
@@ -824,6 +1319,7 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setRepairJobs((prev) => [newJob, ...prev]);
+    setRepairStatusHistory((prev) => [initialStatusHistory, ...prev]);
     addAuditLog(
       jobType === 'service' ? 'Service Job Created' : 'Repair Job Created',
       'Repair Job',
@@ -940,8 +1436,48 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     changedBy?: string,
     note?: string
   ) => {
+    const targetJob = repairJobs.find((j) => j.id === jobId);
+    if (!targetJob) return;
+
+    const fromStatus = targetJob.status;
+
+    // Requirement 5: Prevent duplicate history when status is unchanged
+    if (fromStatus === status) {
+      return;
+    }
+
+    // Requirement 4: Status Transition Validation
+    const validTransitions: Record<string, string[]> = {
+      pending_inspection: targetJob.jobType === 'service'
+        ? ['pending_inspection', 'in_progress', 'waiting_approval', 'declined', 'cancelled']
+        : ['pending_inspection', 'waiting_approval', 'declined', 'cancelled'],
+      waiting_approval: ['waiting_approval', 'in_progress', 'declined', 'cancelled', 'pending_inspection'],
+      in_progress: ['in_progress', 'completed', 'waiting_approval', 'declined', 'cancelled'],
+      completed: ['completed', 'delivered', 'in_progress'],
+      delivered: ['delivered'],
+      declined: ['declined', 'pending_inspection'],
+      cancelled: ['cancelled'],
+    };
+
+    if (validTransitions[fromStatus] && !validTransitions[fromStatus].includes(status)) {
+      console.warn(`[GarageContext] Invalid status transition rejected: cannot transition from ${fromStatus} to ${status}`);
+      return;
+    }
+
     const nowStamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const staffName = changedBy || currentUser?.name || 'Staff User';
+
+    const statusHistoryEntry: RepairStatusHistory = {
+      id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      jobId,
+      fromStatus,
+      toStatus: status,
+      changedBy: staffName,
+      timestamp: nowStamp,
+      note: note || `Status transitioned from ${fromStatus.replace('_', ' ')} to ${status.replace('_', ' ')}`,
+    };
+
+    setRepairStatusHistory((prev) => [statusHistoryEntry, ...prev]);
 
     setRepairJobs((prev) =>
       prev.map((j) => {
@@ -989,22 +1525,12 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             createInvoiceFromJob(j.id);
           }
 
-          const statusHistoryEntry: RepairStatusHistory = {
-            id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            jobId,
-            fromStatus: j.status,
-            toStatus: status,
-            changedBy: staffName,
-            timestamp: nowStamp,
-            note: note || `Status transitioned from ${j.status.replace('_', ' ')} to ${status.replace('_', ' ')}`,
-          };
-
           addAuditLog(
             'Status Changed',
             'Repair Job',
             j.jobNumber,
             note ? `Status updated to ${status.replace('_', ' ')}. Note: ${note}` : `Status updated to ${status.replace('_', ' ')}`,
-            j.status,
+            fromStatus,
             status,
             staffName
           );
@@ -1067,21 +1593,30 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
 
+    const staffName = record.recordedBy || currentUser?.name || 'Mechanic Technician';
+    const targetJob = repairJobs.find((j) => j.id === jobId);
+    const fromStatus = targetJob?.status ?? 'pending_inspection';
+    const isStatusChanging = fromStatus !== 'waiting_approval';
+
+    let statusHistoryEntry: RepairStatusHistory | null = null;
+    if (isStatusChanging) {
+      statusHistoryEntry = {
+        id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        jobId,
+        fromStatus,
+        toStatus: 'waiting_approval',
+        changedBy: staffName,
+        timestamp: nowStamp,
+        note: `Inspection findings & recommendations recorded: "${record.inspectionResult || record.diagnosticNotes}". Status moved to Waiting Approval.`,
+      };
+
+      setRepairStatusHistory((prev) => [statusHistoryEntry!, ...prev]);
+    }
+
     setRepairJobs((prev) =>
       prev.map((j) => {
         if (j.id === jobId) {
           const records = j.inspectionRecords || [];
-          const staffName = record.recordedBy || currentUser?.name || 'Mechanic Technician';
-
-          const statusHistoryEntry: RepairStatusHistory = {
-            id: `rsh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            jobId,
-            fromStatus: j.status,
-            toStatus: 'waiting_approval',
-            changedBy: staffName,
-            timestamp: nowStamp,
-            note: `Inspection findings & recommendations recorded: "${record.inspectionResult || record.diagnosticNotes}". Status moved to Waiting Approval.`,
-          };
 
           const existingPartsUsed = j.partsUsed || [];
           const formattedNewParts: UsedPart[] = record.partsUsed.map((p) => ({
@@ -1100,19 +1635,23 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             0
           );
           const laborTotal = record.laborCost || record.laborHours * 90;
-          const totalCost = (j.inspectionFee ?? 50) + partsTotal + laborTotal;
+          const updatedEstimatedCost = j.inspectionFee + partsTotal + laborTotal;
 
-          return {
+          const updatedJob: RepairJob = {
             ...j,
             status: 'waiting_approval',
-            inspectionResult: record.inspectionResult || record.diagnosticNotes,
-            repairDetails: record.recommendedRepairs || record.mechanicNotes || j.repairDetails,
-            estimatedCost: totalCost,
-            totalRepairCost: totalCost,
-            partsUsed: [...existingPartsUsed, ...formattedNewParts],
+            inspectionResult: record.inspectionResult || j.inspectionResult,
+            diagnosticNotes: record.diagnosticNotes || j.diagnosticNotes,
+            recommendedRepairs: record.recommendedRepairs || j.recommendedRepairs,
+            inspectionNotes: record.mechanicNotes || j.inspectionNotes,
             inspectionRecords: [newRecord, ...records],
-            statusHistory: [statusHistoryEntry, ...(j.statusHistory || [])],
+            partsUsed: [...existingPartsUsed, ...formattedNewParts],
+            estimatedCost: updatedEstimatedCost,
+            totalRepairCost: updatedEstimatedCost,
+            statusHistory: statusHistoryEntry ? [statusHistoryEntry, ...(j.statusHistory || [])] : (j.statusHistory || []),
           };
+
+          return updatedJob;
         }
         return j;
       })
@@ -2213,6 +2752,7 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         vehicles,
         vehicleChangeLogs,
         repairJobs,
+        repairStatusHistory,
         invoices,
         inventory,
         stockTransactions,
@@ -2230,7 +2770,18 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         systemSettings,
         estimateRevisions,
         notificationLogs,
+        appNotifications: userNotifications,
+        unreadNotificationsCount,
+        targetCustomerId,
         services,
+        fetchNotifications,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        createTelegramConnectedNotification,
+        linkCustomerTelegram,
+        unlinkCustomerTelegram,
+        setTargetCustomerId,
+        navigateToCustomer,
         updateGarageInfoSettings,
         updateInvoiceSettings,
         updateTelegramBotSettings,
@@ -2244,8 +2795,11 @@ export const GarageProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         removeWarrantyPeriodOption,
         reviseEstimate,
         logNotification,
+        fetchCustomers,
         addCustomer,
         updateCustomer,
+        deactivateCustomer,
+        restoreCustomer,
         addVehicle,
         updateVehicle,
         addRepairJob,

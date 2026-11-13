@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const TelegramLinking: React.FC = () => {
-  const { customers, updateCustomer } = useGarage();
+  const { customers, linkCustomerTelegram, unlinkCustomerTelegram } = useGarage();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingHandle, setEditingHandle] = useState<{ id: string; handle: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -29,9 +29,15 @@ export const TelegramLinking: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleSaveHandle = (customerId: string, newHandle: string) => {
-    updateCustomer(customerId, { telegramHandle: newHandle });
-    showToast(`Telegram handle updated to ${newHandle || 'Unlinked'}!`);
+  const handleSaveHandle = async (customerId: string, newHandle: string) => {
+    const trimmed = newHandle.trim();
+    if (trimmed) {
+      await linkCustomerTelegram(customerId, trimmed);
+      showToast(`Telegram handle linked to ${trimmed.startsWith('@') ? trimmed : '@' + trimmed}!`);
+    } else {
+      await unlinkCustomerTelegram(customerId);
+      showToast('Telegram unlinked for customer.');
+    }
     setEditingHandle(null);
   };
 

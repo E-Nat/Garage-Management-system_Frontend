@@ -11,7 +11,6 @@ import {
   Package,
   Receipt,
   Wrench,
-  Check,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +35,8 @@ export const LoginForm: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [resetTokenFromUrl, setResetTokenFromUrl] = useState('');
+  const [identifierFromUrl, setIdentifierFromUrl] = useState('');
   const [activeField, setActiveField] = useState<'email' | 'password' | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -46,9 +47,26 @@ export const LoginForm: React.FC = () => {
   const emailErrorId = useId();
   const passwordErrorId = useId();
 
-  // Ensure login screen is ALWAYS pure clean white light mode
+  // Ensure login screen is ALWAYS pure clean white light mode & detect reset tokens in URL
   useEffect(() => {
     document.documentElement.classList.remove('dark');
+
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const fullUrl = hash.includes('?') ? hash : search;
+
+    if (fullUrl.includes('token=')) {
+      const queryPart = fullUrl.includes('?') ? fullUrl.split('?')[1] : fullUrl;
+      const params = new URLSearchParams(queryPart);
+      const token = params.get('token');
+      const ident = params.get('identifier') || params.get('phone') || params.get('email') || '';
+
+      if (token) {
+        setResetTokenFromUrl(token);
+        setIdentifierFromUrl(ident);
+        setIsForgotModalOpen(true);
+      }
+    }
   }, []);
 
   // Single Authentic Apex Garage Logo from project assets
@@ -237,16 +255,42 @@ export const LoginForm: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full flex bg-[#FAF9F6] text-slate-900 selection:bg-[#FF6B00] selection:text-white transition-colors duration-300 overflow-x-hidden">
+    <div
+      className="relative isolate min-h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#F3F5F8] p-4 sm:p-6 lg:h-screen lg:min-h-0 lg:gap-3 lg:overflow-hidden lg:p-8 text-slate-900 selection:bg-[#FF6B00] selection:text-white overflow-x-hidden"
+      style={{
+        backgroundImage:
+          'radial-gradient(ellipse at 12% 18%, rgba(255,255,255,0.98), transparent 42%), radial-gradient(ellipse at 88% 82%, rgba(255,107,0,0.08), transparent 34%), linear-gradient(135deg, #F8FAFD 0%, #EDF2F8 100%)',
+      }}
+    >
+      <div aria-hidden="true" className="pointer-events-none absolute -right-32 -top-40 h-[480px] w-[480px] rounded-full border border-white/80" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-[440px] w-[440px] rounded-full border border-slate-300/35" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-[360px] -left-40 h-[600px] w-[600px] rounded-full border border-white/80 shadow-[0_0_0_22px_rgba(255,255,255,0.18),0_0_0_44px_rgba(255,255,255,0.12)]" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-8 top-8 h-24 w-24 opacity-35"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(100,116,139,0.55) 1px, transparent 1.5px)',
+          backgroundSize: '12px 12px',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-8 left-8 h-20 w-20 opacity-25"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(100,116,139,0.55) 1px, transparent 1.5px)',
+          backgroundSize: '12px 12px',
+        }}
+      />
+      <div className="relative z-10 w-full max-w-[1100px] flex flex-col lg:h-[min(672px,calc(100vh-96px))] lg:flex-row overflow-hidden rounded-[24px] border-2 border-[#AEBBCC] bg-white shadow-[0_24px_80px_-28px_rgba(15,23,42,0.28)] ring-2 ring-slate-900/5">
       {/* ============================================================ */}
-      {/* LEFT SIDE: Clean Bright Automotive Brand Experience (55%)   */}
+      {/* LEFT SIDE: Compact workshop brand panel                     */}
       {/* ============================================================ */}
       <motion.section
         initial="hidden"
         animate="visible"
         variants={leftSectionVariants}
         aria-label="Apex Garage Platform"
-        className="hidden lg:flex relative w-[55%] min-h-screen flex-col justify-between p-10 xl:p-14 2xl:p-16 overflow-hidden bg-slate-50 border-r border-slate-200/80 select-none"
+        className="hidden lg:flex relative w-[42%] min-h-[620px] flex-col justify-between p-8 xl:p-10 overflow-hidden bg-[#101C35] select-none lg:min-h-0"
       >
         {/* Modern Bright Photographic Workshop Hero Background */}
         <motion.div
@@ -261,9 +305,9 @@ export const LoginForm: React.FC = () => {
             className="w-full h-full object-cover object-center"
           />
 
-          {/* Luminous White/Light Overlay for Bright, Airy, Premium Feel */}
-          <div className="absolute inset-0 bg-gradient-to-t from-white/96 via-white/85 to-white/45" />
-          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-white/20" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#101C35]/15 via-[#101C35]/55 to-[#101C35]/95" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#101C35]/35 to-transparent" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_48%_36%_at_18%_8%,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.22)_55%,transparent_100%)]" />
 
           {/* Ambient Warm Light Pulse Aura */}
           <motion.div
@@ -276,7 +320,7 @@ export const LoginForm: React.FC = () => {
                   }
             }
             transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#FF6B00]/10 blur-3xl rounded-full pointer-events-none"
+            className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#FF6B00]/15 blur-3xl rounded-full pointer-events-none"
           />
         </motion.div>
 
@@ -287,14 +331,14 @@ export const LoginForm: React.FC = () => {
           variants={logoAnimation}
           className="relative z-10"
         >
-          <div className="flex flex-col items-start gap-1">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center">
               <motion.img
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.03 }}
                 transition={{ duration: 0.2 }}
                 src={logoUrl}
                 alt="Apex Garage"
-                className="h-14 sm:h-16 xl:h-18 w-auto max-w-[260px] object-contain object-left drop-shadow-xs"
+                className="h-[104px] w-[180px] object-contain drop-shadow-[0_4px_12px_rgba(15,23,42,0.35)]"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = e.currentTarget.parentElement?.querySelector(
@@ -303,17 +347,13 @@ export const LoginForm: React.FC = () => {
                   if (fallback) (fallback as HTMLElement).style.display = 'flex';
                 }}
               />
-              <div
-                className="branding-logo-fallback hidden w-14 h-14 rounded-2xl bg-[#FF6B00] text-white items-center justify-center font-bold shadow-xs"
-                aria-hidden="true"
-              >
-                <Wrench className="w-7 h-7 stroke-[2.5]" />
+              <div className="branding-logo-fallback hidden h-14 w-14 rounded-xl bg-[#FF6B00] text-white items-center justify-center font-bold">
+                <Wrench className="w-7 h-7" aria-hidden="true" />
               </div>
             </div>
 
-            {/* Small Professional System Label under Logo */}
-            <div className="pl-1 mt-1">
-              <span className="font-mono text-[10px] font-bold tracking-[0.22em] text-slate-500 uppercase">
+            <div className="pl-1">
+              <span className="font-mono text-[11px] font-bold tracking-[0.18em] text-white drop-shadow-[0_1px_3px_rgba(15,23,42,0.9)] uppercase">
                 APEX GARAGE // MANAGEMENT SYSTEM
               </span>
             </div>
@@ -325,11 +365,11 @@ export const LoginForm: React.FC = () => {
           initial="hidden"
           animate="visible"
           variants={headlineParent}
-          className="relative z-10 my-auto max-w-xl pr-4 py-8"
+          className="relative z-10 my-auto max-w-sm py-5"
         >
           <motion.h1
             variants={headlineChild}
-            className="text-3xl sm:text-4xl xl:text-5xl 2xl:text-[3.25rem] font-extrabold text-slate-900 tracking-tight leading-[1.14] drop-shadow-xs"
+            className="text-2xl sm:text-3xl xl:text-[1.9rem] font-extrabold text-white tracking-tight leading-[1.14]"
           >
             Manage your garage.
             <br />
@@ -348,7 +388,7 @@ export const LoginForm: React.FC = () => {
 
           <motion.p
             variants={headlineChild}
-            className="mt-5 text-base sm:text-lg text-slate-600 font-normal leading-relaxed max-w-lg"
+            className="mt-3 text-[13px] text-white/75 font-normal leading-relaxed max-w-sm"
           >
             Everything you need to manage jobs, customers, inventory, invoices and payments — in one place.
           </motion.p>
@@ -359,9 +399,9 @@ export const LoginForm: React.FC = () => {
           initial="hidden"
           animate="visible"
           variants={featureContainer}
-          className="relative z-10 pt-4"
+          className="relative z-10 pt-2"
         >
-          <div className="grid grid-cols-2 gap-3 max-w-lg">
+          <div className="grid grid-cols-2 gap-2 max-w-sm">
             {capabilities.map((item) => {
               const Icon = item.icon;
               return (
@@ -370,12 +410,12 @@ export const LoginForm: React.FC = () => {
                   variants={featureItemVariant}
                   whileHover={prefersReducedMotion ? {} : { y: -3, scale: 1.01 }}
                   transition={{ duration: 0.2, ease: 'easeOut' }}
-                  className="group flex items-center gap-3 p-3 rounded-xl bg-white/85 border border-slate-200/90 backdrop-blur-xs shadow-2xs hover:shadow-md hover:border-orange-300 hover:bg-white transition-all duration-200 cursor-default"
+                  className="group flex min-w-0 items-center gap-2 p-2 rounded-lg bg-slate-950/30 border border-white/15 backdrop-blur-xs hover:border-orange-300/50 transition-colors duration-200 cursor-default"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200/60 text-[#FF6B00] flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110 shadow-2xs">
-                    <Icon className="w-4 h-4 stroke-[2]" />
+                  <div className="w-7 h-7 rounded-lg bg-[#FF6B00]/15 text-orange-300 flex items-center justify-center shrink-0">
+                    <Icon className="w-3.5 h-3.5 stroke-[2]" />
                   </div>
-                  <span className="text-xs font-bold text-slate-800 group-hover:text-[#FF6B00] transition-colors leading-tight truncate">
+                  <span className="text-[10px] font-semibold text-white/85 leading-tight truncate">
                     {item.title}
                   </span>
                 </motion.div>
@@ -392,32 +432,33 @@ export const LoginForm: React.FC = () => {
         initial="hidden"
         animate="visible"
         variants={rightSectionVariants}
-        className="w-full lg:w-[45%] min-h-screen flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 bg-white transition-colors duration-300"
+        className="w-full lg:w-[58%] min-h-[580px] lg:min-h-0 flex flex-col justify-center p-6 sm:p-10 lg:px-14 lg:py-8 xl:px-16 bg-white transition-colors duration-300"
       >
-        {/* Mobile Header Logo (Visible on mobile screens where left side is hidden) */}
-        <div className="lg:hidden flex items-center gap-2 mb-4">
+        <div className="lg:hidden flex items-center gap-3 mb-8">
           <img
             src={logoUrl}
             alt="Apex Garage"
-            className="h-10 w-auto max-w-[160px] object-contain object-left"
+            className="h-12 w-[80px] rounded-lg bg-white object-contain p-1"
           />
+          <span className="text-[11px] font-bold tracking-[0.16em] text-slate-500 uppercase">Garage Management</span>
         </div>
 
-        {/* Center Login Workspace (Natural white background, centered, max-w-[460px]) */}
-        <div className="my-auto w-full flex items-center justify-center py-6">
+        <div className="w-full flex items-center justify-center py-6">
           <motion.div
             initial="hidden"
             animate="visible"
             variants={loginRightContainer}
-            className="w-full max-w-[460px]"
+            className="w-full max-w-[410px]"
           >
-            {/* Header: Starts DIRECTLY with "Welcome back" (No duplicate wrench/logo above it) */}
-            <div className="mb-8">
+            <div className="mb-8 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF1E8] text-[#FF6B00]">
+                <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+              </div>
               <h2 className="text-3xl sm:text-[2rem] font-extrabold tracking-tight text-slate-900 leading-tight">
                 Welcome back
               </h2>
-              <p className="text-sm text-slate-500 mt-1.5 font-normal leading-relaxed">
-                Sign in to continue to your workspace.
+              <p className="text-sm text-slate-500 mt-2 font-normal leading-relaxed">
+                Sign in to continue to your account.
               </p>
             </div>
 
@@ -460,9 +501,9 @@ export const LoginForm: React.FC = () => {
               <motion.div variants={formItem}>
                 <label
                   htmlFor={emailInputId}
-                  className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-mono mb-1.5"
+                  className="block text-xs font-semibold text-slate-700 mb-2"
                 >
-                  WORK EMAIL
+                  Email
                 </label>
 
                 <div className="relative">
@@ -522,25 +563,13 @@ export const LoginForm: React.FC = () => {
 
               {/* Field 2: PASSWORD */}
               <motion.div variants={formItem}>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="mb-2">
                   <label
                     htmlFor={passwordInputId}
-                    className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-mono"
+                    className="block text-xs font-semibold text-slate-700"
                   >
-                    PASSWORD
+                    Password
                   </label>
-
-                  {/* Forgot Password Link */}
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    type="button"
-                    onClick={() => setIsForgotModalOpen(true)}
-                    className="text-xs font-semibold text-[#FF6B00] hover:text-[#E56000] focus:outline-none transition-colors cursor-pointer"
-                    aria-label="Forgot password?"
-                  >
-                    Forgot password?
-                  </motion.button>
                 </div>
 
                 <div className="relative">
@@ -636,7 +665,7 @@ export const LoginForm: React.FC = () => {
               </motion.div>
 
               {/* Remember Me Checkbox */}
-              <motion.div variants={formItem} className="pt-0.5">
+              <motion.div variants={formItem} className="flex items-center justify-between gap-4 pt-0.5">
                 <label
                   htmlFor={rememberMeId}
                   className="inline-flex items-center gap-2.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none transition-colors group"
@@ -655,6 +684,13 @@ export const LoginForm: React.FC = () => {
                     Remember me
                   </span>
                 </label>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-xs font-semibold text-[#FF6B00] hover:text-[#E56000] focus:outline-none transition-colors cursor-pointer"
+                >
+                  Forgot password?
+                </button>
               </motion.div>
 
               {/* Primary SIGN IN Button (Clean, centered, full-width, NO arrow icon) */}
@@ -674,7 +710,7 @@ export const LoginForm: React.FC = () => {
                       : { scale: 0.985, y: 0 }
                   }
                   aria-label={isLoading ? 'Signing in...' : 'SIGN IN'}
-                  className="relative w-full h-[54px] px-6 bg-[#FF6B00] hover:bg-[#E56000] text-white font-bold text-sm tracking-wider uppercase rounded-xl shadow-xs hover:shadow-lg hover:shadow-orange-500/25 flex items-center justify-center transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00] focus-visible:ring-offset-2 overflow-hidden"
+                  className="relative w-full h-[54px] px-6 bg-gradient-to-r from-[#F97316] to-[#EA580C] hover:from-[#EA580C] hover:to-[#C2410C] text-white font-bold text-sm tracking-wider uppercase rounded-xl shadow-sm hover:shadow-lg hover:shadow-orange-500/25 flex items-center justify-center transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00] focus-visible:ring-offset-2 overflow-hidden"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center gap-2.5">
@@ -709,16 +745,23 @@ export const LoginForm: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Footer */}
-        <footer className="text-center text-xs text-slate-400 pt-4">
-          © 2025 Apex Garage Management System. All rights reserved.
-        </footer>
       </motion.main>
+      </div>
+
+      <footer className="relative z-10 text-center text-xs text-slate-400">
+        © {new Date().getFullYear()} Apex Garage Management System. All rights reserved.
+      </footer>
 
       {/* Forgot Password Recovery Modal */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
-        onClose={() => setIsForgotModalOpen(false)}
+        onClose={() => {
+          setIsForgotModalOpen(false);
+          setResetTokenFromUrl('');
+          setIdentifierFromUrl('');
+        }}
+        initialToken={resetTokenFromUrl}
+        initialIdentifier={identifierFromUrl}
       />
     </div>
   );

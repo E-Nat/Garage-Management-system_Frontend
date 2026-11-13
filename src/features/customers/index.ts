@@ -1,1 +1,1 @@
-export * from './CustomerManagement';
+export { CustomerManagement } from '../../components/customers/CustomerManagement';

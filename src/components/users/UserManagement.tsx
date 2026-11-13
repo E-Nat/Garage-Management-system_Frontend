@@ -70,6 +70,8 @@ export const UserManagement: React.FC = () => {
   const [resetPassError, setResetPassError] = useState('');
 
   const [showInitialPassword, setShowInitialPassword] = useState(false);
+  const [showAdminNewPassword, setShowAdminNewPassword] = useState(false);
+  const [showAdminConfirmPassword, setShowAdminConfirmPassword] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -858,30 +860,52 @@ export const UserManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
                   New Password
                 </label>
-                <input
-                  id="admin-reset-new-pass-input"
-                  type="password"
-                  value={resetPassData.newPassword}
-                  onChange={(e) => setResetPassData({ ...resetPassData, newPassword: e.target.value })}
-                  placeholder="Min 6 characters"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="admin-reset-new-pass-input"
+                    type={showAdminNewPassword ? 'text' : 'password'}
+                    value={resetPassData.newPassword}
+                    onChange={(e) => setResetPassData({ ...resetPassData, newPassword: e.target.value })}
+                    placeholder="Min 6 characters"
+                    className="w-full px-3 py-2 pr-10 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminNewPassword(!showAdminNewPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                    title={showAdminNewPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showAdminNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showAdminNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
                   Confirm New Password
                 </label>
-                <input
-                  id="admin-reset-confirm-pass-input"
-                  type="password"
-                  value={resetPassData.confirmPassword}
-                  onChange={(e) => setResetPassData({ ...resetPassData, confirmPassword: e.target.value })}
-                  placeholder="Re-enter password"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    id="admin-reset-confirm-pass-input"
+                    type={showAdminConfirmPassword ? 'text' : 'password'}
+                    value={resetPassData.confirmPassword}
+                    onChange={(e) => setResetPassData({ ...resetPassData, confirmPassword: e.target.value })}
+                    placeholder="Re-enter password"
+                    className="w-full px-3 py-2 pr-10 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:border-[#FF6B00] outline-hidden"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminConfirmPassword(!showAdminConfirmPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 focus:outline-none transition cursor-pointer"
+                    title={showAdminConfirmPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showAdminConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showAdminConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">

@@ -130,8 +130,8 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
 
   if (!isOpen) return null;
 
-  const existingInvoice = invoices.find((i) => i.repairJobId === job.id || i.jobId === job.id);
-  const jobPayments = paymentRecords.filter((p) => p.repairJobId === job.id || p.jobId === job.id);
+  const existingInvoice = invoices.find((i) => i.repairJobId === job.id);
+  const jobPayments = paymentRecords.filter((p) => p.repairJobId === job.id);
   const totalPaid = jobPayments.reduce((sum, p) => sum + p.amount, 0);
   const hasRecordedPayment = totalPaid > 0 || existingInvoice?.status === 'paid';
 
@@ -329,15 +329,25 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
 
   // 5. Additional Finding -> Create Repair Job (Service Job in Progress)
   const handleCreateRepairFromFinding = () => {
+    setErrorMessage(null);
+
     if (!additionalFindingNote.trim()) {
       setErrorMessage('Please enter notes for the additional finding.');
       return;
     }
 
-    const selectedMechObj = mechanicsList.find((m) => m.id === job.assignedMechanicId);
+    if (!job.customerId || !job.vehicleId) {
+      setErrorMessage('Cannot create repair job: customer or vehicle information is missing.');
+      return;
+    }
 
+    const selectedMechObj = mechanicsList.find(
+      (m) => m.id === job.assignedMechanicId
+    );
+
+    // createRepairJob() does not accept jobType in its current type.
+    // A repair job is created by this context function without passing jobType.
     const result = createRepairJob({
-      jobType: 'repair',
       customerId: job.customerId,
       customerName: job.customerName,
       customerPhone: job.customerPhone,
@@ -345,17 +355,20 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
       vehicleMake: job.vehicleMake,
       vehicleModel: job.vehicleModel,
       licensePlate: job.licensePlate,
-      serviceDate: new Date().toISOString().substring(0, 10),
+      receivedDate: new Date().toISOString().substring(0, 10),
       customerComplaint: additionalFindingNote.trim(),
-      linkedRepairJobId: job.id,
       manualMechanicId: job.assignedMechanicId,
-      manualMechanicName: selectedMechObj ? selectedMechObj.name : job.assignedMechanicName,
+      manualMechanicName: selectedMechObj
+        ? selectedMechObj.name
+        : job.assignedMechanicName,
       createdByName: currentUser?.name || 'Staff User',
     });
 
     if (result.success && result.job) {
       setAdditionalFindingNote('');
-      showToast(`Created new Repair Job #${result.job.jobNumber} (Pending Inspection) linked to this Service Job.`);
+      showToast(
+        `Created new Repair Job #${result.job.jobNumber} (Pending Inspection) linked to this Service Job.`
+      );
     } else {
       setErrorMessage(result.error || 'Failed to create repair job.');
     }
@@ -1029,7 +1042,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
               }),
             ];
 
-            if (combinedTableRows.length === 0 && (job.status === 'declined' || job.inspectionFee)) {
+            if (combinedTableRows.length === 0 && job.inspectionFee) {
               combinedTableRows.push({
                 key: 'inspection_0',
                 name: 'Diagnostic Inspection Fee',
@@ -1178,7 +1191,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
               e.preventDefault();
               let invoiceIdToUse = currentInvNumber;
               if (!existingInvoice) {
-                const res = createInvoiceFromJob(job);
+                const res = createInvoiceFromJob(job.id);
                 if (res.success && res.invoice) {
                   invoiceIdToUse = res.invoice.id;
                 }
@@ -1536,7 +1549,7 @@ export const RepairJobDetailModal: React.FC<RepairJobDetailModalProps> = ({
 
                 let invoiceIdToUse = existingInvoice?.id || `INV-${job.jobNumber.replace(/\D/g, '') || '3001'}`;
                 if (!existingInvoice) {
-                  const res = createInvoiceFromJob(job);
+                  const res = createInvoiceFromJob(job.id);
                   if (res.success && res.invoice) {
                     invoiceIdToUse = res.invoice.id;
                   }

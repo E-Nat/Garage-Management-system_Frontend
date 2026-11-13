@@ -9,7 +9,12 @@ export interface LaravelCustomer {
   telegram_chat_id?: string | null;
   telegram_handle?: string | null;
   telegram_linked: boolean;
+  telegram_connected_at?: string | null;
+  is_deactivated?: boolean;
+  status?: string;
+  deleted_at?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface LaravelVehicle {
@@ -252,6 +257,11 @@ export declare function getCustomers(params?: Record<string, any>): Promise<{ da
 export declare function createCustomer(data: Partial<LaravelCustomer>): Promise<{ data: LaravelCustomer }>;
 export declare function getCustomer(id: number | string): Promise<{ data: LaravelCustomer }>;
 export declare function updateCustomer(id: number | string, data: Partial<LaravelCustomer>): Promise<{ data: LaravelCustomer }>;
+export declare function deleteCustomer(id: number | string): Promise<{ success: boolean; data?: LaravelCustomer }>;
+export declare const deactivateCustomerApi: typeof deleteCustomer;
+export declare function restoreCustomer(id: number | string): Promise<{ success: boolean; data?: LaravelCustomer }>;
+export declare function resetCustomerPasswordApi(customerId: number | string, newPassword: string): Promise<{ success: boolean; message?: string }>;
+export declare function requestCustomerPasswordResetApi(customerId: number | string): Promise<{ success: boolean; message?: string; customer_name?: string; customer_email?: string; dev_reset_token?: string }>;
 
 // 2. Vehicles API
 export declare function getVehicles(params?: Record<string, any>): Promise<{ data: LaravelVehicle[] }>;
@@ -265,6 +275,7 @@ export declare function createRepairJob(data: Partial<LaravelRepairJob>): Promis
 export declare function updateRepairJob(id: number | string, data: Partial<LaravelRepairJob>): Promise<{ data: LaravelRepairJob }>;
 export declare function getRepairJob(id: number | string): Promise<{ data: LaravelRepairJob }>;
 export declare function addRepairJobPart(jobId: number | string, data: Record<string, any>): Promise<{ data: any }>;
+export declare function getRepairStatusHistories(params?: Record<string, any>): Promise<{ success: boolean; data: any[]; meta?: any }>;
 
 // 4. Invoices & Payments API
 export declare function getInvoices(params?: Record<string, any>): Promise<{ data: LaravelInvoice[] }>;
@@ -368,6 +379,90 @@ export declare function updateUserStatus(id: number | string, status: string): P
 export declare function resetUserPassword(id: number | string, password: string, passwordConfirmation: string): Promise<{ success: boolean; message?: string }>;
 export declare function deleteUser(id: number | string): Promise<{ success: boolean; message?: string }>;
 export declare function getRoles(): Promise<{ success: boolean; data: LaravelRole[] }>;
+
+// 12. In-App Staff Notifications API
+export interface LaravelAppNotification {
+  id: number | string;
+  user_id?: number | string;
+  type: string;
+  title: string;
+  message: string;
+  customer_id?: number | string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  telegram_username?: string | null;
+  action_url?: string | null;
+  data?: Record<string, any>;
+  read_at?: string | null;
+  is_read?: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export declare function getNotificationsApi(params?: Record<string, any>): Promise<{ success: boolean; message?: string; unread_count?: number; data: LaravelAppNotification[]; meta?: any }>;
+export declare function getUnreadNotificationsCountApi(): Promise<{ success: boolean; count: number }>;
+export declare function markNotificationAsReadApi(id: number | string): Promise<{ success: boolean; message?: string; unread_count?: number; data?: LaravelAppNotification }>;
+export declare function markAllNotificationsAsReadApi(): Promise<{ success: boolean; message?: string; unread_count?: number }>;
+export declare function deleteNotificationApi(id: number | string): Promise<{ success: boolean; message?: string; unread_count?: number }>;
+
+// Auth & Telegram Customer API
+export declare function checkRecoveryOptionsApi(identifier: string): Promise<{
+  success: boolean;
+  data: {
+    has_account: boolean;
+    has_email: boolean;
+    email: string | null;
+    masked_email: string | null;
+    has_telegram: boolean;
+    telegram_handle: string | null;
+    customer_name: string;
+    garage_phones: string[];
+  };
+}>;
+export declare function forgotPasswordApi(identifier: string, channel?: string): Promise<{
+  success: boolean;
+  channel?: string;
+  message?: string;
+}>;
+export declare function resetPasswordApi(payload: {
+  token: string;
+  password: string;
+  passwordConfirmation?: string;
+  identifier?: string;
+  email?: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+}>;
+export declare function requestCustomerPasswordReset(customerId: number | string, options?: { channel?: string; manual_password?: string }): Promise<{
+  success: boolean;
+  message?: string;
+  customer_name?: string;
+  customer_email?: string;
+  dev_reset_token?: string;
+  dispatched_channels?: string[];
+}>;
+export declare function requestCustomerPasswordResetApi(
+  customerId: number | string,
+  channelOrOptions?: string | { channel?: string; manual_password?: string }
+): Promise<{
+  success: boolean;
+  message?: string;
+  customer_name?: string;
+  customer_email?: string;
+  dev_reset_token?: string;
+  dispatched_channels?: string[];
+}>;
+export declare function resetCustomerPasswordApi(
+  customerId: number | string,
+  password?: string,
+  passwordConfirmation?: string
+): Promise<{
+  success: boolean;
+  message?: string;
+}>;
+export declare function linkTelegramCustomer(customerId: number | string, data: { telegram_chat_id?: string; telegram_handle?: string }): Promise<{ success: boolean; data?: any }>;
+export declare function unlinkTelegramCustomer(customerId: number | string): Promise<{ success: boolean; message?: string }>;
 
 export type LaravelCategoryType = 'item-categories' | 'service-categories';
 
